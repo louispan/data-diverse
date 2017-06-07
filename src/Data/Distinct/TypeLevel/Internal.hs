@@ -8,7 +8,7 @@ module Data.Distinct.TypeLevel.Internal where
 import GHC.TypeLits
 
 -- | Get the first index of a type with exception on original search list
--- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L223
+-- Modified from https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L223
 type family IndexOfEx (ctx :: [*]) a (l :: [*]) :: Nat where
    IndexOfEx ctx x (x ': xs) = 0
    IndexOfEx ctx y (x ': xs) = 1 + IndexOfEx ctx y xs

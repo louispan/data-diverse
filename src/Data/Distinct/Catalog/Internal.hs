@@ -20,7 +20,7 @@ import qualified GHC.Generics as G
 -- a Catalog only contains a tuple of unique types.
 -- Use '_Cataloged' iso to create a Catalog.
 -- Example: @review _Cataloged' ("foo", 6)@
-data family Catalog (l :: [*])
+data family Catalog (xs :: [*])
 
 newtype instance Catalog '[] = C0 ()
     deriving (Eq, Show, Ord, Ix, Bounded, G.Generic)
@@ -76,9 +76,8 @@ _Uncataloged = _Unwrapped
 
 -- | A catalog has a lens to an item.
 class Has value record where
-    -- | Get a lens to a field by doing: @item @salary employee@
-    -- Use type application to specify the destination type.
-    -- Example: @item @Int@
+    -- | Use TypeApplication to specify the destination type of the lens.
+    -- Example: @item \@Int@
     item :: Lens' record value
 
 instance Has () (Catalog '[]) where
@@ -100,9 +99,8 @@ instance Has b (Catalog '[a, b]) where
 -- Basically the same class as 'Has' to prevent overlapping instances
 class Project to from where
     -- | Narrow number of or change order of fields in a record.
-    -- Use type application to specify the destination type.
-    -- Example: @project @(Catalog '[Int, String])@
-    -- project :: from -> to
+    -- Use TypeApplication to specify the destination type.
+    -- Example: @project \@(Catalog '[Int, String])@
     project :: Lens' from to
 
 instance Project (Catalog '[]) r where
