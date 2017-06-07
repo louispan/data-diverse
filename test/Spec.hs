@@ -8,31 +8,40 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
 import Data.Distinct.Catalog
+import Data.Distinct.Many
 import Control.Lens
+import Test.Hspec
 
 main :: IO ()
 main = do
-    print wock'''
-    let r = read "C2 (5, False)" :: Catalog '[Int, Bool]
-    print r
+    hspec $ do
+        describe "Catalog" $ do
+            it "is a Read and Show" $ do
+                let s = "C2 (5,False)"
+                    x = read s :: Catalog '[Int, Bool]
+                show x `shouldBe` s
+            it "is a Eq" $ do
+                let s = "C2 (5,False)"
+                    x = read s :: Catalog '[Int, Bool]
+                    y = review _Cataloged (5, False)
+                x `shouldBe` y
+            it "can edit fields" $ do
+                let x = review _Cataloged (5, False) :: Catalog '[Int, Bool]
+                    y = x & item @Int .~ 6
+                    z = review _Cataloged (6, False)
+                y `shouldBe` z
+            it "can be projected" $ do
+                let x = review _Cataloged (5, False) :: Catalog '[Int, Bool]
+                    y = review _Cataloged 5
+                y `shouldBe` (x ^. project @(Catalog '[Int]))
 
--- -- instance Has b (Catalog '[a, b]) where
--- --     get (R2 (a, b)) = b
-wock :: Catalog '[Int, String]
-wock = review _Wrapped (5, "hi")
-
-wock' :: Catalog '[Int, Catalog '[Int, String]]
-wock' = review _Wrapped (5, wock)
-
--- wock'' :: Catalog '[Int, Int]
--- wock'' = review _Wrapped (5, 6)
-
-wock''' :: Catalog '[Int, String]
-wock''' = review _Cataloged' (5 :: Int, "6" :: String)
-
-
--- wock'' :: Catalog '[Int, Int]
--- wock'' = catalog (5, 6)
-
-wack :: (Int, String)
-wack = (view (item @Int) wock', view (item @(Catalog '[Int, String]) . item) wock')
+        describe "Many" $ do
+            it "is a Read and Show" $ do
+                let s = "M2_1 5"
+                    x = read s :: Many '[Int, Bool]
+                show x `shouldBe` s
+            it "is a Eq" $ do
+                let s = "M2_1 5"
+                    x = read s :: Many '[Int, Bool]
+                    y = M2_1 5
+                x `shouldBe` y

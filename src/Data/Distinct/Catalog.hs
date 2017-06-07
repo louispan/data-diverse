@@ -6,7 +6,7 @@ module Data.Distinct.Catalog
     , _Uncataloged
     , _Uncataloged'
     , Has(..)
-    , Project
+    , Project(..)
     ) where
 
 import Data.Distinct.Catalog.Internal
