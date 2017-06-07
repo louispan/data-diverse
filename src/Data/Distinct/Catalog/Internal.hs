@@ -15,6 +15,7 @@ import Control.Lens
 import Data.Distinct.TypeLevel
 import Data.Ix
 import qualified GHC.Generics as G
+import Text.Read
 
 -- | No Wrapped instance to protect the constructors to ensure that
 -- a Catalog only contains a tuple of unique types.
@@ -23,17 +24,26 @@ import qualified GHC.Generics as G
 data family Catalog (xs :: [*])
 
 newtype instance Catalog '[] = C0 ()
-    deriving (Eq, Show, Ord, Ix, Bounded, G.Generic)
+    deriving (Eq, Ord, Ix, Bounded, G.Generic)
 newtype instance Catalog '[a] = C1 a
-    deriving (Eq, Show, Ord, Ix, Bounded, G.Generic)
+    deriving (Eq, Ord, Ix, Bounded, G.Generic)
 newtype instance Catalog '[a, b] = C2 (a, b)
-    deriving (Eq, Show, Ord, Ix, Bounded, G.Generic)
+    deriving (Eq, Ord, Ix, Bounded, G.Generic)
 newtype instance Catalog '[a, b, c] = C3 (a, b, c)
-    deriving (Eq, Show, Ord, Ix, Bounded, G.Generic)
+    deriving (Eq, Ord, Ix, Bounded, G.Generic)
 
-deriving instance Read (Catalog '[])
-deriving instance Read a => Read (Catalog '[a])
-deriving instance (Distinct '[a, b], Read a, Read b) => Read (Catalog '[a, b])
+instance Read (Catalog '[]) where
+    readPrec = C0 <$> readPrec
+instance Show (Catalog '[]) where
+    show (C0 v) = show v
+instance Read a => Read (Catalog '[a]) where
+    readPrec = C1 <$> readPrec
+instance Show a => Show (Catalog '[a]) where
+    show (C1 v) = show v
+instance (Distinct '[a, b], Read a, Read b) => Read (Catalog '[a, b]) where
+    readPrec = C2 <$> readPrec
+instance (Show a, Show b) => Show (Catalog '[a, b]) where
+    show (C2 v) = show v
 
 -- | Safe constructor and destructor of Catalogs
 -- which ensures the types are distinct.

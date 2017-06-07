@@ -17,11 +17,11 @@ main = do
     hspec $ do
         describe "Catalog" $ do
             it "is a Read and Show" $ do
-                let s = "C2 (5,False)"
+                let s = "(5,False)"
                     x = read s :: Catalog '[Int, Bool]
                 show x `shouldBe` s
             it "is a Eq" $ do
-                let s = "C2 (5,False)"
+                let s = "(5,False)"
                     x = read s :: Catalog '[Int, Bool]
                     y = review _Cataloged (5, False)
                 x `shouldBe` y
