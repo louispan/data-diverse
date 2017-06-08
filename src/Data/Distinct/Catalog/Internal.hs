@@ -2,48 +2,52 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 module Data.Distinct.Catalog.Internal where
 
 import Control.Lens
 import Data.Distinct.TypeLevel
 import Data.Ix
-import qualified GHC.Generics as G
-import Text.Read
+import Data.Kind
 
 -- | No Wrapped instance to protect the constructors to ensure that
 -- a Catalog only contains a tuple of unique types.
 -- Use '_Cataloged' iso to create a Catalog.
 -- Example: @review _Cataloged' ("foo", 6)@
-data family Catalog (xs :: [*])
+data family Catalog (xs :: [Type])
+
+-- FIXME: Make the constructor in Read/Show "Catalog"?
 
 newtype instance Catalog '[] = C0 ()
-    deriving (Eq, Ord, Ix, Bounded, G.Generic)
+    deriving (Show, Read, Eq, Ord, Ix, Bounded)
 newtype instance Catalog '[a] = C1 a
-    deriving (Eq, Ord, Ix, Bounded, G.Generic)
-newtype instance Catalog '[a, b] = C2 (a, b)
-    deriving (Eq, Ord, Ix, Bounded, G.Generic)
-newtype instance Catalog '[a, b, c] = C3 (a, b, c)
-    deriving (Eq, Ord, Ix, Bounded, G.Generic)
+    deriving (Show, Read, Eq, Ord, Ix, Bounded)
+-- Use GADTs to bring in 'Distinct' constraints.
+data instance Catalog '[a, b] where
+    C2 :: Distinct '[a, b] => (a, b) -> Catalog '[a, b]
+data instance Catalog '[a, b, c] where
+    C3 :: Distinct '[a, b, c] => (a, b, c) -> Catalog '[a, b, c]
 
-instance Read (Catalog '[]) where
-    readPrec = C0 <$> readPrec
-instance Show (Catalog '[]) where
-    show (C0 v) = show v
-instance Read a => Read (Catalog '[a]) where
-    readPrec = C1 <$> readPrec
-instance Show a => Show (Catalog '[a]) where
-    show (C1 v) = show v
-instance (Distinct '[a, b], Read a, Read b) => Read (Catalog '[a, b]) where
-    readPrec = C2 <$> readPrec
-instance (Show a, Show b) => Show (Catalog '[a, b]) where
-    show (C2 v) = show v
+deriving instance (Distinct '[a, b], Read a, Read b) => Read (Catalog '[a, b])
+deriving instance (Show a, Show b) => Show (Catalog '[a, b])
+deriving instance (Eq a, Eq b) => Eq (Catalog '[a, b])
+deriving instance (Ord a, Ord b) => Ord (Catalog '[a, b])
+deriving instance (Ix a, Ix b) => Ix (Catalog '[a, b])
+deriving instance (Distinct '[a, b], Bounded a, Bounded b) => Bounded (Catalog '[a, b])
+
+deriving instance (Distinct '[a, b, c], Read a, Read b, Read c) => Read (Catalog '[a, b, c])
+deriving instance (Show a, Show b, Show c) => Show (Catalog '[a, b, c])
+deriving instance (Eq a, Eq b, Eq c) => Eq (Catalog '[a, b, c])
+deriving instance (Ord a, Ord b, Ord c) => Ord (Catalog '[a, b, c])
+deriving instance (Ix a, Ix b, Ix c) => Ix (Catalog '[a, b, c])
+deriving instance (Distinct '[a, b, c], Bounded a, Bounded b, Bounded c) => Bounded (Catalog '[a, b, c])
 
 -- | Safe constructor and destructor of Catalogs
 -- which ensures the types are distinct.
@@ -66,8 +70,8 @@ instance Distinct '[a, b] => Wrapped (Catalog '[a, b]) where
     {-# INLINE _Wrapped' #-}
 
 -- | Convenient version of '_Wrapped'' just for Catalog.
--- Use this to to construct catalogs from tuples.
--- Example: @review _Cataloged' ("foo", 6)@
+-- This can be used to construct Catalogs
+-- Example: @review _Cataloged' ("foo", False, 5)
 _Cataloged' :: Wrapped (Catalog s) => Iso' (Catalog s) (Unwrapped (Catalog s))
 _Cataloged' = _Wrapped'
 
@@ -96,10 +100,10 @@ instance Has () (Catalog '[]) where
 instance Has a (Catalog '[a]) where
     item = iso (\(C1 x) -> x) C1
     {-# INLINE item #-}
-instance Has a (Catalog '[a, b]) where
+instance Distinct '[a, b] => Has a (Catalog '[a, b]) where
     item = iso (\(C2 x) -> x) C2 . _1
     {-# INLINE item #-}
-instance Has b (Catalog '[a, b]) where
+instance Distinct '[a, b] => Has b (Catalog '[a, b]) where
     item = iso (\(C2 x) -> x) C2 . _2
     {-# INLINE item #-}
 
@@ -119,6 +123,6 @@ instance Project (Catalog '[]) r where
 instance Has a r => Project (Catalog '[a]) r where
     project f s = fmap (\(C1 a) -> s & item .~ a) (f $ C1 (s ^. item))
     {-# INLINE project #-}
-instance (Has a r, Has b r) => Project (Catalog '[a, b]) r where
+instance (Distinct '[a, b], Has a r, Has b r) => Project (Catalog '[a, b]) r where
     project f s = fmap (\(C2 (a, b)) -> s & item .~ a & item .~ b) (f $ C2 (s ^. item, s ^. item))
     {-# INLINE project #-}

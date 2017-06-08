@@ -5,11 +5,12 @@
 
 module Data.Distinct.TypeLevel.Internal where
 
+import Data.Kind
 import GHC.TypeLits
 
 -- | Get the first index of a type with exception on original search list
 -- Modified from https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L223
-type family IndexOfEx (ctx :: [*]) a (l :: [*]) :: Nat where
+type family IndexOfEx (ctx :: [Type]) x (xs :: [Type]) :: Nat where
    IndexOfEx ctx x (x ': xs) = 0
    IndexOfEx ctx y (x ': xs) = 1 + IndexOfEx ctx y xs
    IndexOfEx ctx y '[]       = TypeError ( 'Text "‘"
@@ -22,7 +23,7 @@ type family IndexOfEx (ctx :: [*]) a (l :: [*]) :: Nat where
 
 -- | Add a type to a typelist, disallowing duplicates.
 -- NB. xs are not checked.
-type family InsertEx (ctx :: [*]) (xs :: [*]) (y :: *) :: [*] where
+type family InsertEx (ctx :: [Type]) (xs :: [Type]) (y :: Type) :: [Type] where
     -- empty case
     InsertEx ctx '[] y = '[y]
     -- case when the type matched the head
@@ -38,7 +39,7 @@ type family InsertEx (ctx :: [*]) (xs :: [*]) (y :: *) :: [*] where
 
 -- | Combine two type lists together, assuming disallowing duplicates from ys
 -- NB. xs are not checked.
-type family UnionEx (ctx :: [*]) (xs :: [*]) (ys :: [*]) :: [*] where
+type family UnionEx (ctx :: [Type]) (xs :: [Type]) (ys :: [Type]) :: [Type] where
     -- empty case
     UnionEx ctx '[] '[] = '[]
     UnionEx ctx xs '[] = xs

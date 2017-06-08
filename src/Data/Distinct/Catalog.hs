@@ -1,6 +1,7 @@
 -- | Re-export Catalog without the constructor
 module Data.Distinct.Catalog
     ( Catalog
+    -- , cataloged
     , _Cataloged
     , _Cataloged'
     , _Uncataloged
