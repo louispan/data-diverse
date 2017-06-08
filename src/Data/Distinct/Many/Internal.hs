@@ -12,6 +12,20 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RoleAnnotations #-}
+{-# LANGUAGE ConstraintKinds #-}
+
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Data.Distinct.Many.Internal where
@@ -21,7 +35,9 @@ import Data.Distinct.Catalog
 import Data.Distinct.TypeLevel
 import Data.Kind
 import GHC.Prim (Any)
+import GHC.TypeLits
 import Unsafe.Coerce
+import Data.Proxy
 
 -- | A polymorphic variant or co-record where there are no duplicates in the type list of possible types.
 -- This means TypeApplication (instead of labels) can be used to index the variant.
@@ -40,34 +56,7 @@ data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 -- | As per Haskus and HList versions, the inferred role is phantom, which is not safe
 type role Many representational
 
--- -- | A switch/case statement for Many. Apply a 'Catalog' of functions to a variant of values.
--- -- UndecidableInstances!
--- class Switch xs handlers where
---     switch :: Many xs -> Catalog handlers -> SwitchResult handlers
-
--- instance Has (a -> SwitchResult handlers) (Catalog handlers) => Switch '[a] handlers where
---     switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
-
--- instance ( Has (a -> SwitchResult handlers) (Catalog handlers)
---          , Has (b -> SwitchResult handlers) (Catalog handlers)) => Switch '[a, b] handlers where
---     switch (Many n v) t = case n of
---         0 -> (t ^. item) (unsafeCoerce v :: a)
---         _ -> (t ^. item) (unsafeCoerce v :: b)
-
--- instance ( Has (a -> SwitchResult handlers) (Catalog handlers)
---          , Has (b -> SwitchResult handlers) (Catalog handlers)
---          , Has (c -> SwitchResult handlers) (Catalog handlers)) => Switch '[a, b, c] handlers where
---     switch (Many n v) t = case n of
---         0 -> (t ^. item) (unsafeCoerce v :: a)
---         1 -> (t ^. item) (unsafeCoerce v :: b)
---         _ -> (t ^. item) (unsafeCoerce v :: c)
-
--- -- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
--- many :: Switch xs handlers => Catalog handlers -> Many xs -> SwitchResult handlers
--- many = flip switch
-
-
--- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
+-- | A switch/case statement for Many. Apply a 'Catalog' of functions to a variant of values.
 class Switch xs handlers r | handlers -> r where
     switch :: Many xs -> handlers -> r
 
@@ -82,18 +71,33 @@ instance ( Has (a -> r) (t r)
          0 -> (t ^. item) (unsafeCoerce v :: a)
          _ -> (t ^. item) (unsafeCoerce v :: b)
 
+-- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
 many :: Switch xs handlers r => handlers -> Many xs -> r
 many = flip switch
 
--- -- | A Many has a prism to an the inner type.
--- class As value from where
---     -- | Use TypeApplication to specify the destination type of the lens.
---     -- Example: @facet \@Int@
---     facet :: Prism' from value
+-- | A Many has a prism to an the inner type.
+class Facet value from where
+    -- | Use TypeApplication to specify the destination type of the lens.
+    -- Example: @facet \@Int@
+    facet :: Prism' from value
 
--- instance As a (Many '[a]) where
---     facet = prism' (Many (natValue IndexOf a))
---     {-# INLINE facet #-}
+instance (KnownNat (IndexOf a xs)) => Facet a (Many xs) where
+    facet = prism'
+        (Many (natValue @(IndexOf a xs)) . unsafeCoerce)
+        (\(Many n v) -> if (n == natValue @(IndexOf a '[a]))
+            then Just (unsafeCoerce v :: a)
+            else Nothing)
+    {-# INLINE facet #-}
+
+
+-- | Utilites
+
+natValue :: forall (n :: Nat) a. (KnownNat n, Num a) => a
+natValue = fromIntegral (natVal (Proxy :: Proxy n))
+{-# INLINE natValue #-}
+
+-- check :: Bool -> a -> Maybe a
+-- check p a = if p then Just a else Nothing
 
 -- TODO:
 
