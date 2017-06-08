@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -10,8 +11,8 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE MonomorphismRestriction #-}
+
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Data.Distinct.Many.Internal where
 
@@ -39,38 +40,60 @@ data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 -- | As per Haskus and HList versions, the inferred role is phantom, which is not safe
 type role Many representational
 
--- | A switch/case statement for Many. Apply a 'Catalog' of functions to a variant of values.
-class Switch xs handlers where
-    switch :: Many xs -> Catalog handlers -> SwitchResult handlers
+-- -- | A switch/case statement for Many. Apply a 'Catalog' of functions to a variant of values.
+-- -- UndecidableInstances!
+-- class Switch xs handlers where
+--     switch :: Many xs -> Catalog handlers -> SwitchResult handlers
 
-instance Has (a -> SwitchResult handlers) (Catalog handlers) => Switch '[a] handlers where
-    switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
+-- instance Has (a -> SwitchResult handlers) (Catalog handlers) => Switch '[a] handlers where
+--     switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
 
-instance ( Has (a -> SwitchResult handlers) (Catalog handlers)
-         , Has (b -> SwitchResult handlers) (Catalog handlers)) => Switch '[a, b] handlers where
-    switch (Many n v) t = case n of
-        0 -> (t ^. item) (unsafeCoerce v :: a)
-        _ -> (t ^. item) (unsafeCoerce v :: b)
+-- instance ( Has (a -> SwitchResult handlers) (Catalog handlers)
+--          , Has (b -> SwitchResult handlers) (Catalog handlers)) => Switch '[a, b] handlers where
+--     switch (Many n v) t = case n of
+--         0 -> (t ^. item) (unsafeCoerce v :: a)
+--         _ -> (t ^. item) (unsafeCoerce v :: b)
 
-instance ( Has (a -> SwitchResult handlers) (Catalog handlers)
-         , Has (b -> SwitchResult handlers) (Catalog handlers)
-         , Has (c -> SwitchResult handlers) (Catalog handlers)) => Switch '[a, b, c] handlers where
-    switch (Many n v) t = case n of
-        0 -> (t ^. item) (unsafeCoerce v :: a)
-        1 -> (t ^. item) (unsafeCoerce v :: b)
-        _ -> (t ^. item) (unsafeCoerce v :: c)
+-- instance ( Has (a -> SwitchResult handlers) (Catalog handlers)
+--          , Has (b -> SwitchResult handlers) (Catalog handlers)
+--          , Has (c -> SwitchResult handlers) (Catalog handlers)) => Switch '[a, b, c] handlers where
+--     switch (Many n v) t = case n of
+--         0 -> (t ^. item) (unsafeCoerce v :: a)
+--         1 -> (t ^. item) (unsafeCoerce v :: b)
+--         _ -> (t ^. item) (unsafeCoerce v :: c)
 
--- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
-many :: Switch xs handlers => Catalog handlers -> Many xs -> SwitchResult handlers
-many = flip switch
-
--- many :: Switch xs handlers r =>
--- catamorphism of Many
+-- -- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
+-- many :: Switch xs handlers => Catalog handlers -> Many xs -> SwitchResult handlers
 -- many = flip switch
 
--- -- | Get the index of the variant
--- index :: Many a -> Word
--- index (Many n _) = n
+
+-- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
+class Switch xs handlers r | handlers -> r where
+    switch :: Many xs -> handlers -> r
+
+type Switcher (xs :: [Type]) r = Catalog xs
+
+instance (Has (a -> r) (Switcher xs r)) => Switch '[a] (Switcher xs r) r where
+    switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
+
+instance ( Has (a -> r) (t r)
+         , Has (b -> r) (t r)) => Switch '[a, b] (t r) r where
+    switch (Many n v) t = case n of
+         0 -> (t ^. item) (unsafeCoerce v :: a)
+         _ -> (t ^. item) (unsafeCoerce v :: b)
+
+many :: Switch xs handlers r => handlers -> Many xs -> r
+many = flip switch
+
+-- -- | A Many has a prism to an the inner type.
+-- class As value from where
+--     -- | Use TypeApplication to specify the destination type of the lens.
+--     -- Example: @facet \@Int@
+--     facet :: Prism' from value
+
+-- instance As a (Many '[a]) where
+--     facet = prism' (Many (natValue IndexOf a))
+--     {-# INLINE facet #-}
 
 -- TODO:
 
@@ -85,31 +108,3 @@ many = flip switch
 -- Show and Read instances
 
 -- disallow empty many
-
-
-
--- -- This encoding uses a data family to allow different sets of GADT constructors,
--- -- with different number of constuctors in each set.
--- -- GADTs are used to ensure the 'Distinct' constraint is met.
--- data family Many (xs :: [*])
-
--- data instance Many '[] = M0
---     deriving (Eq, Show, Ord, G.Generic)
--- newtype instance Many '[a] = M1 a
---     deriving (Eq, Show, Ord, G.Generic)
--- data instance Many '[a, b] where
---     M2_1 :: Distinct '[a, b] => a -> Many '[a, b]
---     M2_2 :: Distinct '[a, b] => b -> Many '[a, b]
--- data instance Many '[a, b, c] where
---     M3_1 :: Distinct '[a, b, c] => a -> Many '[a, b, c]
---     M3_2 :: Distinct '[a, b, c] => b -> Many '[a, b, c]
---     M3_3 :: Distinct '[a, b, c] => c -> Many '[a, b, c]
-
--- deriving instance (Eq a, Eq b) => Eq (Many '[a, b])
--- deriving instance (Ord a, Ord b) => Ord (Many '[a, b])
--- deriving instance (Show a, Show b) => Show (Many '[a, b])
--- deriving instance (Distinct '[a, b], Read a, Read b) => Read (Many '[a, b])
--- deriving instance (Eq a, Eq b, Eq c) => Eq (Many '[a, b, c])
--- deriving instance (Ord a, Ord b, Ord c) => Ord (Many '[a, b, c])
--- deriving instance (Show a, Show b, Show c) => Show (Many '[a, b, c])
--- deriving instance (Distinct '[a, b, c], Read a, Read b, Read c) => Read (Many '[a, b, c])

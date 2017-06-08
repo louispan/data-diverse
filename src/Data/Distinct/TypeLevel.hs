@@ -22,14 +22,14 @@ type Distinct (xs :: [Type]) = UnionEx xs '[] xs ~ xs
 --     Accepts r '[] = '[]
 --     Accepts r (x ': xs) = (x -> r) ': Accepts r xs
 
--- | Gets the result type from an list of handler/continuations of different types.
-type family SwitchResult (xs :: [Type]) :: Type where
-    SwitchResult '[] = TypeError ( 'Text "No continuation found in empty type list")
-    SwitchResult ((a -> r) ': xs) = SwitchResultEx ((a -> r) ': xs) r xs
-    SwitchResult ctx = TypeError ( 'Text "No continuation found in head of "
-                                    ':<>: 'Text "‘"
-                                    ':<>: 'ShowType ctx
-                                    ':<>: 'Text "’")
+-- -- | Gets the result type from an list of handler/continuations of different types.
+-- type family SwitchResult (xs :: [Type]) :: Type where
+--     SwitchResult '[] = TypeError ( 'Text "No continuation found in empty type list")
+--     SwitchResult ((a -> r) ': xs) = SwitchResultEx ((a -> r) ': xs) r xs
+--     SwitchResult ctx = TypeError ( 'Text "No continuation found in head of "
+--                                     ':<>: 'Text "‘"
+--                                     ':<>: 'ShowType ctx
+--                                     ':<>: 'Text "’")
 
 
      -- type family TupleOf (xs :: [Type]) :: Type where

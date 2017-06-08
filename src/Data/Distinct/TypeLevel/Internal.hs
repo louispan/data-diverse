@@ -46,13 +46,13 @@ type family UnionEx (ctx :: [Type]) (xs :: [Type]) (ys :: [Type]) :: [Type] wher
     UnionEx ctx xs (y ': ys) = UnionEx ctx (InsertEx ctx xs y) ys
 
 
-type family SwitchResultEx (ctx :: [Type]) r (xs :: [Type]) :: Type where
-    SwitchResultEx ctx r '[] = r
-    SwitchResultEx ctx r ((a -> r) ': xs) = SwitchResultEx ctx r xs
-    SwitchResultEx ctx r b = TypeError ( 'Text "‘"
-                                    ':<>: 'ShowType r
-                                    ':<>: 'Text "’"
-                                    ':<>: 'Text " is not a result of all types in "
-                                    ':<>: 'Text "‘"
-                                    ':<>: 'ShowType ctx
-                                    ':<>: 'Text "’")
+-- type family SwitchResultEx (ctx :: [Type]) r (xs :: [Type]) :: Type where
+--     SwitchResultEx ctx r '[] = r
+--     SwitchResultEx ctx r ((a -> r) ': xs) = SwitchResultEx ctx r xs
+--     SwitchResultEx ctx r b = TypeError ( 'Text "‘"
+--                                     ':<>: 'ShowType r
+--                                     ':<>: 'Text "’"
+--                                     ':<>: 'Text " is not a result of all types in "
+--                                     ':<>: 'Text "‘"
+--                                     ':<>: 'ShowType ctx
+--                                     ':<>: 'Text "’")
