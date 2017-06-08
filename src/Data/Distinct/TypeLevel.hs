@@ -9,13 +9,16 @@ module Data.Distinct.TypeLevel where
 
 import Data.Distinct.TypeLevel.Internal
 import Data.Kind
-import GHC.TypeLits
 
 -- | Get the first index of a type
 type IndexOf x (xs :: [Type]) = IndexOfEx xs x xs
 
 -- | A constraint ensuring that the type list contain unique types
 type Distinct (xs :: [Type]) = UnionEx xs '[] xs ~ xs
+
+-- | Check that a list is a subset of another
+type family IsSubset smaller larger :: Bool where
+   IsSubset s l = IsSubsetEx l s l
 
 -- -- | Convert a list types into a list of handlers/continuations with a result type.
 -- type family Accepts r (xs :: [Type]) :: [Type] where

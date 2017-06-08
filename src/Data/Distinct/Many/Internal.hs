@@ -12,19 +12,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE RoleAnnotations #-}
-{-# LANGUAGE ConstraintKinds #-}
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
@@ -81,20 +69,29 @@ class Facet value from where
     -- Example: @facet \@Int@
     facet :: Prism' from value
 
+-- | UndecidableInstance due to xs appearing more often in the constraint.
+-- Safe because xs will not expand to Many xs or bigger.
 instance (KnownNat (IndexOf a xs)) => Facet a (Many xs) where
     facet = prism'
-        (Many (natValue @(IndexOf a xs)) . unsafeCoerce)
-        (\(Many n v) -> if (n == natValue @(IndexOf a '[a]))
+        (Many (fromIntegral (natVal @(IndexOf a xs) Proxy)) . unsafeCoerce)
+        (\(Many n v) -> if n == fromIntegral (natVal @(IndexOf a xs) Proxy)
             then Just (unsafeCoerce v :: a)
             else Nothing)
     {-# INLINE facet #-}
 
 
+-- instance IsSubSet smaller larger => Project (Many smaller) (Many larger) where
+--     project = lens
+
+-- wack :: Many larger -> Many smaller
+
+
 -- | Utilites
 
-natValue :: forall (n :: Nat) a. (KnownNat n, Num a) => a
-natValue = fromIntegral (natVal (Proxy :: Proxy n))
-{-# INLINE natValue #-}
+-- -- | AllowAmbiguousTypes!
+-- natValue :: forall (n :: Nat) a. (KnownNat n, Num a) => a
+-- natValue = fromIntegral (natVal (Proxy :: Proxy n))
+-- {-# INLINE natValue #-}
 
 -- check :: Bool -> a -> Maybe a
 -- check p a = if p then Just a else Nothing
@@ -104,10 +101,10 @@ natValue = fromIntegral (natVal (Proxy :: Proxy n))
 -- Naming: reinterpret_cast, dynamic_cast ?
 
 
--- To have prism from Many to inner type
--- This also allows safe construction.
+-- To project from smaller Many to larger Many (always ok)
 
--- To project from larger Many to smaller Many
+-- To Inject from larger Many to smaller Many (use Maybe)
+
 
 -- Show and Read instances
 

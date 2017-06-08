@@ -16,7 +16,8 @@ tested-with:         GHC == 8.0.1
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Data.Distinct.Catalog
+  exposed-modules:     Data.Distinct
+                       Data.Distinct.Catalog
                        Data.Distinct.Catalog.Internal
                        Data.Distinct.Many
                        Data.Distinct.Many.Internal

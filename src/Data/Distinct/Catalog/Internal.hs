@@ -97,10 +97,9 @@ instance Distinct '[a, b] => Has b (Catalog '[a, b]) where
     item = iso (\(Catalog2 t) -> t) Catalog2 . _2
     {-# INLINE item #-}
 
--------------------------------------------------
--- | Projection. A catalog can be narrowed or have its order changed by projecting
--- into another catalog type.
+-- | Projection.
 -- Basically the same class as 'Has' to prevent overlapping instances
+-- A Catalog can be narrowed or have its order changed by projecting into another Catalog type.
 class Project to from where
     -- | Narrow number of or change order of fields in a record.
     -- Use TypeApplication to specify the destination type.

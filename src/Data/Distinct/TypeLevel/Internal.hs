@@ -56,3 +56,17 @@ type family UnionEx (ctx :: [Type]) (xs :: [Type]) (ys :: [Type]) :: [Type] wher
 --                                     ':<>: 'Text "‘"
 --                                     ':<>: 'ShowType ctx
 --                                     ':<>: 'Text "’")
+
+-- | Modified from https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L175
+type family IsSubsetEx ctx smaller larger :: Bool where
+   IsSubsetEx ctx x x = 'True
+   IsSubsetEx ctx '[] l = 'True
+   IsSubsetEx ctx s '[] = TypeError ( 'Text "‘"
+                                    ':<>: 'ShowType s
+                                    ':<>: 'Text "’"
+                                    ':<>: 'Text " is not a subset of "
+                                    ':<>: 'Text "‘"
+                                    ':<>: 'ShowType ctx
+                                    ':<>: 'Text "’")
+   IsSubsetEx ctx (x ': xs) (x ': ys) = IsSubsetEx ctx xs ctx
+   IsSubsetEx ctx (x ': xs) (y ': ys) = IsSubsetEx ctx (x ': xs) ys
