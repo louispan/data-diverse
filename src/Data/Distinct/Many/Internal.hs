@@ -39,50 +39,30 @@ data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 -- | As per Haskus and HList versions, the inferred role is phantom, which is not safe
 type role Many representational
 
--- -- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
--- class FoldMany xs handlers | xs handlers where
---     many' :: handlers -> Many xs -> r
+-- | A switch/case statement for Many. Apply a 'Catalog' of functions to a variant of values.
+class Switch xs handlers where
+    switch :: Many xs -> Catalog handlers -> AcceptResult handlers
 
--- instance Has (a -> r) (t r) => FoldMany '[a] (t r) r where
---     many' t (Many _ v) = (t ^. item) (unsafeCoerce v :: a)
-
--- instance ( Has (a -> r) (t r)
---          , Has (b -> r) (t r)) => FoldMany '[a, b] (t r) r where
---     many' t (Many n v) = case n of
---         0 -> (t ^. item) (unsafeCoerce v :: a)
---         _ -> (t ^. item) (unsafeCoerce v :: b)
-
--- instance ( Has (a -> r) (t r)
---          , Has (b -> r) (t r)
---          , Has (c -> r) (t r)) => FoldMany '[a, b, c] (t r) r where
---     many' t (Many n v) = case n of
---         0 -> (t ^. item) (unsafeCoerce v :: a)
---         1 -> (t ^. item) (unsafeCoerce v :: b)
---         _ -> (t ^. item) (unsafeCoerce v :: c)
-
--- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
-class FoldMany xs handlers where
-    many :: Catalog handlers -> Many xs -> AcceptResult handlers
-
-instance Has (a -> AcceptResult handlers) (Catalog handlers) => FoldMany '[a] handlers where
-    many t (Many _ v) = (t ^. item) (unsafeCoerce v :: a)
+instance Has (a -> AcceptResult handlers) (Catalog handlers) => Switch '[a] handlers where
+    switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
 
 instance ( Has (a -> AcceptResult handlers) (Catalog handlers)
-         , Has (b -> AcceptResult handlers) (Catalog handlers)) => FoldMany '[a, b] handlers where
-    many t (Many n v) = case n of
+         , Has (b -> AcceptResult handlers) (Catalog handlers)) => Switch '[a, b] handlers where
+    switch (Many n v) t = case n of
         0 -> (t ^. item) (unsafeCoerce v :: a)
         _ -> (t ^. item) (unsafeCoerce v :: b)
 
 instance ( Has (a -> AcceptResult handlers) (Catalog handlers)
          , Has (b -> AcceptResult handlers) (Catalog handlers)
-         , Has (c -> AcceptResult handlers) (Catalog handlers)) => FoldMany '[a, b, c] handlers where
-    many t (Many n v) = case n of
+         , Has (c -> AcceptResult handlers) (Catalog handlers)) => Switch '[a, b, c] handlers where
+    switch (Many n v) t = case n of
         0 -> (t ^. item) (unsafeCoerce v :: a)
         1 -> (t ^. item) (unsafeCoerce v :: b)
         _ -> (t ^. item) (unsafeCoerce v :: c)
 
-switch :: FoldMany xs handlers => Many xs -> Catalog handlers -> AcceptResult handlers
-switch = flip many
+-- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
+many :: Switch xs handlers => Catalog handlers -> Many xs -> AcceptResult handlers
+many = flip switch
 
 -- many :: Switch xs handlers r =>
 -- catamorphism of Many
