@@ -41,27 +41,27 @@ type role Many representational
 
 -- | A switch/case statement for Many. Apply a 'Catalog' of functions to a variant of values.
 class Switch xs handlers where
-    switch :: Many xs -> Catalog handlers -> AcceptResult handlers
+    switch :: Many xs -> Catalog handlers -> SwitchResult handlers
 
-instance Has (a -> AcceptResult handlers) (Catalog handlers) => Switch '[a] handlers where
+instance Has (a -> SwitchResult handlers) (Catalog handlers) => Switch '[a] handlers where
     switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
 
-instance ( Has (a -> AcceptResult handlers) (Catalog handlers)
-         , Has (b -> AcceptResult handlers) (Catalog handlers)) => Switch '[a, b] handlers where
+instance ( Has (a -> SwitchResult handlers) (Catalog handlers)
+         , Has (b -> SwitchResult handlers) (Catalog handlers)) => Switch '[a, b] handlers where
     switch (Many n v) t = case n of
         0 -> (t ^. item) (unsafeCoerce v :: a)
         _ -> (t ^. item) (unsafeCoerce v :: b)
 
-instance ( Has (a -> AcceptResult handlers) (Catalog handlers)
-         , Has (b -> AcceptResult handlers) (Catalog handlers)
-         , Has (c -> AcceptResult handlers) (Catalog handlers)) => Switch '[a, b, c] handlers where
+instance ( Has (a -> SwitchResult handlers) (Catalog handlers)
+         , Has (b -> SwitchResult handlers) (Catalog handlers)
+         , Has (c -> SwitchResult handlers) (Catalog handlers)) => Switch '[a, b, c] handlers where
     switch (Many n v) t = case n of
         0 -> (t ^. item) (unsafeCoerce v :: a)
         1 -> (t ^. item) (unsafeCoerce v :: b)
         _ -> (t ^. item) (unsafeCoerce v :: c)
 
 -- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
-many :: Switch xs handlers => Catalog handlers -> Many xs -> AcceptResult handlers
+many :: Switch xs handlers => Catalog handlers -> Many xs -> SwitchResult handlers
 many = flip switch
 
 -- many :: Switch xs handlers r =>

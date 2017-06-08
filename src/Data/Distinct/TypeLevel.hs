@@ -17,19 +17,19 @@ type IndexOf x (xs :: [Type]) = IndexOfEx xs x xs
 -- | A constraint ensuring that the type list contain unique types
 type Distinct (xs :: [Type]) = UnionEx xs '[] xs ~ xs
 
--- | Convert a list types into a list of handlers/continuations of that type.
-type family Accepts (xs :: [Type]) r :: [Type] where
-    Accepts '[] r = '[]
-    Accepts (x ': xs) r = (x -> r) ': Accepts xs r
+-- -- | Convert a list types into a list of handlers/continuations with a result type.
+-- type family Accepts r (xs :: [Type]) :: [Type] where
+--     Accepts r '[] = '[]
+--     Accepts r (x ': xs) = (x -> r) ': Accepts r xs
 
-type family AcceptResult (xs :: [Type]) :: Type where
-    AcceptResult '[] = TypeError ( 'Text "Empty type list cannot have an AcceptResult")
-    AcceptResult ((a -> r) ': xs) = AcceptResultEx ((a -> r) ': xs) r xs
-    AcceptResult ctx = TypeError ( 'Text " All types in"
+-- | Gets the result type from an list of handler/continuations of different types.
+type family SwitchResult (xs :: [Type]) :: Type where
+    SwitchResult '[] = TypeError ( 'Text "No continuation found in empty type list")
+    SwitchResult ((a -> r) ': xs) = SwitchResultEx ((a -> r) ': xs) r xs
+    SwitchResult ctx = TypeError ( 'Text "No continuation found in head of "
                                     ':<>: 'Text "‘"
                                     ':<>: 'ShowType ctx
-                                    ':<>: 'Text "’"
-                                    ':<>: 'Text " do not result in the same type")
+                                    ':<>: 'Text "’")
 
 
      -- type family TupleOf (xs :: [Type]) :: Type where
