@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Data.Distinct.Catalog.Internal where
 
@@ -16,6 +17,7 @@ import Control.Lens
 import Data.Distinct.TypeLevel
 import Data.Ix
 import Data.Kind
+import qualified GHC.Generics as G
 
 -- | No Wrapped instance to protect the constructors to ensure that
 -- a Catalog only contains a tuple of unique types.
@@ -23,31 +25,17 @@ import Data.Kind
 -- Example: @review _Cataloged' ("foo", 6)@
 data family Catalog (xs :: [Type])
 
--- FIXME: Make the constructor in Read/Show "Catalog"?
-
 newtype instance Catalog '[] = C0 ()
-    deriving (Show, Read, Eq, Ord, Ix, Bounded)
+    deriving (Read, Show, Eq, Ord, Ix, Bounded, G.Generic)
 newtype instance Catalog '[a] = C1 a
-    deriving (Show, Read, Eq, Ord, Ix, Bounded)
--- Use GADTs to bring in 'Distinct' constraints.
-data instance Catalog '[a, b] where
-    C2 :: Distinct '[a, b] => (a, b) -> Catalog '[a, b]
-data instance Catalog '[a, b, c] where
-    C3 :: Distinct '[a, b, c] => (a, b, c) -> Catalog '[a, b, c]
+    deriving (Read, Show, Eq, Ord, Ix, Bounded, G.Generic)
+newtype instance Catalog '[a, b] = C2 (a, b)
+    deriving (Show, Eq, Ord, Ix, Bounded, G.Generic)
+newtype instance Catalog '[a, b, c] = C3 (a, b, c)
+    deriving (Show, Eq, Ord, Ix, Bounded, G.Generic)
 
 deriving instance (Distinct '[a, b], Read a, Read b) => Read (Catalog '[a, b])
-deriving instance (Show a, Show b) => Show (Catalog '[a, b])
-deriving instance (Eq a, Eq b) => Eq (Catalog '[a, b])
-deriving instance (Ord a, Ord b) => Ord (Catalog '[a, b])
-deriving instance (Ix a, Ix b) => Ix (Catalog '[a, b])
-deriving instance (Distinct '[a, b], Bounded a, Bounded b) => Bounded (Catalog '[a, b])
-
 deriving instance (Distinct '[a, b, c], Read a, Read b, Read c) => Read (Catalog '[a, b, c])
-deriving instance (Show a, Show b, Show c) => Show (Catalog '[a, b, c])
-deriving instance (Eq a, Eq b, Eq c) => Eq (Catalog '[a, b, c])
-deriving instance (Ord a, Ord b, Ord c) => Ord (Catalog '[a, b, c])
-deriving instance (Ix a, Ix b, Ix c) => Ix (Catalog '[a, b, c])
-deriving instance (Distinct '[a, b, c], Bounded a, Bounded b, Bounded c) => Bounded (Catalog '[a, b, c])
 
 -- | Safe constructor and destructor of Catalogs
 -- which ensures the types are distinct.
@@ -68,6 +56,9 @@ instance Distinct '[a, b] => Wrapped (Catalog '[a, b]) where
     type Unwrapped (Catalog '[a, b]) = (a, b)
     _Wrapped' = iso (\(C2 x) -> x) C2
     {-# INLINE _Wrapped' #-}
+
+catalog :: Wrapped (Catalog s) => Unwrapped (Catalog s) -> Catalog s
+catalog = review _Cataloged'
 
 -- | Convenient version of '_Wrapped'' just for Catalog.
 -- This can be used to construct Catalogs
