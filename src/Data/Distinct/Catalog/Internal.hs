@@ -9,7 +9,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Data.Distinct.Catalog.Internal where
 
@@ -25,11 +24,11 @@ import qualified GHC.Generics as G
 -- Example: @review _Cataloged' ("foo", 6)@
 data family Catalog (xs :: [Type])
 
-newtype instance Catalog '[] = C0 ()
+newtype instance Catalog '[] = Catalog0 ()
     deriving (Read, Show, Eq, Ord, Ix, Bounded, G.Generic)
-newtype instance Catalog '[a] = C1 a
+newtype instance Catalog '[a] = Catalog1 a
     deriving (Read, Show, Eq, Ord, Ix, Bounded, G.Generic)
-newtype instance Catalog '[a, b] = C2 (a, b)
+newtype instance Catalog '[a, b] = Catalog2 (a, b)
     deriving (Show, Eq, Ord, Ix, Bounded, G.Generic)
 newtype instance Catalog '[a, b, c] = C3 (a, b, c)
     deriving (Show, Eq, Ord, Ix, Bounded, G.Generic)
@@ -42,19 +41,19 @@ deriving instance (Distinct '[a, b, c], Read a, Read b, Read c) => Read (Catalog
 instance Catalog '[] ~ t => Rewrapped (Catalog '[]) t
 instance Wrapped (Catalog '[]) where
     type Unwrapped (Catalog '[]) = ()
-    _Wrapped' = iso (\(C0 x) -> x) C0
+    _Wrapped' = iso (\(Catalog0 t) -> t) Catalog0
     {-# INLINE _Wrapped' #-}
 
 instance Catalog '[a] ~ t => Rewrapped (Catalog '[a]) t
 instance Wrapped (Catalog '[a]) where
     type Unwrapped (Catalog '[a]) = a
-    _Wrapped' = iso (\(C1 x) -> x) C1
+    _Wrapped' = iso (\(Catalog1 t) -> t) Catalog1
     {-# INLINE _Wrapped' #-}
 
 instance (Distinct '[a, b], Catalog '[a, b] ~ t) => Rewrapped (Catalog '[a, b]) t
 instance Distinct '[a, b] => Wrapped (Catalog '[a, b]) where
     type Unwrapped (Catalog '[a, b]) = (a, b)
-    _Wrapped' = iso (\(C2 x) -> x) C2
+    _Wrapped' = iso (\(Catalog2 t) -> t) Catalog2
     {-# INLINE _Wrapped' #-}
 
 catalog :: Wrapped (Catalog s) => Unwrapped (Catalog s) -> Catalog s
@@ -86,16 +85,16 @@ class Has value record where
     item :: Lens' record value
 
 instance Has () (Catalog '[]) where
-    item = iso (\(C0 x) -> x) C0
+    item = iso (\(Catalog0 t) -> t) Catalog0
     {-# INLINE item #-}
 instance Has a (Catalog '[a]) where
-    item = iso (\(C1 x) -> x) C1
+    item = iso (\(Catalog1 t) -> t) Catalog1
     {-# INLINE item #-}
 instance Distinct '[a, b] => Has a (Catalog '[a, b]) where
-    item = iso (\(C2 x) -> x) C2 . _1
+    item = iso (\(Catalog2 t) -> t) Catalog2 . _1
     {-# INLINE item #-}
 instance Distinct '[a, b] => Has b (Catalog '[a, b]) where
-    item = iso (\(C2 x) -> x) C2 . _2
+    item = iso (\(Catalog2 t) -> t) Catalog2 . _2
     {-# INLINE item #-}
 
 -------------------------------------------------
@@ -108,12 +107,12 @@ class Project to from where
     -- Example: @project \@(Catalog '[Int, String])@
     project :: Lens' from to
 
-instance Project (Catalog '[]) r where
-    project f s = fmap (const s) (f $ C0 ())
+instance Project (Catalog '[]) t where
+    project f t = fmap (const t) (f $ Catalog0 ())
     {-# INLINE project #-}
-instance Has a r => Project (Catalog '[a]) r where
-    project f s = fmap (\(C1 a) -> s & item .~ a) (f $ C1 (s ^. item))
+instance Has a t => Project (Catalog '[a]) t where
+    project f t = fmap (\(Catalog1 a) -> t & item .~ a) (f $ Catalog1 (t ^. item))
     {-# INLINE project #-}
-instance (Distinct '[a, b], Has a r, Has b r) => Project (Catalog '[a, b]) r where
-    project f s = fmap (\(C2 (a, b)) -> s & item .~ a & item .~ b) (f $ C2 (s ^. item, s ^. item))
+instance (Distinct '[a, b], Has a t, Has b t) => Project (Catalog '[a, b]) t where
+    project f t = fmap (\(Catalog2 (a, b)) -> t & item .~ a & item .~ b) (f $ Catalog2 (t ^. item, t ^. item))
     {-# INLINE project #-}

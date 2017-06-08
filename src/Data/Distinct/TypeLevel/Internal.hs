@@ -44,3 +44,15 @@ type family UnionEx (ctx :: [Type]) (xs :: [Type]) (ys :: [Type]) :: [Type] wher
     UnionEx ctx '[] '[] = '[]
     UnionEx ctx xs '[] = xs
     UnionEx ctx xs (y ': ys) = UnionEx ctx (InsertEx ctx xs y) ys
+
+
+type family AcceptResultEx (ctx :: [Type]) r (xs :: [Type]) :: Type where
+    AcceptResultEx ctx r '[] = r
+    AcceptResultEx ctx r ((a -> r) ': xs) = AcceptResultEx ctx r xs
+    AcceptResultEx ctx r b = TypeError ( 'Text "‘"
+                                    ':<>: 'ShowType r
+                                    ':<>: 'Text "’"
+                                    ':<>: 'Text " is not a result of all types in "
+                                    ':<>: 'Text "‘"
+                                    ':<>: 'ShowType ctx
+                                    ':<>: 'Text "’")

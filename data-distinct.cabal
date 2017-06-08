@@ -19,6 +19,7 @@ library
   exposed-modules:     Data.Distinct.Catalog
                        Data.Distinct.Catalog.Internal
                        Data.Distinct.Many
+                       Data.Distinct.Many.Internal
                        Data.Distinct.TypeLevel
                        Data.Distinct.TypeLevel.Internal
   build-depends:       base >= 4.7 && < 5
