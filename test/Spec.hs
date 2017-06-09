@@ -66,6 +66,15 @@ main = do
                     x = preview (facet @Int) y
                 x `shouldBe` (Just 5)
 
+            it "omit and until it's not many" $ do
+                let y = toMany (5 :: Int) :: Many '[Int, Bool]
+                    -- y' = toMany (5 :: Int) :: Many '[Int]
+                    x = pick y :: Either (Many '[Int]) Bool
+                -- x `shouldBe` (Left y') -- FIXME: Eq not done yet
+                case x of
+                    Left y' -> (notMany y') `shouldBe` (5 :: Int)
+                    Right _ -> pure ()
+
             it "can be switched with a catalog of handlers in any order" $ do
                 let y = toMany (5 :: Int) :: Many '[Int, Bool]
                 switch y (cases
@@ -74,7 +83,7 @@ main = do
                     ) `shouldBe` "5"
 
             it "can be switched with CaseTypeable" $ do
-                let y = pick (5 :: Int) :: Many '[Int, Bool]
+                let y = toMany (5 :: Int) :: Many '[Int, Bool]
                 switch y (CaseTypeable (show . typeRep . proxy)) `shouldBe` "Int"
 
             -- it "can be switched with forany" $ do

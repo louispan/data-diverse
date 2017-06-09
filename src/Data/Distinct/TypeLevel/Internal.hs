@@ -96,4 +96,11 @@ type family TypeAtEx (orig :: Nat) (ctx :: [Type]) (n :: Nat) (xs :: [Type]) whe
    TypeAtEx i ctx 0 (x ': xs) = x
    TypeAtEx i ctx n (x ': xs) = TypeAtEx i ctx (n - 1) xs
 
+type family DoReverse (ok :: [Type]) (xs :: [Type]) :: [Type] where
+    DoReverse ok '[] = ok
+    DoReverse ok (x ': xs) = DoReverse (x ': ok) xs
 
+type family DoWithout x (ok :: [Type]) (xs :: [Type]) :: [Type] where
+    DoWithout x ok '[] = DoReverse '[] ok
+    DoWithout x ok (x ': xs) = DoWithout x ok xs
+    DoWithout x ok (y ': xs) = DoWithout x (y ': ok) xs

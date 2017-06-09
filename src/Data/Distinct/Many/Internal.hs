@@ -34,12 +34,14 @@ import Data.Monoid hiding (Any)
 -- | A polymorphic variant or co-record where there are no duplicates in the type list of possible types.
 -- This means TypeApplication (instead of labels) can be used to index the variant.
 -- This is essentially a typed version of 'Data.Dynamic'
+-- Mnemonic: It doesn't not one of Any type, it contains one of of Many types.
 --
 -- The variant contains a value whose type is at the given position in the type list.
 -- This is the same encoding as Haskus.Util.Many and HList (which used Int instead of Word)
 -- See https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Many.hs
 -- and https://hackage.haskell.org/package/HList-0.4.1.0/docs/src/Data-HList-Many.html
--- With the following differences:
+--
+-- This api has the following differences:
 -- * No duplicate types allowed in the type list
 -- * don't exposing an indexByN inteface or getByLabel interface
 -- * just use TypeApplication for the expected type instead
@@ -54,6 +56,8 @@ class Switch xs handlers r | handlers -> r where
     switch :: Many xs -> handlers -> r
 
 -- | A convenient synonym function to create a Catalogs for handling 'switch'.
+-- Example: @switch a $ cases (f, g, h)@
+-- FIXME: Add additional constraints on return type Accept r
 cases :: (xs ~ TypesOf (Unwrapped (Catalog xs)), Wrapped (Catalog xs)) => Unwrapped (Catalog xs) -> Catalog xs
 cases = catalog
 
@@ -100,15 +104,32 @@ instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
 --                              SomeNat (_ :: Proxy i) ->
 --                                  f (unsafeCoerce v :: TypeAt i xs)
 
--- | Convenient function to construct a Many out of a value
+-- | Construct a Many out of a value
 toMany :: forall a xs. (Distinct xs, Member a xs) => a -> Many xs
-toMany = review (facet @a)
+toMany = Many (fromIntegral (natVal @(IndexOf a xs) Proxy)) . unsafeCoerce
 
+-- | Deconstruct a Many into a Maybe value
+fromMany :: forall a xs. (Distinct xs, Member a xs) => Many xs -> Maybe a
+fromMany (Many n v) = if n == fromIntegral (natVal @(IndexOf a xs) Proxy)
+            then Just (unsafeCoerce v :: a)
+            else Nothing
 
+-- | Deconstruct a Many into Either the Right value or the Left-over possibilities.
+pick
+    :: forall a xs ys.
+       (Distinct xs, Distinct ys, Member a xs, ys ~ Without a xs)
+    => Many xs -> Either (Many ys) a
+pick (Many n v) = let i = fromIntegral (natVal @(IndexOf a xs) Proxy)
+                  in if n == i
+                     then Right (unsafeCoerce v :: a)
+                     else if n > i
+                          then Left (Many (n - 1) v)
+                          else Left (Many n v)
 
--- wacky :: AnyCase (Many xs)
--- wacky = AnyCase pick
-
+-- | A Many with one type is not many at all.
+-- We can retrieve the value without a Maybe
+notMany :: Many '[a] -> a
+notMany (Many _ v) = unsafeCoerce v :: a
 
 -- | A Many has a prism to an the inner type.
 class Facet branch tree where
@@ -119,11 +140,7 @@ class Facet branch tree where
 -- | UndecidableInstance due to xs appearing more often in the constraint.
 -- Safe because xs will not expand to Many xs or bigger.
 instance (Distinct xs, Member a xs) => Facet a (Many xs) where
-    facet = prism'
-        (Many (fromIntegral (natVal @(IndexOf a xs) Proxy)) . unsafeCoerce)
-        (\(Many n v) -> if n == fromIntegral (natVal @(IndexOf a xs) Proxy)
-            then Just (unsafeCoerce v :: a)
-            else Nothing)
+    facet = prism' toMany fromMany
     {-# INLINE facet #-}
 
 -- | Injection.

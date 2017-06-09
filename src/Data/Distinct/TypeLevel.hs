@@ -61,6 +61,10 @@ type Member x xs =
    , KnownNat (IndexOf x xs)
    )
 
+type Without x (xs :: [Type]) = DoWithout x '[] xs
+
+type Reverse (xs :: [Type]) = DoReverse '[] xs
+
 -- type Member x xs = (KnownNat (IndexOf x xs))
 
 type family Length (xs :: [Type]) :: Nat where

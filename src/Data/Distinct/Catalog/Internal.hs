@@ -62,6 +62,10 @@ instance (Distinct '[a, b], '[a, b] ~ TypesOf (Unwrapped (Catalog '[a, b]))) => 
 catalog :: (xs ~ TypesOf (Unwrapped (Catalog xs)), Wrapped (Catalog xs)) => Unwrapped (Catalog xs) -> Catalog xs
 catalog = review _Wrapped'
 
+-- | Retrieves the tuple from a Catalog
+toTuple :: (xs ~ TypesOf (Unwrapped (Catalog xs)), Wrapped (Catalog xs)) => Catalog xs -> Unwrapped (Catalog xs)
+toTuple = view _Wrapped'
+
 -- | A version of '_Wrapped'' just for Catalog, which more helpful for type inferencing.
 -- This can be used to construct Catalogs
 -- Example: @review _Cataloged' ("foo", False, 5)
@@ -128,3 +132,6 @@ instance (Distinct '[a], AllHas t '[a]) => Project (Catalog '[a]) t where
 instance (Distinct '[a, b], AllHas t '[a, b]) => Project (Catalog '[a, b]) t where
     project f t = fmap (\(Catalog2 (a, b)) -> t & item .~ a & item .~ b) (f $ Catalog2 (t ^. item, t ^. item))
     {-# INLINE project #-}
+
+
+-- FIXME: provide convenient get, set, project, inject
