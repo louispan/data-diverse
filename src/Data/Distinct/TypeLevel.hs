@@ -39,12 +39,12 @@ type family TypesOf x :: [Type] where
     -- declare overlapping instance last in this closed type family
     TypesOf a = '[a]
 
-type family TupleOf (xs :: [Type]) :: Type where
-    TupleOf '[] = ()
-    TupleOf '[a, b] = (a, b)
-    TupleOf '[a, b, c] = (a, b, c)
-    -- declare overlapping instance last in this closed type family
-    TupleOf '[a] = a
+-- type family TupleOf (xs :: [Type]) :: Type where
+--     TupleOf '[] = ()
+--     TupleOf '[a, b] = (a, b)
+--     TupleOf '[a, b, c] = (a, b, c)
+--     -- declare overlapping instance last in this closed type family
+--     TupleOf '[a] = a
 
 -- | Get the first index of a type
 type IndexOf x (xs :: [Type]) = IndexOfEx xs x xs

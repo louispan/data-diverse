@@ -32,7 +32,6 @@ main = do
                 y `shouldBe` z
             it "can read both fields" $ do
                 let x = review _Cataloged (5, False) :: Catalog '[Int, Bool]
-                    y = x ^. item @Int
                 (x ^. item @Int, x ^. item @Bool) `shouldBe` (5, False)
             it "can be projected" $ do
                 let x = catalog (5, False) :: Catalog '[Int, Bool]
@@ -40,19 +39,16 @@ main = do
                 y `shouldBe` (x ^. project @(Catalog '[Int]))
 
         describe "Many" $ do
-            it "can be constructed and destructedh" $ do
+            it "can be constructed and destructed" $ do
                 let y = pick (5 :: Int) :: Many '[Int]
                     x = preview (facet @Int) y
                 x `shouldBe` (Just 5)
-            it "can be switched" $ do
+            it "can be switched with a catalog of handlers in any order" $ do
                 let y = pick (5 :: Int) :: Many '[Int, Bool]
-                -- switch y (catalog
-                --          (show, show) :: Catalog '[Int -> String, Bool -> String]) `shouldBe` "5"
-                -- • Couldn't match expected type ‘Unwrapped (Catalog s0)’
-                --   with actual type ‘(Int -> String, Bool -> String)’
-                --   The type variable ‘s0’ is ambiguous
-                switch y (catalog
-                         (show :: Int -> String, show :: Bool -> String)) `shouldBe` "5"
+                switch y (cases
+                    ( show @Bool
+                    , show @Int)
+                    ) `shouldBe` "5"
 
 
 

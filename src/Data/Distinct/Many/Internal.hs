@@ -50,13 +50,18 @@ type role Many representational
 class Switch xs handlers r | handlers -> r where
     switch :: Many xs -> handlers -> r
 
--- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
+-- | A convenient synonym function to create a Catalogs for handling 'switch'.
+cases :: (xs ~ TypesOf (Unwrapped (Catalog xs)), Wrapped (Catalog xs)) => Unwrapped (Catalog xs) -> Catalog xs
+cases = catalog
+
+-- | Catamorphism for many. This is @flip switch@
 many :: Switch xs handlers r => handlers -> Many xs -> r
 many = flip switch
 
 -- | This accepts a phantom r to allow 'Catalog' to be used as a type instance for 'Switch'
 type Case (xs :: [Type]) r = Catalog xs
 
+-- FIXME: Ensure the size of handlers equal xs to avoid confusion of handler not being used
 instance (Has (a -> r) (Case xs r)) => Switch '[a] (Case xs r) r where
     switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
 
@@ -68,7 +73,7 @@ instance ( Has (a -> r) (Case xs r)
 
 ---------------
 -- | Holds an existential that can handle any input
--- But this doens't keep any additional constraints constraints :(
+-- FIXME: But this doens't keep any additional constraints constraints :(
 data AnyCase r = AnyCase (forall a. a -> r)
 
 instance Switch '[a] (AnyCase r) r where
@@ -133,28 +138,6 @@ ack = re wock
 
 -- wack :: forall a. (Many '[a] -> a)
 -- wack v = review facet (fromJust (preview (facet) v))
-
-
--- StreetNumber + StreeName = (StreeNumber, StreeName)
-
--- a and b = (a and b)
-
--- c and d = (c and d) = (a and b and c and d)
-
-
-
-
---     Action = HitMonster or BeKilledByMonster or Sleep or RunAway
-
---     Address = (StreetNumber and StreeName and Postcode and State and Country)
-
---     Address = (StreetNumber, name :: StreeName, Suburb, pc :: Postcode, state :: State, Country, Country)
-
-
-
-
-
--- let blah = addr @StreetName
 
 -- instance IsSubSet smaller larger => Project (Many smaller) (Many larger) where
 --     project = lens

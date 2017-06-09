@@ -56,32 +56,32 @@ instance (Distinct '[a, b], '[a, b] ~ TypesOf (Unwrapped (Catalog '[a, b]))) => 
     _Wrapped' = iso (\(Catalog2 t) -> t) Catalog2
     {-# INLINE _Wrapped' #-}
 
--- | Convenient function to create Catalogs from tuples
--- The s ~ constraints help avoid ambiguities
-catalog :: (s ~ TypesOf (Unwrapped (Catalog s)), Wrapped (Catalog s)) => Unwrapped (Catalog s) -> Catalog s
+-- | Convenient function to create Catalogs from tuples.
+-- The xs ~ constraints help avoid ambiguities
+catalog :: (xs ~ TypesOf (Unwrapped (Catalog xs)), Wrapped (Catalog xs)) => Unwrapped (Catalog xs) -> Catalog xs
 catalog = review _Wrapped'
 
--- | Convenient version of '_Wrapped'' just for Catalog.
+-- | A version of '_Wrapped'' just for Catalog, which more helpful for type inferencing.
 -- This can be used to construct Catalogs
 -- Example: @review _Cataloged' ("foo", False, 5)
--- The s ~ constraints help avoid ambiguities
-_Cataloged' :: (s ~ TypesOf (Unwrapped (Catalog s)), Wrapped (Catalog s)) => Iso' (Catalog s) (Unwrapped (Catalog s))
+-- The xs ~ constraints help avoid ambiguities
+_Cataloged' :: (xs ~ TypesOf (Unwrapped (Catalog xs)), Wrapped (Catalog xs)) => Iso' (Catalog xs) (Unwrapped (Catalog xs))
 _Cataloged' = _Wrapped'
 
--- | Convenient version of '_Unwrapped'' just for Catalog.
--- The s ~ constraints help avoid ambiguities
-_Uncataloged' :: (s ~ TypesOf (Unwrapped (Catalog s)), Wrapped (Catalog s)) => Iso' (Unwrapped (Catalog s)) (Catalog s)
+-- | Convenient version of '_Unwrapped'' just for Catalog, which more helpful for type inferencing.
+-- The xs ~ constraints help avoid ambiguities
+_Uncataloged' :: (xs ~ TypesOf (Unwrapped (Catalog xs)), Wrapped (Catalog xs)) => Iso' (Unwrapped (Catalog xs)) (Catalog xs)
 _Uncataloged' = _Unwrapped'
 
--- | Convenient version of '_Wrapped' just for Catalog.
+-- | Convenient version of '_Wrapped' just for Catalog, which more helpful for type inferencing.
 -- Use this to work under the Catalog wrapper.
--- The s ~ constraints help avoid ambiguities
-_Cataloged :: (s ~ TypesOf (Unwrapped (Catalog s)), t ~ TypesOf (Unwrapped (Catalog t)), Rewrapping (Catalog s) (Catalog t)) => Iso (Catalog s) (Catalog t) (Unwrapped (Catalog s)) (Unwrapped (Catalog t))
+-- The xs ~ constraints help avoid ambiguities
+_Cataloged :: (xs ~ TypesOf (Unwrapped (Catalog xs)), ts ~ TypesOf (Unwrapped (Catalog ts)), Rewrapping (Catalog xs) (Catalog ts)) => Iso (Catalog xs) (Catalog ts) (Unwrapped (Catalog xs)) (Unwrapped (Catalog ts))
 _Cataloged = _Wrapped
 
--- | Convenient version of '_Unwrapped' just for Catalog.
--- The s ~ constraints help avoid ambiguities
-_Uncataloged :: (s ~ TypesOf (Unwrapped (Catalog s)), t ~ TypesOf (Unwrapped (Catalog t)), Rewrapping (Catalog s) (Catalog t)) => Iso (Unwrapped (Catalog s)) (Unwrapped (Catalog t)) (Catalog s) (Catalog t)
+-- | Convenient version of '_Unwrapped' just for Catalog, which more helpful for type inferencing.
+-- The xs ~ constraints help avoid ambiguities
+_Uncataloged :: (xs ~ TypesOf (Unwrapped (Catalog xs)), ts ~ TypesOf (Unwrapped (Catalog ts)), Rewrapping (Catalog xs) (Catalog ts)) => Iso (Unwrapped (Catalog xs)) (Unwrapped (Catalog ts)) (Catalog xs) (Catalog ts)
 _Uncataloged = _Unwrapped
 
 -- | A catalog has a lens to an item.
@@ -105,7 +105,7 @@ instance Distinct '[a, b] => Has b (Catalog '[a, b]) where
 
 -- | Projection.
 -- Basically the same class as 'Has' to prevent overlapping instances
--- A Catalog can be narrowed or have its order changed by projecting into another Catalog type.
+-- A Catalog can be narrowed or have its order changed by projecting into another Catalog tsype.
 class Project to from where
     -- | Narrow number of or change order of fields in a record.
     -- Use TypeApplication to specify the destination type.
