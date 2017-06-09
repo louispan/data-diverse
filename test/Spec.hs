@@ -62,12 +62,12 @@ main = do
 
         describe "Many" $ do
             it "can be constructed and destructed" $ do
-                let y = pick (5 :: Int) :: Many '[Int]
+                let y = toMany (5 :: Int) :: Many '[Int]
                     x = preview (facet @Int) y
                 x `shouldBe` (Just 5)
 
             it "can be switched with a catalog of handlers in any order" $ do
-                let y = pick (5 :: Int) :: Many '[Int, Bool]
+                let y = toMany (5 :: Int) :: Many '[Int, Bool]
                 switch y (cases
                     ( show @Bool
                     , show @Int)

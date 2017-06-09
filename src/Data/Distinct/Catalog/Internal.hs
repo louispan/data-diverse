@@ -85,7 +85,7 @@ _Cataloged = _Wrapped
 _Uncataloged :: (xs ~ TypesOf (Unwrapped (Catalog xs)), ts ~ TypesOf (Unwrapped (Catalog ts)), Rewrapping (Catalog xs) (Catalog ts)) => Iso (Unwrapped (Catalog xs)) (Unwrapped (Catalog ts)) (Catalog xs) (Catalog ts)
 _Uncataloged = _Unwrapped
 
-
+-- | Everything in the given typelist must be a Has instance
 type family AllHas (s :: Type) (xs :: [Type]) :: Constraint where
    AllHas s '[] = ()
    AllHas s (x ': xs) = (Has x s, AllHas s xs)
@@ -121,10 +121,10 @@ class Project to from where
 instance Project (Catalog '[]) t where
     project f t = fmap (const t) (f $ Catalog0 ())
     {-# INLINE project #-}
-instance Has a t => Project (Catalog '[a]) t where
+instance (Distinct '[a], AllHas t '[a]) => Project (Catalog '[a]) t where
     project f t = fmap (\(Catalog1 a) -> t & item .~ a) (f $ Catalog1 (t ^. item))
     {-# INLINE project #-}
 -- AllHas results in UndecidableInstance. Safe because it just expands constraints.
-instance (AllHas t '[a, b]) => Project (Catalog '[a, b]) t where
+instance (Distinct '[a, b], AllHas t '[a, b]) => Project (Catalog '[a, b]) t where
     project f t = fmap (\(Catalog2 (a, b)) -> t & item .~ a & item .~ b) (f $ Catalog2 (t ^. item, t ^. item))
     {-# INLINE project #-}

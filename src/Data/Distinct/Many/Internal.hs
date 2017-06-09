@@ -100,9 +100,9 @@ instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
 --                              SomeNat (_ :: Proxy i) ->
 --                                  f (unsafeCoerce v :: TypeAt i xs)
 
--- | Construct a Many out of a value
-pick :: forall a xs. (Member a xs) => a -> Many xs
-pick = review (facet @a)
+-- | Convenient function to construct a Many out of a value
+toMany :: forall a xs. (Distinct xs, Member a xs) => a -> Many xs
+toMany = review (facet @a)
 
 
 
@@ -118,7 +118,7 @@ class Facet branch tree where
 
 -- | UndecidableInstance due to xs appearing more often in the constraint.
 -- Safe because xs will not expand to Many xs or bigger.
-instance Member a xs => Facet a (Many xs) where
+instance (Distinct xs, Member a xs) => Facet a (Many xs) where
     facet = prism'
         (Many (fromIntegral (natVal @(IndexOf a xs) Proxy)) . unsafeCoerce)
         (\(Many n v) -> if n == fromIntegral (natVal @(IndexOf a xs) Proxy)
