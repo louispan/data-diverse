@@ -40,11 +40,28 @@ main = do
                 y `shouldBe` (x ^. project @(Catalog '[Int]))
 
         describe "Many" $ do
-            it "can be constructed" $ do
-                let a = 5 :: Int
-                    y = (pick a) :: Many '[Int]
+            it "can be constructed and destructedh" $ do
+                let y = pick (5 :: Int) :: Many '[Int]
                     x = preview (facet @Int) y
                 x `shouldBe` (Just 5)
+            it "can be switched" $ do
+                let y = pick (5 :: Int) :: Many '[Int, Bool]
+                -- switch y (catalog
+                --          (show, show) :: Catalog '[Int -> String, Bool -> String]) `shouldBe` "5"
+                -- • Couldn't match expected type ‘Unwrapped (Catalog s0)’
+                --   with actual type ‘(Int -> String, Bool -> String)’
+                --   The type variable ‘s0’ is ambiguous
+                switch y (catalog
+                         (show :: Int -> String, show :: Bool -> String)) `shouldBe` "5"
+
+
+
+
+
+
+            -- it "can be switched with AnyCase" $ do
+            --     let y = pick (5 :: Int) :: Many '[Int, Bool]
+            --     switch y ((AnyCase show) :: AnyCase String) `shouldBe` "5"
         --     it "is a Read and Show" $ do
         --         let s = "M2_1 5"
         --             x = read s :: Many '[Int, Bool]

@@ -68,12 +68,12 @@ instance ( Has (a -> r) (Case xs r)
 
 ---------------
 -- | Holds an existential that can handle any input
+-- But this doens't keep any additional constraints constraints :(
 data AnyCase r = AnyCase (forall a. a -> r)
 
 instance Switch '[a] (AnyCase r) r where
     switch (Many _ v) (AnyCase f) = f (unsafeCoerce v :: a)
 
--- instance (Member a '[a, b], Member b '[a, b]) => Switch '[a, b] (AnyCase '[a, b] r) r where
 instance Switch '[a, b] (AnyCase r) r where
     switch (Many n v) (AnyCase f) = case n of
          0 -> f (unsafeCoerce v :: a)
@@ -84,7 +84,7 @@ instance Switch '[a, b] (AnyCase r) r where
 
 -- | Construct a Many out of a value
 pick :: forall a xs. (Member a xs) => a -> Many xs
-pick = review (facet :: Prism' (Many xs) a)
+pick = review (facet @a)
 
 -- | A Many has a prism to an the inner type.
 class Facet branch tree where
