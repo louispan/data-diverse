@@ -5,13 +5,12 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RoleAnnotations #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -22,10 +21,12 @@ import Control.Lens
 import Data.Distinct.Catalog
 import Data.Distinct.TypeLevel
 import Data.Kind
+import Data.Proxy
 import GHC.Prim (Any)
 import GHC.TypeLits
 import Unsafe.Coerce
-import Data.Proxy
+
+import Data.Monoid hiding (Any)
 
 -- | A polymorphic variant or co-record where there are no duplicates in the type list of possible types.
 -- This means TypeApplication (instead of labels) can be used to index the variant.
@@ -45,33 +46,55 @@ data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 type role Many representational
 
 -- | A switch/case statement for Many. Apply a 'Catalog' of functions to a variant of values.
+-- The functional dependency helps avoid undecidable instances
 class Switch xs handlers r | handlers -> r where
     switch :: Many xs -> handlers -> r
-
-type Switcher (xs :: [Type]) r = Catalog xs
-
-instance (Has (a -> r) (Switcher xs r)) => Switch '[a] (Switcher xs r) r where
-    switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
-
-instance ( Has (a -> r) (t r)
-         , Has (b -> r) (t r)) => Switch '[a, b] (t r) r where
-    switch (Many n v) t = case n of
-         0 -> (t ^. item) (unsafeCoerce v :: a)
-         _ -> (t ^. item) (unsafeCoerce v :: b)
 
 -- | Catamorphism for many. Apply a 'Catalog' of functions to a variant of values.
 many :: Switch xs handlers r => handlers -> Many xs -> r
 many = flip switch
 
+-- | This accepts a phantom r to allow 'Catalog' to be used as a type instance for 'Switch'
+type Case (xs :: [Type]) r = Catalog xs
+
+instance (Has (a -> r) (Case xs r)) => Switch '[a] (Case xs r) r where
+    switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
+
+instance ( Has (a -> r) (Case xs r)
+         , Has (b -> r) (Case xs r)) => Switch '[a, b] (Case xs r) r where
+    switch (Many n v) t = case n of
+         0 -> (t ^. item) (unsafeCoerce v :: a)
+         _ -> (t ^. item) (unsafeCoerce v :: b)
+
+---------------
+-- | Holds an existential that can handle any input
+data AnyCase r = AnyCase (forall a. a -> r)
+
+instance Switch '[a] (AnyCase r) r where
+    switch (Many _ v) (AnyCase f) = f (unsafeCoerce v :: a)
+
+-- instance (Member a '[a, b], Member b '[a, b]) => Switch '[a, b] (AnyCase '[a, b] r) r where
+instance Switch '[a, b] (AnyCase r) r where
+    switch (Many n v) (AnyCase f) = case n of
+         0 -> f (unsafeCoerce v :: a)
+         _ -> f (unsafeCoerce v :: b)
+
+-- wacky :: AnyCase (Many xs)
+-- wacky = AnyCase pick
+
+-- | Construct a Many out of a value
+pick :: forall a xs. (Member a xs) => a -> Many xs
+pick = review (facet :: Prism' (Many xs) a)
+
 -- | A Many has a prism to an the inner type.
-class Facet value from where
+class Facet branch tree where
     -- | Use TypeApplication to specify the destination type of the lens.
     -- Example: @facet \@Int@
-    facet :: Prism' from value
+    facet :: Prism' tree branch
 
 -- | UndecidableInstance due to xs appearing more often in the constraint.
 -- Safe because xs will not expand to Many xs or bigger.
-instance (KnownNat (IndexOf a xs)) => Facet a (Many xs) where
+instance Member a xs => Facet a (Many xs) where
     facet = prism'
         (Many (fromIntegral (natVal @(IndexOf a xs) Proxy)) . unsafeCoerce)
         (\(Many n v) -> if n == fromIntegral (natVal @(IndexOf a xs) Proxy)
@@ -79,6 +102,59 @@ instance (KnownNat (IndexOf a xs)) => Facet a (Many xs) where
             else Nothing)
     {-# INLINE facet #-}
 
+-- | Injection.
+-- Basically the same class as 'Facet' but with type params reversed.
+-- A Many can be narrowed to contain more types or have it order changed by injecting into another Many type.
+class Inject tree branch where
+    -- | Enlarge number of or change order of types in the variant.
+    -- Use TypeApplication to specify the destination type.
+    -- Example: @inject \@(Many '[Int, String])@
+    inject :: Prism' tree branch
+
+-- instance Inject tree (Many branch) where
+--     inject = prism' undefined undefined
+
+-- Prism' tree branch
+wock :: Prism' String (Last Int)
+wock = undefined
+
+weck2 :: String -> (Last Int)
+weck2 i = view wock i
+
+weck :: (Last Int) -> String
+weck i = review wock i
+
+eck :: String -> Maybe (Last Int)
+eck i = preview wock i
+
+ack = re wock
+
+-- weck2 i = preview wock i
+
+-- wack :: forall a. (Many '[a] -> a)
+-- wack v = review facet (fromJust (preview (facet) v))
+
+
+-- StreetNumber + StreeName = (StreeNumber, StreeName)
+
+-- a and b = (a and b)
+
+-- c and d = (c and d) = (a and b and c and d)
+
+
+
+
+--     Action = HitMonster or BeKilledByMonster or Sleep or RunAway
+
+--     Address = (StreetNumber and StreeName and Postcode and State and Country)
+
+--     Address = (StreetNumber, name :: StreeName, Suburb, pc :: Postcode, state :: State, Country, Country)
+
+
+
+
+
+-- let blah = addr @StreetName
 
 -- instance IsSubSet smaller larger => Project (Many smaller) (Many larger) where
 --     project = lens

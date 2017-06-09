@@ -8,7 +8,7 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
 import Data.Distinct.Catalog
-import Data.Distinct.Many
+import Data.Distinct.Many.Internal
 import Control.Lens
 import Test.Hspec
 
@@ -39,7 +39,12 @@ main = do
                     y = catalog 5
                 y `shouldBe` (x ^. project @(Catalog '[Int]))
 
-        -- describe "Many" $ do
+        describe "Many" $ do
+            it "can be constructed" $ do
+                let a = 5 :: Int
+                    y = (pick a) :: Many '[Int]
+                    x = preview (facet @Int) y
+                x `shouldBe` (Just 5)
         --     it "is a Read and Show" $ do
         --         let s = "M2_1 5"
         --             x = read s :: Many '[Int, Bool]

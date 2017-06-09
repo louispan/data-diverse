@@ -1,17 +1,16 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Data.Distinct.TypeLevel where
 
 import Data.Distinct.TypeLevel.Internal
 import Data.Kind
-
--- | Get the first index of a type
-type IndexOf x (xs :: [Type]) = IndexOfEx xs x xs
+import GHC.TypeLits
 
 -- | A constraint ensuring that the type list contain unique types
 type Distinct (xs :: [Type]) = UnionEx xs '[] xs ~ xs
@@ -41,3 +40,24 @@ type family IsSubset smaller larger :: Bool where
 --     TupleOf '[a, b, c] = (a, b, c)
 --     -- declare overlapping instance last in this closed type family
 --     TupleOf '[a] = a
+
+-- | Get the first index of a type
+type IndexOf x (xs :: [Type]) = IndexOfEx xs x xs
+
+-- | Get the type at an index
+type Index (n :: Nat) (xs :: [Type]) = IndexEx n xs n xs
+
+-- | Constraint: x member of xs
+-- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L257
+-- type Member x xs =
+--    ( IsMember x xs ~ 'True
+--    , x ~ Index (IndexOf x xs) xs
+--    , KnownNat (IndexOf x xs)
+--    )
+
+type Member x xs =
+   ( KnownNat (IndexOf x xs)
+   )
+
+-- | Check that a type is member of a type list
+type IsMember x xs = IsMemberEx xs x xs

@@ -58,7 +58,7 @@ type family UnionEx (ctx :: [Type]) (xs :: [Type]) (ys :: [Type]) :: [Type] wher
 --                                     ':<>: 'Text "’")
 
 -- | Modified from https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L175
-type family IsSubsetEx ctx smaller larger :: Bool where
+type family IsSubsetEx (ctx :: [Type]) smaller larger :: Bool where
    IsSubsetEx ctx x x = 'True
    IsSubsetEx ctx '[] l = 'True
    IsSubsetEx ctx s '[] = TypeError ( 'Text "‘"
@@ -70,3 +70,28 @@ type family IsSubsetEx ctx smaller larger :: Bool where
                                     ':<>: 'Text "’")
    IsSubsetEx ctx (x ': xs) (x ': ys) = IsSubsetEx ctx xs ctx
    IsSubsetEx ctx (x ': xs) (y ': ys) = IsSubsetEx ctx (x ': xs) ys
+
+-- | Check that a type is member of a type list
+-- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L158
+type family IsMemberEx (ctx :: [Type]) x xs :: Bool where
+   IsMemberEx ctx x (x ': xs) = 'True
+   IsMemberEx ctx x (y ': xs) = IsMemberEx ctx x xs
+   IsMemberEx ctx x '[] = TypeError ( 'Text "‘"
+                                    ':<>: 'ShowType x
+                                    ':<>: 'Text "’"
+                                    ':<>: 'Text " is not a member of "
+                                    ':<>: 'Text "‘"
+                                    ':<>: 'ShowType ctx
+                                    ':<>: 'Text "’")
+
+-- | Indexed access into the list
+type family IndexEx (orig :: Nat) (ctx :: [Type]) (n :: Nat) (xs :: [Type]) where
+   IndexEx i ctx 0 '[] = TypeError ( 'Text "Index ‘"
+                                   ':<>: 'ShowType i
+                                   ':<>: 'Text "’"
+                                   ':<>: 'Text " is out of bounds of "
+                                   ':<>: 'Text "‘"
+                                   ':<>: 'ShowType ctx
+                                   ':<>: 'Text "’")
+   IndexEx i ctx 0 (x ': xs) = x
+   IndexEx i ctx n (x ': xs) = IndexEx i ctx (n-1) xs
