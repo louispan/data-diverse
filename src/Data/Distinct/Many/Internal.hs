@@ -27,6 +27,7 @@ import GHC.Prim (Any)
 import GHC.TypeLits
 import Unsafe.Coerce
 import Data.Typeable
+import Data.Maybe
 
 import Data.Monoid hiding (Any)
 
@@ -63,39 +64,51 @@ many = flip switch
 -- | This accepts a phantom r to allow 'Catalog' to be used as a type instance for 'Switch'
 type Case (xs :: [Type]) r = Catalog xs
 
--- FIXME: Ensure the size of handlers equal xs to avoid confusion of handler not being used
-instance (Length xs ~ 1, Has (a -> r) (Case xs r)) => Switch '[a] (Case xs r) r where
+instance ( Length xs ~ Length '[a]
+         , Has (a -> r) (Case xs r)) => Switch '[a] (Case xs r) r where
     switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
 
-instance (Length xs ~ 2,  Has (a -> r) (Case xs r)
-         , Has (b -> r) (Case xs r)) => Switch '[a, b] (Case xs r) r where
+instance ( Length xs ~ Length '[a, b]
+         , AllHas (Case xs r) (Accepts r '[a, b])) => Switch '[a, b] (Case xs r) r where
     switch (Many n v) t = case n of
          0 -> (t ^. item) (unsafeCoerce v :: a)
          _ -> (t ^. item) (unsafeCoerce v :: b)
 
-
--- instance (forall a. Member a xs, Has (a -> r) (Case ys r)) => Switch xs (Case ys r) r where
---     switch = undefined
-
 ---------------
--- | Holds an existential that can handle any input
--- FIXME: But this doens't keep any additional constraints constraints :(
-data AnyCase r = AnyCase (forall a. Typeable a => a -> r)
+-- | Holds an existential that can handle any Typeable input
+data CaseTypeable r = CaseTypeable (forall a. Typeable a => a -> r)
 
-instance Typeable a => Switch '[a] (AnyCase r) r where
-    switch (Many _ v) (AnyCase f) = f (unsafeCoerce v :: a)
+-- Unfortunately the following doesn't work. GHC isn't able to deduce that (TypeAt x xs) is a Typeable
+--
+-- instance AllTypeable xs => Switch xs (CaseTypeable r) r where
+--     switch (Many n v) (CaseTypeable f) = let Just someNat = someNatVal (toInteger n)
+--                                      in case someNat of
+--                                             SomeNat (_ :: Proxy x) -> f (unsafeCoerce v :: TypeAt x xs)
 
-instance (Typeable a, Typeable b) => Switch '[a, b] (AnyCase r) r where
-    switch (Many n v) (AnyCase f) = case n of
+instance Typeable a => Switch '[a] (CaseTypeable r) r where
+    switch (Many _ v) (CaseTypeable f) = f (unsafeCoerce v :: a)
+
+instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
+    switch (Many n v) (CaseTypeable f) = case n of
          0 -> f (unsafeCoerce v :: a)
          _ -> f (unsafeCoerce v :: b)
 
--- wacky :: AnyCase (Many xs)
--- wacky = AnyCase pick
+-- -- | It is safe to use fromJust as the constructor ensures n is >= 0
+-- forany :: forall xs r. Many xs -> (forall a. a -> r) -> r
+-- forany (Many n v) f = let someNat = fromJust (someNatVal (toInteger n))
+--                       in case someNat of
+--                              SomeNat (_ :: Proxy i) ->
+--                                  f (unsafeCoerce v :: TypeAt i xs)
 
 -- | Construct a Many out of a value
 pick :: forall a xs. (Member a xs) => a -> Many xs
 pick = review (facet @a)
+
+
+
+-- wacky :: AnyCase (Many xs)
+-- wacky = AnyCase pick
+
 
 -- | A Many has a prism to an the inner type.
 class Facet branch tree where
@@ -176,3 +189,5 @@ ack = re wock
 -- Show and Read instances
 
 -- disallow empty many
+
+-- FIXME: use type family avoid repeated constraints for each type in xs

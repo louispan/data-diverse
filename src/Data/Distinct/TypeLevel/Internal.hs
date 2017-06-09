@@ -85,13 +85,15 @@ type family IsMemberEx (ctx :: [Type]) x xs :: Bool where
                                     ':<>: 'Text "’")
 
 -- | Indexed access into the list
-type family AtEx (orig :: Nat) (ctx :: [Type]) (n :: Nat) (xs :: [Type]) where
-   AtEx i ctx 0 '[] = TypeError ( 'Text "Index ‘"
+type family TypeAtEx (orig :: Nat) (ctx :: [Type]) (n :: Nat) (xs :: [Type]) where
+   TypeAtEx i ctx 0 '[] = TypeError ( 'Text "Index ‘"
                                    ':<>: 'ShowType i
                                    ':<>: 'Text "’"
                                    ':<>: 'Text " is out of bounds of "
                                    ':<>: 'Text "‘"
                                    ':<>: 'ShowType ctx
                                    ':<>: 'Text "’")
-   AtEx i ctx 0 (x ': xs) = x
-   AtEx i ctx n (x ': xs) = AtEx i ctx (n-1) xs
+   TypeAtEx i ctx 0 (x ': xs) = x
+   TypeAtEx i ctx n (x ': xs) = TypeAtEx i ctx (n - 1) xs
+
+

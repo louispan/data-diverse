@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Data.Distinct.Catalog.Internal where
 
@@ -18,8 +19,7 @@ import Data.Ix
 import Data.Kind
 import qualified GHC.Generics as G
 
--- | No Wrapped instance to protect the constructors to ensure that
--- a Catalog only contains a tuple of unique types.
+-- | Catalog contains a tuple of unique types.
 -- Use '_Cataloged' iso to create a Catalog.
 -- Example: @review _Cataloged' ("foo", 6)@
 data family Catalog (xs :: [Type])
@@ -85,6 +85,11 @@ _Cataloged = _Wrapped
 _Uncataloged :: (xs ~ TypesOf (Unwrapped (Catalog xs)), ts ~ TypesOf (Unwrapped (Catalog ts)), Rewrapping (Catalog xs) (Catalog ts)) => Iso (Unwrapped (Catalog xs)) (Unwrapped (Catalog ts)) (Catalog xs) (Catalog ts)
 _Uncataloged = _Unwrapped
 
+
+type family AllHas (s :: Type) (xs :: [Type]) :: Constraint where
+   AllHas s '[] = ()
+   AllHas s (x ': xs) = (Has x s, AllHas s xs)
+
 -- | A catalog has a lens to an item.
 class Has value record where
     -- | Use TypeApplication to specify the destination type of the lens.
@@ -97,10 +102,10 @@ instance Has () (Catalog '[]) where
 instance Has a (Catalog '[a]) where
     item = iso (\(Catalog1 t) -> t) Catalog1
     {-# INLINE item #-}
-instance Distinct '[a, b] => Has a (Catalog '[a, b]) where
+instance Has a (Catalog '[a, b]) where
     item = iso (\(Catalog2 t) -> t) Catalog2 . _1
     {-# INLINE item #-}
-instance Distinct '[a, b] => Has b (Catalog '[a, b]) where
+instance Has b (Catalog '[a, b]) where
     item = iso (\(Catalog2 t) -> t) Catalog2 . _2
     {-# INLINE item #-}
 
@@ -119,6 +124,7 @@ instance Project (Catalog '[]) t where
 instance Has a t => Project (Catalog '[a]) t where
     project f t = fmap (\(Catalog1 a) -> t & item .~ a) (f $ Catalog1 (t ^. item))
     {-# INLINE project #-}
-instance (Distinct '[a, b], Has a t, Has b t) => Project (Catalog '[a, b]) t where
+-- AllHas results in UndecidableInstance. Safe because it just expands constraints.
+instance (AllHas t '[a, b]) => Project (Catalog '[a, b]) t where
     project f t = fmap (\(Catalog2 (a, b)) -> t & item .~ a & item .~ b) (f $ Catalog2 (t ^. item, t ^. item))
     {-# INLINE project #-}

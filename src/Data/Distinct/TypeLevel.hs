@@ -11,6 +11,7 @@ module Data.Distinct.TypeLevel where
 import Data.Distinct.TypeLevel.Internal
 import Data.Kind
 import GHC.TypeLits
+import Data.Dynamic
 
 -- | A constraint ensuring that the type list contain unique types
 type Distinct (xs :: [Type]) = UnionEx xs '[] xs ~ xs
@@ -19,10 +20,10 @@ type Distinct (xs :: [Type]) = UnionEx xs '[] xs ~ xs
 -- type family IsSubset smaller larger :: Bool where
 --    IsSubset s l = IsSubsetEx l s l
 
--- -- | Convert a list types into a list of handlers/continuations with a result type.
--- type family Accepts r (xs :: [Type]) :: [Type] where
---     Accepts r '[] = '[]
---     Accepts r (x ': xs) = (x -> r) ': Accepts r xs
+-- | Convert a list types into a list of handlers/continuations with a result type.
+type family Accepts r (xs :: [Type]) :: [Type] where
+    Accepts r '[] = '[]
+    Accepts r (x ': xs) = (x -> r) ': Accepts r xs
 
 -- -- | Gets the result type from an list of handler/continuations of different types.
 -- type family SwitchResult (xs :: [Type]) :: Type where
@@ -50,13 +51,13 @@ type family TypesOf x :: [Type] where
 type IndexOf x (xs :: [Type]) = IndexOfEx xs x xs
 
 -- | Get the type at an index
-type At (n :: Nat) (xs :: [Type]) = AtEx n xs n xs
+type TypeAt (n :: Nat) (xs :: [Type]) = TypeAtEx n xs n xs
 
 -- | Constraint: x member of xs
 -- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L257
 type Member x xs =
    ( IsMember x xs ~ 'True
-   , x ~ At (IndexOf x xs) xs
+   , x ~ TypeAt (IndexOf x xs) xs
    , KnownNat (IndexOf x xs)
    )
 
@@ -68,3 +69,7 @@ type family Length (xs :: [Type]) :: Nat where
 
 -- | Check that a type is member of a type list
 type IsMember x xs = IsMemberEx xs x xs
+
+type family AllTypeable (xs :: [Type]) :: Constraint where
+   AllTypeable '[] = ()
+   AllTypeable (x ': xs) = (Typeable x, AllTypeable xs)

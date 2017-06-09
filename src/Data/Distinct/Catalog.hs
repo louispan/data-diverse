@@ -6,6 +6,7 @@ module Data.Distinct.Catalog
     , _Cataloged'
     , _Uncataloged
     , _Uncataloged'
+    , AllHas
     , Has(..)
     , Project(..)
     ) where
