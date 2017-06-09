@@ -15,9 +15,9 @@ import GHC.TypeLits
 -- | A constraint ensuring that the type list contain unique types
 type Distinct (xs :: [Type]) = UnionEx xs '[] xs ~ xs
 
--- | Check that a list is a subset of another
-type family IsSubset smaller larger :: Bool where
-   IsSubset s l = IsSubsetEx l s l
+-- -- | Check that a list is a subset of another
+-- type family IsSubset smaller larger :: Bool where
+--    IsSubset s l = IsSubsetEx l s l
 
 -- -- | Convert a list types into a list of handlers/continuations with a result type.
 -- type family Accepts r (xs :: [Type]) :: [Type] where
@@ -50,19 +50,21 @@ type family TypesOf x :: [Type] where
 type IndexOf x (xs :: [Type]) = IndexOfEx xs x xs
 
 -- | Get the type at an index
-type Index (n :: Nat) (xs :: [Type]) = IndexEx n xs n xs
+type At (n :: Nat) (xs :: [Type]) = AtEx n xs n xs
 
 -- | Constraint: x member of xs
 -- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L257
--- type Member x xs =
---    ( IsMember x xs ~ 'True
---    , x ~ Index (IndexOf x xs) xs
---    , KnownNat (IndexOf x xs)
---    )
-
 type Member x xs =
-   ( KnownNat (IndexOf x xs)
+   ( IsMember x xs ~ 'True
+   , x ~ At (IndexOf x xs) xs
+   , KnownNat (IndexOf x xs)
    )
+
+-- type Member x xs = (KnownNat (IndexOf x xs))
+
+type family Length (xs :: [Type]) :: Nat where
+    Length '[] = 0
+    Length (x ': xs) = 1 + Length xs
 
 -- | Check that a type is member of a type list
 type IsMember x xs = IsMemberEx xs x xs

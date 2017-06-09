@@ -12,6 +12,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstrainedClassMethods #-}
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
@@ -25,6 +26,7 @@ import Data.Proxy
 import GHC.Prim (Any)
 import GHC.TypeLits
 import Unsafe.Coerce
+import Data.Typeable
 
 import Data.Monoid hiding (Any)
 
@@ -62,24 +64,28 @@ many = flip switch
 type Case (xs :: [Type]) r = Catalog xs
 
 -- FIXME: Ensure the size of handlers equal xs to avoid confusion of handler not being used
-instance (Has (a -> r) (Case xs r)) => Switch '[a] (Case xs r) r where
+instance (Length xs ~ 1, Has (a -> r) (Case xs r)) => Switch '[a] (Case xs r) r where
     switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
 
-instance ( Has (a -> r) (Case xs r)
+instance (Length xs ~ 2,  Has (a -> r) (Case xs r)
          , Has (b -> r) (Case xs r)) => Switch '[a, b] (Case xs r) r where
     switch (Many n v) t = case n of
          0 -> (t ^. item) (unsafeCoerce v :: a)
          _ -> (t ^. item) (unsafeCoerce v :: b)
 
+
+-- instance (forall a. Member a xs, Has (a -> r) (Case ys r)) => Switch xs (Case ys r) r where
+--     switch = undefined
+
 ---------------
 -- | Holds an existential that can handle any input
 -- FIXME: But this doens't keep any additional constraints constraints :(
-data AnyCase r = AnyCase (forall a. a -> r)
+data AnyCase r = AnyCase (forall a. Typeable a => a -> r)
 
-instance Switch '[a] (AnyCase r) r where
+instance Typeable a => Switch '[a] (AnyCase r) r where
     switch (Many _ v) (AnyCase f) = f (unsafeCoerce v :: a)
 
-instance Switch '[a, b] (AnyCase r) r where
+instance (Typeable a, Typeable b) => Switch '[a, b] (AnyCase r) r where
     switch (Many n v) (AnyCase f) = case n of
          0 -> f (unsafeCoerce v :: a)
          _ -> f (unsafeCoerce v :: b)
@@ -156,6 +162,8 @@ ack = re wock
 -- check p a = if p then Just a else Nothing
 
 -- TODO:
+
+-- Create a way to extract value from a 'Many of sized 1 without Maybe
 
 -- Naming: reinterpret_cast, dynamic_cast ?
 

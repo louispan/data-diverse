@@ -14,12 +14,12 @@ type family IndexOfEx (ctx :: [Type]) x (xs :: [Type]) :: Nat where
    IndexOfEx ctx x (x ': xs) = 0
    IndexOfEx ctx y (x ': xs) = 1 + IndexOfEx ctx y xs
    IndexOfEx ctx y '[]       = TypeError ( 'Text "‘"
-                                    ':<>: 'ShowType y
-                                    ':<>: 'Text "’"
-                                    ':<>: 'Text " is not a member of "
-                                    ':<>: 'Text "‘"
-                                    ':<>: 'ShowType ctx
-                                    ':<>: 'Text "’")
+                                           ':<>: 'ShowType y
+                                           ':<>: 'Text "’"
+                                           ':<>: 'Text " is not a member of "
+                                           ':<>: 'Text "‘"
+                                           ':<>: 'ShowType ctx
+                                           ':<>: 'Text "’")
 
 -- | Add a type to a typelist, disallowing duplicates.
 -- NB. xs are not checked.
@@ -28,12 +28,12 @@ type family InsertEx (ctx :: [Type]) (xs :: [Type]) (y :: Type) :: [Type] where
     InsertEx ctx '[] y = '[y]
     -- case when the type matched the head
     InsertEx ctx (x ': xs) x = TypeError ( 'Text "‘"
-                                    ':<>: 'ShowType x
-                                    ':<>: 'Text "’"
-                                    ':<>: 'Text " is a duplicate in "
-                                    ':<>: 'Text "‘"
-                                    ':<>: 'ShowType ctx
-                                    ':<>: 'Text "’")
+                                           ':<>: 'ShowType x
+                                           ':<>: 'Text "’"
+                                           ':<>: 'Text " is a duplicate in "
+                                           ':<>: 'Text "‘"
+                                           ':<>: 'ShowType ctx
+                                           ':<>: 'Text "’")
     -- recurse if the type doesn't match the head
     InsertEx ctx (x ': xs) y = x ': (InsertEx ctx xs y)
 
@@ -57,19 +57,19 @@ type family UnionEx (ctx :: [Type]) (xs :: [Type]) (ys :: [Type]) :: [Type] wher
 --                                     ':<>: 'ShowType ctx
 --                                     ':<>: 'Text "’")
 
--- | Modified from https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L175
-type family IsSubsetEx (ctx :: [Type]) smaller larger :: Bool where
-   IsSubsetEx ctx x x = 'True
-   IsSubsetEx ctx '[] l = 'True
-   IsSubsetEx ctx s '[] = TypeError ( 'Text "‘"
-                                    ':<>: 'ShowType s
-                                    ':<>: 'Text "’"
-                                    ':<>: 'Text " is not a subset of "
-                                    ':<>: 'Text "‘"
-                                    ':<>: 'ShowType ctx
-                                    ':<>: 'Text "’")
-   IsSubsetEx ctx (x ': xs) (x ': ys) = IsSubsetEx ctx xs ctx
-   IsSubsetEx ctx (x ': xs) (y ': ys) = IsSubsetEx ctx (x ': xs) ys
+-- -- | Modified from https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L175
+-- type family IsSubsetEx (ctx :: [Type]) smaller larger :: Bool where
+--    IsSubsetEx ctx x x = 'True
+--    IsSubsetEx ctx '[] l = 'True
+--    IsSubsetEx ctx s '[] = TypeError ( 'Text "‘"
+--                                     ':<>: 'ShowType s
+--                                     ':<>: 'Text "’"
+--                                     ':<>: 'Text " is not a subset of "
+--                                     ':<>: 'Text "‘"
+--                                     ':<>: 'ShowType ctx
+--                                     ':<>: 'Text "’")
+--    IsSubsetEx ctx (x ': xs) (x ': ys) = IsSubsetEx ctx xs ctx
+--    IsSubsetEx ctx (x ': xs) (y ': ys) = IsSubsetEx ctx (x ': xs) ys
 
 -- | Check that a type is member of a type list
 -- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L158
@@ -85,13 +85,13 @@ type family IsMemberEx (ctx :: [Type]) x xs :: Bool where
                                     ':<>: 'Text "’")
 
 -- | Indexed access into the list
-type family IndexEx (orig :: Nat) (ctx :: [Type]) (n :: Nat) (xs :: [Type]) where
-   IndexEx i ctx 0 '[] = TypeError ( 'Text "Index ‘"
+type family AtEx (orig :: Nat) (ctx :: [Type]) (n :: Nat) (xs :: [Type]) where
+   AtEx i ctx 0 '[] = TypeError ( 'Text "Index ‘"
                                    ':<>: 'ShowType i
                                    ':<>: 'Text "’"
                                    ':<>: 'Text " is out of bounds of "
                                    ':<>: 'Text "‘"
                                    ':<>: 'ShowType ctx
                                    ':<>: 'Text "’")
-   IndexEx i ctx 0 (x ': xs) = x
-   IndexEx i ctx n (x ': xs) = IndexEx i ctx (n-1) xs
+   AtEx i ctx 0 (x ': xs) = x
+   AtEx i ctx n (x ': xs) = AtEx i ctx (n-1) xs

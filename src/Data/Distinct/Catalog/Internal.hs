@@ -38,6 +38,7 @@ deriving instance (Distinct '[a, b, c], Read a, Read b, Read c) => Read (Catalog
 
 -- | Safe constructor and destructor of Catalogs
 -- which ensures the types are distinct.
+-- FIXME: Replace this with Catalog specific class to help type inferencing. maybe use TupleOf
 instance Catalog '[] ~ t => Rewrapped (Catalog '[]) t
 instance ('[] ~ TypesOf (Unwrapped (Catalog '[]))) => Wrapped (Catalog '[]) where
     type Unwrapped (Catalog '[]) = ()
