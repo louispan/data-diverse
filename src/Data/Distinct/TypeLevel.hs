@@ -29,18 +29,19 @@ type family Union (xs :: [Type]) (ys :: [Type]) :: [Type] where
 type Distinct (xs :: [Type]) = Union '[] xs ~ xs
 
 -- | Convert a list types into a list of handlers/continuations with a result type.
-type family Accepts r (xs :: [Type]) :: [Type] where
-    Accepts r '[] = '[]
-    Accepts r (x ': xs) = (x -> r) ': Accepts r xs
+-- type family Accepts r (xs :: [Type]) :: [Type] where
+--     Accepts r '[] = '[]
+--     Accepts r (x ': xs) = (x -> r) ': Accepts r xs
 
--- -- | Gets the result type from an list of handler/continuations of different types.
--- type family SwitchResult (xs :: [Type]) :: Type where
---     SwitchResult '[] = TypeError ( 'Text "No continuation found in empty type list")
---     SwitchResult ((a -> r) ': xs) = SwitchResultEx ((a -> r) ': xs) r xs
---     SwitchResult ctx = TypeError ( 'Text "No continuation found in head of "
---                                     ':<>: 'Text "‘"
---                                     ':<>: 'ShowType ctx
---                                     ':<>: 'Text "’")
+-- | Gets the result type from an list of handler/continuations of different types.
+type family CaseResult (xs :: [Type]) :: Type where
+    CaseResult '[] = TypeError ( 'Text "No continuation found in empty type list")
+    CaseResult ((a -> r) ': xs) = CaseResultImpl ((a -> r) ': xs) r xs
+    CaseResult ctx = TypeError ( 'Text "No continuation found in head of "
+                                    ':<>: 'Text "‘"
+                                    ':<>: 'ShowType ctx
+                                    ':<>: 'Text "’")
+
 type family TypesOf x :: [Type] where
     TypesOf () = '[]
     TypesOf (a, b) = '[a, b]
@@ -146,6 +147,7 @@ type family Head (xs :: [Type]) :: Type where
     Head '[] = TypeError ('Text "Cannot Head an empty type list")
     Head (x ': xs) = x
 
+type SameLength (xs :: [Type]) (ys :: [Type]) = SameLengthImpl xs ys xs ys
 -- -- | Check that a list is a subset of another
 -- type family IsSubset smaller larger :: Bool where
 --    IsSubset s l = IsSubsetEx l s l

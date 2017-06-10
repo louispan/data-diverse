@@ -65,86 +65,45 @@ class Switch xs handler r where
 
 instance (Case p '[x] r) => Switch '[x] p r where
     switch v p = case notMany v of
-            a -> accept p a
+            a -> picked p a
 
 instance (Case p (x ': x' ': xs) r, Switch (x' ': xs) p r) =>
          Switch (x ': x' ': xs) p r where
     switch v p =
         case pickHead v of
-            Right a -> accept p a
+            Right a -> picked p a
             Left v' -> switch v' (next p)
 
--- | Allows storing polymorphic functions with extra constraints that
--- is used on each iteration of 'Switch'
+-- | Allows storing polymorphic functions with extra constraints that is used on each iteration of 'Switch'.
 -- What is the Visitor pattern doing here?
 class Case p xs r where
-    accept :: p xs r -> (Head xs -> r)
+    picked :: p xs r -> (Head xs -> r)
     next :: p xs r -> p (Tail xs) r
 
 newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
 
 -- | Create Cases for handling 'switch' from a tuple.
+-- This function imposes additional constraints than using 'Cases' constructor directly:
+-- * SameLength constraints to prevent human confusion with unusable cases.
+-- * CaseResult fs ~ r constraints to ensure that the Catalog only continutations that return r.
 -- Example: @switch a $ cases (f, g, h)@
--- FIXME: Add additional constraints on return type Accept r
-cases :: (fs ~ TypesOf (Unwrapped (Catalog fs)), Wrapped (Catalog fs)) => Unwrapped (Catalog fs) -> Cases fs xs r
+cases :: (SameLength fs xs, CaseResult fs ~ r, fs ~ TypesOf (Unwrapped (Catalog fs)), Wrapped (Catalog fs)) => Unwrapped (Catalog fs) -> Cases fs xs r
 cases = Cases . catalog
 
 -- | Uses a phantom xs in order for Case instances to carry additional constraints
 data CaseTypeable (xs :: [Type]) r = CaseTypeable (forall a. Typeable a => a -> r)
 
 instance Typeable (Head xs) => Case CaseTypeable xs r where
-    accept (CaseTypeable f) = f
+    picked (CaseTypeable f) = f
     next (CaseTypeable f) = CaseTypeable f
 
 instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
-    accept (Cases catalog) = catalog ^. item
-    next (Cases catalog) = Cases catalog
+    picked (Cases s) = s ^. item
+    next (Cases s) = Cases s
 
 -- | Catamorphism for many. This is @flip switch@
 many :: Switch xs handler r => handler xs r -> Many xs -> r
 many = flip switch
-
--- -- | FIXME: Implement in termns of ForMany and AcceptMany instead
--- instance ( Length xs ~ Length '[a]
---          , Has (a -> r) (Case xs r)) => Switch '[a] (Case xs r) r where
---     switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
-
--- instance ( Length xs ~ Length '[a, b]
---          , AllHas (Case xs r) (Accepts r '[a, b])) => Switch '[a, b] (Case xs r) r where
---     switch (Many n v) t = case n of
---          0 -> (t ^. item) (unsafeCoerce v :: a)
---          _ -> (t ^. item) (unsafeCoerce v :: b)
-
----------------
-
-
--- -- | Holds an existential that can handle any Typeable input
--- data CaseTypeable r = CaseTypeable (forall a. Typeable a => a -> r)
-
--- instance Typeable a => Switch '[a] (CaseTypeable r) r where
---     switch (Many _ v) (CaseTypeable f) = f (unsafeCoerce v :: a)
-
--- instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
---     switch (Many n v) (CaseTypeable f) = case n of
---          0 -> f (unsafeCoerce v :: a)
---          _ -> f (unsafeCoerce v :: b)
-
-
--- class ForMany xs where
---     forMany :: Many xs -> (forall x. Typeable x => x -> r) -> r
-
--- instance (Typeable x) => ForMany '[x] where
---     forMany v f = case notMany v of
---             a -> f a
-
--- instance (ForMany (x' ': xs), Typeable x) =>
---          ForMany (x ': x' ': xs) where
---     forMany v f =
---         case pickHead v of
---             Right a -> f a
---             Left v' -> forMany v' f
-
-
 
 ----------------
 
