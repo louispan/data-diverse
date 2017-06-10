@@ -97,6 +97,21 @@ instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
          0 -> f (unsafeCoerce v :: a)
          _ -> f (unsafeCoerce v :: b)
 
+
+class ForMany xs where
+    forMany :: Many xs -> (forall x. Typeable x => x -> r) -> r
+
+instance (Typeable x) => ForMany '[x] where
+    forMany v f = case notMany v of
+            a -> f a
+
+instance (ForMany (x' ': xs), Typeable x) =>
+         ForMany (x ': x' ': xs) where
+    forMany v f =
+        case pickHead v of
+            Right a -> f a
+            Left v' -> forMany v' f
+
 ----------------
 
 -- FIXME: Naming
@@ -106,28 +121,34 @@ instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
 class Increase xs ys where
     increase :: Many xs -> Many ys
 
--- | There is no instance of Increase '[] since @Many '[]@ will never be constructed.
--- Leave that instance unimplemented so the compiler will error if it is somehow needed.
-instance forall x xs ys.
-      ( Increase xs ys
+instance (Member x ys, Distinct ys) => Increase '[x] ys where
+    increase v = case notMany v of
+            a -> toMany a
+
+instance forall x x' xs ys.
+      ( Increase (x' ': xs) ys
       , Member x ys
-      , Member x xs
-      ) => Increase (x ': xs) ys
+      , Distinct ys
+      ) => Increase (x ': x' ': xs) ys
    where
       increase v = case pickHead v of
-         Right a  -> Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) (unsafeCoerce a)
+         Right a  -> toMany a
          Left  v' -> increase v'
 
 class Decrease xs ys where
     decrease :: Many xs -> Maybe (Many ys) -- FIXME: Use Either
 
--- | There is no instance of Decrease '[] since @Many '[]@ will never be constructed.
--- Leave that instance unimplemented so the compiler will error if it is somehow needed.
-instance forall x xs ys.
-      ( Decrease xs ys
-      , Member x xs
+instance (KnownNat (PositionOf x ys), Distinct ys) => Decrease '[x] ys where
+    decrease v = case notMany v of
+        a -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
+                0 -> Nothing
+                i -> Just $ Many (i - 1) (unsafeCoerce a)
+
+instance forall x x' xs ys.
+      ( Decrease (x' ': xs) ys
       , KnownNat (PositionOf x ys)
-      ) => Decrease (x ': xs) ys
+      , Distinct ys
+      ) => Decrease (x ': x' ': xs) ys
    where
       decrease v = case pickHead v of
          Right a  -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
@@ -171,7 +192,7 @@ pick
     => Many xs -> Either (Many (Without x xs)) x
 pick (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
                   in if n == i
-                     then Right (unsafeCoerce v :: x)
+                     then Right (unsafeCoerce v)
                      else if n > i
                           then Left (Many (n - 1) v)
                           else Left (Many n v)
@@ -179,22 +200,27 @@ pick (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
 -- | Pick the first type in the type list.
 pickHead :: Many (x ': xs) -> Either (Many xs) x
 pickHead (Many n v) = if n == 0
-           then Right (unsafeCoerce v :: x)
+           then Right (unsafeCoerce v)
            else Left (Many (n - 1) v)
 
 -- pickHead
---     :: ( Member head xs
---        , tail ~ (Without head xs)
---        , tail ~ Tail xs
---        , head ~ Head xs
+--     :: forall xs t h. ( Member h xs
+--        -- , t ~ (Without h xs)
+--        , t ~ Tail xs
+--        , h ~ Head xs
 --        )
---     => Many xs -> Either (Many tail) head
--- pickHead = pick
+--     => Many xs -> Either (Many t) h
+-- pickHead (Many n v) = let i = fromIntegral (natVal @(IndexOf (Head xs) xs) Proxy)
+--                       in if n == i
+--                          then Right (unsafeCoerce v)
+--                          else if n > i
+--                               then Left (Many (n - 1) v)
+--                               else Left (Many n v)
 
 -- | A Many with one type is not many at all.
 -- We can retrieve the value without a Maybe
 notMany :: Many '[a] -> a
-notMany (Many _ v) = unsafeCoerce v :: a
+notMany (Many _ v) = unsafeCoerce v
 
 -- class Diverge xs ys where
 --     diverge :: Many xs -> Many ys
