@@ -139,11 +139,11 @@ type family AllTypeable (xs :: [Type]) :: Constraint where
     AllTypeable (x ': xs) = (Typeable x, AllTypeable xs)
 
 type family Tail (xs :: [Type]) :: [Type] where
-    Tail '[] = '[]
+    Tail '[] = TypeError ('Text "Cannot Head an empty type list")
     Tail (x ': xs) = xs
 
 type family Head (xs :: [Type]) :: Type where
-    Head '[] = ()
+    Head '[] = TypeError ('Text "Cannot Head an empty type list")
     Head (x ': xs) = x
 
 -- -- | Check that a list is a subset of another

@@ -73,6 +73,7 @@ many = flip switch
 -- | This accepts a phantom r to allow 'Catalog' to be used as a type instance for 'Switch'
 type Case (xs :: [Type]) r = Catalog xs
 
+-- | FIXME: Implement in termns of ForMany and AcceptMany instead
 instance ( Length xs ~ Length '[a]
          , Has (a -> r) (Case xs r)) => Switch '[a] (Case xs r) r where
     switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
@@ -97,25 +98,30 @@ instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
          0 -> f (unsafeCoerce v :: a)
          _ -> f (unsafeCoerce v :: b)
 
+
+
 data CaseTypeable2 xs r = CaseTypeable2 (forall a. Typeable a => a -> r)
 
 instance Typeable (Head xs) => AcceptsMany CaseTypeable2 xs r where
     accept (CaseTypeable2 f) = f
     next (CaseTypeable2 f) = CaseTypeable2 f
 
+-- | Allows storing polymorphic functions with extra constraints that
+-- is used on each iteration of ForMany
 class AcceptsMany p xs r where
     accept :: p xs r -> (Head xs -> r)
     next :: p xs r -> p (Tail xs) r
 
-class ForMany xs f r  where
-    forMany :: Many xs -> f -> r
+-- | Controlled looping of Many, ensuring termination when Many only contains one type
+class ForMany xs f r where
+    forMany :: Many xs -> f xs r -> r
 
-instance (AcceptsMany p '[x] r) => ForMany '[x] (p '[x] r) r where
+instance (AcceptsMany p '[x] r) => ForMany '[x] p r where
     forMany v p = case notMany v of
             a -> (accept p) a
 
-instance (AcceptsMany p (x ': x' ': xs) r, ForMany (x' ': xs) (p (x' ': xs) r) r) =>
-         ForMany (x ': x' ': xs) (p (x ': x' ': xs) r) r where
+instance (AcceptsMany p (x ': x' ': xs) r, ForMany (x' ': xs) p r) =>
+         ForMany (x ': x' ': xs) p r where
     forMany v p =
         case pickHead v of
             Right a -> (accept p) a
