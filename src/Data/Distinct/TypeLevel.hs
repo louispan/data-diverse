@@ -55,8 +55,16 @@ type family TypesOf x :: [Type] where
 --     -- declare overlapping instance last in this closed type family
 --     TupleOf '[a] = a
 
--- | Get the first index of a type
+-- | Get the first index of a type (Indexed by 0)
+-- Will result in type error if x doesn't exist in xs.
 type IndexOf x (xs :: [Type]) = IndexOfImpl xs x xs
+
+-- | Get the first index of a type (Indexed by 1)
+-- Will return 0 if x doesn't exists in xs.
+type family PositionOf x (xs :: [Type]) :: Nat where
+   PositionOf x (x ': xs) = 1
+   PositionOf y (x ': xs) = 1 + PositionOf y xs
+   PositionOf x '[]       = 0
 
 -- | Get the type at an index
 type TypeAt (n :: Nat) (xs :: [Type]) = TypeAtImpl n xs n xs
@@ -81,21 +89,38 @@ type Member x xs = (KnownNat (IndexOf x xs))
 --    , KnownNat (IndexOf x xs)
 --    )
 
-type Member2 x xs ys =
-   ( KnownNat (IndexOf (TypeAt (IndexOf x xs) xs)  xs)
-   , KnownNat (IndexOf (TypeAt (IndexOf x ys) ys) ys)
-   )
+-- type Member2 x xs ys =
+--    ( KnownNat (IndexOf (TypeAt (IndexOf x xs) xs) xs)
+--    , KnownNat (IndexOf (TypeAt (IndexOf x ys) ys) ys)
+--    , KnownNat (IndexOf x xs)
+--    , KnownNat (IndexOf x ys)
+--    )
+
+-- type Member3 x xs =
+--    ( KnownNat (IndexOf (TypeAt (IndexOf x xs) xs) xs)
+--    , KnownNat (IndexOf x xs)
+--    )
+
+-- type Member4 head tail xs =
+--    ( Member head xs
+--    , Distinct tail
+--    , tail ~ (Without head xs)
+--    , tail ~ Tail xs
+--    , head ~ Head xs
+--    )
 
 -- type AllMember (xs :: [Type]) = AllMemberCtx xs xs
 
 -- type family AllMemberCtx (ctx :: [Type]) (xs :: [Type]) :: Constraint where
 --     AllMemberCtx ctx '[] = ()
---     AllMemberCtx ctx (x ': xs) = (Member x ctx, AllMemberCtx ctx xs)
+--     AllMemberCtx ctx (x ': xs) = (Member3 x ctx,  AllMemberCtx ctx xs)
+--     -- AllMemberCtx ctx (x ': xs) = (Member3 x ctx, Member4 x xs (x ': xs),  AllMemberCtx ctx xs)
 
--- | For each x in xs, create a (KnownNat (IndexOf x ys)) contraint
-type family Subset (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) :: Constraint where
-    Subset as bs  '[] = ()
-    Subset as bs (x ': xs) = (Member2 x as bs, Subset as bs xs)
+-- -- | For each x in xs, create a (KnownNat (IndexOf x ys)) contraint
+-- type family Subset (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) :: Constraint where
+--     Subset as bs  '[] = ()
+--     Subset as bs (x ': xs) = (Member2 x as bs, Subset as bs xs)
+--     -- Subset as bs (x ': xs) = (Subset as bs xs)
 
 -- -- | For each x in xs, create a (KnownNat (IndexOf (TypeAt i xs) ys)) contraint
 -- type family Subset2 (smaller :: [Type]) (larger :: [Type]) :: Constraint where
@@ -113,13 +138,13 @@ type family AllTypeable (xs :: [Type]) :: Constraint where
     AllTypeable '[] = ()
     AllTypeable (x ': xs) = (Typeable x, AllTypeable xs)
 
-type family Tail (xs :: [Type]) :: [Type] where
-    Tail '[] = '[]
-    Tail (x ': xs) = xs
+-- type family Tail (xs :: [Type]) :: [Type] where
+--     Tail '[] = '[]
+--     Tail (x ': xs) = xs
 
-type family Head (xs :: [Type]) :: Type where
-    Head '[] = ()
-    Head (x ': xs) = x
+-- type family Head (xs :: [Type]) :: Type where
+--     Head '[] = ()
+--     Head (x ': xs) = x
 
 -- -- | Check that a list is a subset of another
 -- type family IsSubset smaller larger :: Bool where

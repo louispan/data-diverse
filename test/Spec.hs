@@ -23,6 +23,7 @@ import Test.Hspec
 proxy :: a -> Proxy a
 proxy _ = Proxy
 
+
 main :: IO ()
 main = do
     hspec $ do

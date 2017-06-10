@@ -13,6 +13,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ConstrainedClassMethods #-}
+{-# LANGUAGE PolyKinds #-}
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
@@ -45,12 +46,14 @@ import Data.Monoid hiding (Any)
 -- * No duplicate types allowed in the type list, enforced by GADTs.
 -- * Labels are not required, just use TypeApplication for the expected type.
 -- * Not exposing the type index position, so there is not getByIndex api.
+-- Not using GADTs as the Distinct constraint as it gets in the way when I know something is Distinct, but I don't know
+-- how to prove it to GHC. Eg a subset of something distinct is also distinct...
 data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 -- data Many (xs :: [Type]) where
 --     Many :: (Distinct xs) => {-# UNPACK #-} !Word -> Any -> Many xs
 
 -- | Unlike Haskus and HList versions, nominal is required for GADTs with constraints
-type role Many nominal
+type role Many representational
 
 -- | A switch/case statement for Many. Apply a 'Catalog' of functions to a variant of values.
 -- The functional dependency helps avoid undecidable instances
@@ -81,15 +84,10 @@ instance ( Length xs ~ Length '[a, b]
          _ -> (t ^. item) (unsafeCoerce v :: b)
 
 ---------------
+
+
 -- | Holds an existential that can handle any Typeable input
 data CaseTypeable r = CaseTypeable (forall a. Typeable a => a -> r)
-
--- Unfortunately the following doesn't work. GHC isn't able to deduce that (TypeAt x xs) is a Typeable
--- It is safe to use fromJust as the constructor ensures n is >= 0
--- instance AllTypeable xs => Switch xs (CaseTypeable r) r where
---     switch (Many n v) (CaseTypeable f) = let Just someNat = someNatVal (toInteger n)
---                                      in case someNat of
---                                             SomeNat (_ :: Proxy x) -> f (unsafeCoerce v :: TypeAt x xs)
 
 instance Typeable a => Switch '[a] (CaseTypeable r) r where
     switch (Many _ v) (CaseTypeable f) = f (unsafeCoerce v :: a)
@@ -99,40 +97,66 @@ instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
          0 -> f (unsafeCoerce v :: a)
          _ -> f (unsafeCoerce v :: b)
 
+----------------
 
--- | It is safe to use fromJust as the constructor ensures n is >= 0
-forany :: forall xs r. (forall a. a -> r) -> Many xs -> r
-forany f (Many n v) =
-    let someNat = fromJust (someNatVal (toInteger n))
-    in case someNat of
-        SomeNat (_ :: Proxy i) ->
-            f (unsafeCoerce v :: TypeAt i xs)
+-- FIXME: Naming
+-- Copied from https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Variant.hs#L363
+-- This will be efficiently compiled into a single case statement in 8.2.1
+-- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
+class Increase xs ys where
+    increase :: Many xs -> Many ys
 
--- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
--- more = forany toMany
+-- | There is no instance of Increase '[] since @Many '[]@ will never be constructed.
+-- Leave that instance unimplemented so the compiler will error if it is somehow needed.
+instance forall x xs ys.
+      ( Increase xs ys
+      , Member x ys
+      , Member x xs
+      ) => Increase (x ': xs) ys
+   where
+      increase v = case pickHead v of
+         Right a  -> Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) (unsafeCoerce a)
+         Left  v' -> increase v'
 
--- -- | Not working as GHC does not know that i is within our range!
--- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
--- more (Many n v) =
---     let someNat = fromJust (someNatVal (toInteger n))
---     in case someNat of
---         SomeNat (_ :: Proxy i) ->
---             let n' = fromIntegral (natVal @(IndexOf (TypeAt i xs) ys) Proxy)
---             in Many n' v
+class Decrease xs ys where
+    decrease :: Many xs -> Maybe (Many ys) -- FIXME: Use Either
 
--- -- Not working as GHC does not know that i is within our range!
--- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
--- more (Many n v) =
---     let someNat = fromJust (someNatVal (toInteger n))
---     in case someNat of
---         SomeNat (_ :: Proxy i) -> toMany (unsafeCoerce v :: TypeAt i xs)
+-- | There is no instance of Decrease '[] since @Many '[]@ will never be constructed.
+-- Leave that instance unimplemented so the compiler will error if it is somehow needed.
+instance forall x xs ys.
+      ( Decrease xs ys
+      , Member x xs
+      , KnownNat (PositionOf x ys)
+      ) => Decrease (x ': xs) ys
+   where
+      decrease v = case pickHead v of
+         Right a  -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
+                         0 -> Nothing
+                         i -> Just $ Many (i - 1) (unsafeCoerce a)
+         Left  v' -> decrease v'
+
+-- increase :: Many as -> Many ys
+-- increase a = case pickHead a of
+--     Right v -> undefined
+--     Left v -> undefined -- increase v
+
+proxy2 :: a -> Proxy a
+proxy2 _ = Proxy
+
+-- increase :: forall xs ys. (Distinct ys, AllMemberCtx ys ys) => Many xs -> Many ys
+-- increase a = case pickHead a of
+--     Right v -> case proxy2 v of
+--                    (_ :: Proxy v') -> Many (fromIntegral (natVal @(IndexOf v' xs) Proxy)) (unsafeCoerce v)
+--     Left v -> undefined --increase v
+
+-- increase2 :: (Distinct ys, AllMemberCtx ys ys, AllMemberCtx xs xs) => Many xs -> Many ys
+-- increase2 a = case pickHead a of
+--     Right v -> toMany v
+--     Left v -> error "hi"
 
 -- | Construct a Many out of a value
 toMany :: forall x xs. (Distinct xs, Member x xs) => x -> Many xs
 toMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
-
--- toMany' :: forall x xs. (Distinct xs) => x -> Maybe (Many xs)
--- toMany' = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | Deconstruct a Many into a Maybe value
 fromMany :: forall x xs. (Member x xs) => Many xs -> Maybe x
@@ -143,7 +167,7 @@ fromMany (Many n v) = if n == fromIntegral (natVal @(IndexOf x xs) Proxy)
 -- | Try to pick a value out of a Many, and get Either the Right value or the Left-over possibilities.
 pick
     :: forall x xs.
-       (Distinct (Without x xs), Member x xs)
+       (Member x xs)
     => Many xs -> Either (Many (Without x xs)) x
 pick (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
                   in if n == i
@@ -153,20 +177,31 @@ pick (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
                           else Left (Many n v)
 
 -- | Pick the first type in the type list.
-pickHead
-    :: ( Member head xs
-       , Distinct tail
-       , tail ~ (Without head xs)
-       , tail ~ Tail xs
-       , head ~ Head xs
-       )
-    => Many xs -> Either (Many tail) head
-pickHead = pick
+pickHead :: Many (x ': xs) -> Either (Many xs) x
+pickHead (Many n v) = if n == 0
+           then Right (unsafeCoerce v :: x)
+           else Left (Many (n - 1) v)
+
+-- pickHead
+--     :: ( Member head xs
+--        , tail ~ (Without head xs)
+--        , tail ~ Tail xs
+--        , head ~ Head xs
+--        )
+--     => Many xs -> Either (Many tail) head
+-- pickHead = pick
 
 -- | A Many with one type is not many at all.
 -- We can retrieve the value without a Maybe
 notMany :: Many '[a] -> a
 notMany (Many _ v) = unsafeCoerce v :: a
+
+-- class Diverge xs ys where
+--     diverge :: Many xs -> Many ys
+
+-- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
+
+-- http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
 
 -- | A Many has a prism to an the inner type.
 class Facet branch tree where
@@ -245,3 +280,46 @@ ack = re wock
 -- disallow empty many
 
 -- FIXME: use type family avoid repeated constraints for each type in xs
+
+
+
+-- more :: forall xs ys. Distinct ys, Subset xs ys xs) => Many xs -> Many ys
+-- more = forany toMany
+
+-- -- | Not working as GHC does not know that i is within our range!
+-- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
+-- more (Many n v) =
+--     let someNat = fromJust (someNatVal (toInteger n))
+--     in case someNat of
+--         SomeNat (_ :: Proxy i) ->
+--             let n' = fromIntegral (natVal @(IndexOf (TypeAt i xs) ys) Proxy)
+--             in Many n' v
+
+-- more :: forall xs ys. (Distinct ys, Subset xs ys xs) => Many xs -> Many ys
+-- more (Many n v) =
+--     let someNat = fromJust (someNatVal (toInteger n))
+--     in case someNat of
+--         SomeNat (_ :: Proxy i) -> toMany' (unsafeCoerce v :: TypeAt i xs)
+--   where
+--     -- | Doesn't work, GHC cannot instantiate a KnownNat forall x
+--     toMany' :: forall x. (Distinct ys, Member x ys) => x -> Many ys
+--     toMany' = Many (fromIntegral (natVal @(IndexOf x ys) Proxy)) . unsafeCoerce
+
+
+-- Unfortunately the following doesn't work. GHC isn't able to deduce that (TypeAt x xs) is a Typeable
+-- It is safe to use fromJust as the constructor ensures n is >= 0
+-- instance AllTypeable xs => Switch xs (CaseTypeable r) r where
+--     switch (Many n v) (CaseTypeable f) = let Just someNat = someNatVal (toInteger n)
+--                                      in case someNat of
+--                                             SomeNat (_ :: Proxy x) -> f (unsafeCoerce v :: TypeAt x xs)
+
+
+
+-- -- | It is safe to use fromJust as the constructor ensures n is >= 0
+-- -- Remove as it's not really useful
+-- forany :: forall xs r. (forall a. a -> r) -> Many xs -> r
+-- forany f (Many n v) =
+--     let someNat = fromJust (someNatVal (toInteger n))
+--     in case someNat of
+--         SomeNat (_ :: Proxy i) ->
+--             f (unsafeCoerce v :: TypeAt i xs)
