@@ -152,6 +152,17 @@ pick (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
                           then Left (Many (n - 1) v)
                           else Left (Many n v)
 
+-- | Pick the first type in the type list.
+pickHead
+    :: ( Member head xs
+       , Distinct tail
+       , tail ~ (Without head xs)
+       , tail ~ Tail xs
+       , head ~ Head xs
+       )
+    => Many xs -> Either (Many tail) head
+pickHead = pick
+
 -- | A Many with one type is not many at all.
 -- We can retrieve the value without a Maybe
 notMany :: Many '[a] -> a
