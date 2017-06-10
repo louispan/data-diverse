@@ -90,7 +90,7 @@ main = do
 
             it "can be switched with CaseTypeable" $ do
                 let y = toMany (5 :: Int) :: Many '[Int, Bool]
-                forMany y (show . typeRep . proxy) `shouldBe` "Int"
+                forMany y (CaseTypeable2 @'[Int, Bool] (show . typeRep . proxy)) `shouldBe` "Int"
 
             -- it "can be switched with forany" $ do
             --     let y = pick (5 :: Int) :: Many '[Int, Bool]

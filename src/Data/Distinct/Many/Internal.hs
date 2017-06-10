@@ -97,20 +97,47 @@ instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
          0 -> f (unsafeCoerce v :: a)
          _ -> f (unsafeCoerce v :: b)
 
+data CaseTypeable2 xs r = CaseTypeable2 (forall a. Typeable a => a -> r)
 
-class ForMany xs where
-    forMany :: Many xs -> (forall x. Typeable x => x -> r) -> r
+instance Typeable (Head xs) => AcceptsMany CaseTypeable2 xs r where
+    accept (CaseTypeable2 f) = f
+    next (CaseTypeable2 f) = CaseTypeable2 f
 
-instance (Typeable x) => ForMany '[x] where
-    forMany v f = case notMany v of
-            a -> f a
+class AcceptsMany p xs r where
+    accept :: p xs r -> (Head xs -> r)
+    next :: p xs r -> p (Tail xs) r
 
-instance (ForMany (x' ': xs), Typeable x) =>
-         ForMany (x ': x' ': xs) where
-    forMany v f =
+class ForMany xs f r  where
+    forMany :: Many xs -> f -> r
+
+instance (AcceptsMany p '[x] r) => ForMany '[x] (p '[x] r) r where
+    forMany v p = case notMany v of
+            a -> (accept p) a
+
+instance (AcceptsMany p (x ': x' ': xs) r, ForMany (x' ': xs) (p (x' ': xs) r) r) =>
+         ForMany (x ': x' ': xs) (p (x ': x' ': xs) r) r where
+    forMany v p =
         case pickHead v of
-            Right a -> f a
-            Left v' -> forMany v' f
+            Right a -> (accept p) a
+            Left v' -> forMany v' (next p)
+
+
+
+-- class ForMany xs where
+--     forMany :: Many xs -> (forall x. Typeable x => x -> r) -> r
+
+-- instance (Typeable x) => ForMany '[x] where
+--     forMany v f = case notMany v of
+--             a -> f a
+
+-- instance (ForMany (x' ': xs), Typeable x) =>
+--          ForMany (x ': x' ': xs) where
+--     forMany v f =
+--         case pickHead v of
+--             Right a -> f a
+--             Left v' -> forMany v' f
+
+
 
 ----------------
 

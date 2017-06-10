@@ -138,13 +138,13 @@ type family AllTypeable (xs :: [Type]) :: Constraint where
     AllTypeable '[] = ()
     AllTypeable (x ': xs) = (Typeable x, AllTypeable xs)
 
--- type family Tail (xs :: [Type]) :: [Type] where
---     Tail '[] = '[]
---     Tail (x ': xs) = xs
+type family Tail (xs :: [Type]) :: [Type] where
+    Tail '[] = '[]
+    Tail (x ': xs) = xs
 
--- type family Head (xs :: [Type]) :: Type where
---     Head '[] = ()
---     Head (x ': xs) = x
+type family Head (xs :: [Type]) :: Type where
+    Head '[] = ()
+    Head (x ': xs) = x
 
 -- -- | Check that a list is a subset of another
 -- type family IsSubset smaller larger :: Bool where
