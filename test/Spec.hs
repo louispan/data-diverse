@@ -78,10 +78,10 @@ main = do
 
             it "can be switched with a catalog of handlers in any order" $ do
                 let y = toMany (5 :: Int) :: Many '[Int, Bool]
-                switch y (Cases (catalog
+                switch y (cases
                     ( show @Bool
                     , show @Int)
-                    )) `shouldBe` "5"
+                    ) `shouldBe` "5"
 
             it "can be switched with CaseTypeable" $ do
                 let y = toMany (5 :: Int) :: Many '[Int, Bool]

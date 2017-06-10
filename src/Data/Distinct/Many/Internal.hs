@@ -65,20 +65,29 @@ class Switch xs handler r where
 
 instance (Case p '[x] r) => Switch '[x] p r where
     switch v p = case notMany v of
-            a -> (accept p) a
+            a -> accept p a
 
 instance (Case p (x ': x' ': xs) r, Switch (x' ': xs) p r) =>
          Switch (x ': x' ': xs) p r where
     switch v p =
         case pickHead v of
-            Right a -> (accept p) a
+            Right a -> accept p a
             Left v' -> switch v' (next p)
 
 -- | Allows storing polymorphic functions with extra constraints that
 -- is used on each iteration of 'Switch'
+-- What is the Visitor pattern doing here?
 class Case p xs r where
     accept :: p xs r -> (Head xs -> r)
     next :: p xs r -> p (Tail xs) r
+
+newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
+
+-- | Create Cases for handling 'switch' from a tuple.
+-- Example: @switch a $ cases (f, g, h)@
+-- FIXME: Add additional constraints on return type Accept r
+cases :: (fs ~ TypesOf (Unwrapped (Catalog fs)), Wrapped (Catalog fs)) => Unwrapped (Catalog fs) -> Cases fs xs r
+cases = Cases . catalog
 
 -- | Uses a phantom xs in order for Case instances to carry additional constraints
 data CaseTypeable (xs :: [Type]) r = CaseTypeable (forall a. Typeable a => a -> r)
@@ -87,17 +96,9 @@ instance Typeable (Head xs) => Case CaseTypeable xs r where
     accept (CaseTypeable f) = f
     next (CaseTypeable f) = CaseTypeable f
 
-newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
-
 instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
     accept (Cases catalog) = catalog ^. item
     next (Cases catalog) = Cases catalog
-
--- | A convenient synonym function to create a Catalogs for handling 'switch'.
--- Example: @switch a $ cases (f, g, h)@
--- FIXME: Add additional constraints on return type Accept r
--- cases :: (xs ~ TypesOf (Unwrapped (Catalog xs)), Wrapped (Catalog xs)) => Unwrapped (Catalog xs) -> Catalog xs
--- cases = catalog
 
 -- | Catamorphism for many. This is @flip switch@
 many :: Switch xs handler r => handler xs r -> Many xs -> r
