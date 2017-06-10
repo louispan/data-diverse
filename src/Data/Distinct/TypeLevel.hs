@@ -16,10 +16,6 @@ import Data.Dynamic
 -- | A constraint ensuring that the type list contain unique types
 type Distinct (xs :: [Type]) = UnionEx xs '[] xs ~ xs
 
--- -- | Check that a list is a subset of another
--- type family IsSubset smaller larger :: Bool where
---    IsSubset s l = IsSubsetEx l s l
-
 -- | Convert a list types into a list of handlers/continuations with a result type.
 type family Accepts r (xs :: [Type]) :: [Type] where
     Accepts r '[] = '[]
@@ -55,25 +51,59 @@ type TypeAt (n :: Nat) (xs :: [Type]) = TypeAtEx n xs n xs
 
 -- | Constraint: x member of xs
 -- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L257
-type Member x xs =
-   ( IsMember x xs ~ 'True
-   , x ~ TypeAt (IndexOf x xs) xs
-   , KnownNat (IndexOf x xs)
-   )
+-- type Member x xs =
+--    ( IsMember x xs ~ 'True
+--    , x ~ TypeAt (IndexOf x xs) xs
+--    , KnownNat (IndexOf x xs)
+--    )
 
 type Without x (xs :: [Type]) = DoWithout x '[] xs
 
 type Reverse (xs :: [Type]) = DoReverse '[] xs
 
--- type Member x xs = (KnownNat (IndexOf x xs))
+-- | FIXME: Rename
+type Member x xs = (KnownNat (IndexOf x xs)) -- Constraint
+-- type Member x xs =
+--    ( x ~ TypeAt (IndexOf x xs) xs
+--    , KnownNat (IndexOf x xs)
+--    )
+
+type Member2 x xs ys =
+   ( KnownNat (IndexOf (TypeAt (IndexOf x xs) xs)  xs)
+   , KnownNat (IndexOf (TypeAt (IndexOf x ys) ys) ys)
+   )
+
+-- type AllMember (xs :: [Type]) = AllMemberCtx xs xs
+
+-- type family AllMemberCtx (ctx :: [Type]) (xs :: [Type]) :: Constraint where
+--     AllMemberCtx ctx '[] = ()
+--     AllMemberCtx ctx (x ': xs) = (Member x ctx, AllMemberCtx ctx xs)
+
+-- | For each x in xs, create a (KnownNat (IndexOf x ys)) contraint
+type family Subset (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) :: Constraint where
+    Subset as bs  '[] = ()
+    Subset as bs (x ': xs) = (Member2 x as bs, Subset as bs xs)
+
+-- -- | For each x in xs, create a (KnownNat (IndexOf (TypeAt i xs) ys)) contraint
+-- type family Subset2 (smaller :: [Type]) (larger :: [Type]) :: Constraint where
+--     Subset2 '[] ys = ()
+--     Subset2 (x ': xs) ys = (Member x ys, Subset2 xs ys)
 
 type family Length (xs :: [Type]) :: Nat where
     Length '[] = 0
     Length (x ': xs) = 1 + Length xs
 
--- | Check that a type is member of a type list
-type IsMember x xs = IsMemberEx xs x xs
+-- -- | Check that a type is member of a type list
+-- type IsMember x xs = IsMemberEx xs x xs
 
 type family AllTypeable (xs :: [Type]) :: Constraint where
    AllTypeable '[] = ()
    AllTypeable (x ': xs) = (Typeable x, AllTypeable xs)
+
+-- -- | Check that a list is a subset of another
+-- type family IsSubset smaller larger :: Bool where
+--    IsSubset s l = IsSubsetEx l s l
+
+-- -- | Check that a list is a subset of another
+-- type family IsSubset smaller larger :: Bool where
+--    IsSubset s l = IsSubsetEx l s l

@@ -71,18 +71,18 @@ type family UnionEx (ctx :: [Type]) (xs :: [Type]) (ys :: [Type]) :: [Type] wher
 --    IsSubsetEx ctx (x ': xs) (x ': ys) = IsSubsetEx ctx xs ctx
 --    IsSubsetEx ctx (x ': xs) (y ': ys) = IsSubsetEx ctx (x ': xs) ys
 
--- | Check that a type is member of a type list
--- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L158
-type family IsMemberEx (ctx :: [Type]) x xs :: Bool where
-   IsMemberEx ctx x (x ': xs) = 'True
-   IsMemberEx ctx x (y ': xs) = IsMemberEx ctx x xs
-   IsMemberEx ctx x '[] = TypeError ( 'Text "‘"
-                                    ':<>: 'ShowType x
-                                    ':<>: 'Text "’"
-                                    ':<>: 'Text " is not a member of "
-                                    ':<>: 'Text "‘"
-                                    ':<>: 'ShowType ctx
-                                    ':<>: 'Text "’")
+-- -- | Check that a type is member of a type list
+-- -- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L158
+-- type family IsMemberEx (ctx :: [Type]) x xs :: Bool where
+--    IsMemberEx ctx x (x ': xs) = 'True
+--    IsMemberEx ctx x (y ': xs) = IsMemberEx ctx x xs
+--    IsMemberEx ctx x '[] = TypeError ( 'Text "‘"
+--                                     ':<>: 'ShowType x
+--                                     ':<>: 'Text "’"
+--                                     ':<>: 'Text " is not a member of "
+--                                     ':<>: 'Text "‘"
+--                                     ':<>: 'ShowType ctx
+--                                     ':<>: 'Text "’")
 
 -- | Indexed access into the list
 type family TypeAtEx (orig :: Nat) (ctx :: [Type]) (n :: Nat) (xs :: [Type]) where

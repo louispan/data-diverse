@@ -37,18 +37,20 @@ import Data.Monoid hiding (Any)
 -- Mnemonic: It doesn't not one of Any type, it contains one of of Many types.
 --
 -- The variant contains a value whose type is at the given position in the type list.
--- This is the same encoding as Haskus.Util.Many and HList (which used Int instead of Word)
+-- This is similar to the encoding as Haskus.Util.Many and HList (which used Int instead of Word)
 -- See https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Many.hs
 -- and https://hackage.haskell.org/package/HList-0.4.1.0/docs/src/Data-HList-Many.html
 --
--- This api has the following differences:
--- * No duplicate types allowed in the type list
--- * don't exposing an indexByN inteface or getByLabel interface
--- * just use TypeApplication for the expected type instead
+-- This encoding has the following differences:
+-- * No duplicate types allowed in the type list, enforced by GADTs.
+-- * Labels are not required, just use TypeApplication for the expected type.
+-- * Not exposing the type index position, so there is not getByIndex api.
 data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
+-- data Many (xs :: [Type]) where
+--     Many :: (Distinct xs) => {-# UNPACK #-} !Word -> Any -> Many xs
 
--- | As per Haskus and HList versions, the inferred role is phantom, which is not safe
-type role Many representational
+-- | Unlike Haskus and HList versions, nominal is required for GADTs with constraints
+type role Many nominal
 
 -- | A switch/case statement for Many. Apply a 'Catalog' of functions to a variant of values.
 -- The functional dependency helps avoid undecidable instances
@@ -83,7 +85,7 @@ instance ( Length xs ~ Length '[a, b]
 data CaseTypeable r = CaseTypeable (forall a. Typeable a => a -> r)
 
 -- Unfortunately the following doesn't work. GHC isn't able to deduce that (TypeAt x xs) is a Typeable
---
+-- It is safe to use fromJust as the constructor ensures n is >= 0
 -- instance AllTypeable xs => Switch xs (CaseTypeable r) r where
 --     switch (Many n v) (CaseTypeable f) = let Just someNat = someNatVal (toInteger n)
 --                                      in case someNat of
@@ -97,31 +99,54 @@ instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
          0 -> f (unsafeCoerce v :: a)
          _ -> f (unsafeCoerce v :: b)
 
--- -- | It is safe to use fromJust as the constructor ensures n is >= 0
--- forany :: forall xs r. Many xs -> (forall a. a -> r) -> r
--- forany (Many n v) f = let someNat = fromJust (someNatVal (toInteger n))
---                       in case someNat of
---                              SomeNat (_ :: Proxy i) ->
---                                  f (unsafeCoerce v :: TypeAt i xs)
+
+-- | It is safe to use fromJust as the constructor ensures n is >= 0
+forany :: forall xs r. (forall a. a -> r) -> Many xs -> r
+forany f (Many n v) =
+    let someNat = fromJust (someNatVal (toInteger n))
+    in case someNat of
+        SomeNat (_ :: Proxy i) ->
+            f (unsafeCoerce v :: TypeAt i xs)
+
+-- more :: forall xs ys. (Distinct ys, AllMember ys) => Many xs -> Many ys
+-- more = forany toMany
+-- Not working as GHC does not know that i is within our range!
+-- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
+-- more (Many n v) =
+--     let someNat = fromJust (someNatVal (toInteger n))
+--     in case someNat of
+--         SomeNat (_ :: Proxy i) ->
+--             let n' = fromIntegral (natVal @(IndexOf (TypeAt i xs) ys) Proxy)
+--             in Many n' v
+
+-- -- Not working as GHC does not know that i is within our range!
+-- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
+-- more (Many n v) =
+--     let someNat = fromJust (someNatVal (toInteger n))
+--     in case someNat of
+--         SomeNat (_ :: Proxy i) -> toMany (unsafeCoerce v :: TypeAt i xs)
 
 -- | Construct a Many out of a value
-toMany :: forall a xs. (Distinct xs, Member a xs) => a -> Many xs
-toMany = Many (fromIntegral (natVal @(IndexOf a xs) Proxy)) . unsafeCoerce
+toMany :: forall x xs. (Distinct xs, Member x xs) => x -> Many xs
+toMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+
+toMany' :: forall x xs. (Distinct xs) => x -> Maybe (Many xs)
+toMany' = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | Deconstruct a Many into a Maybe value
-fromMany :: forall a xs. (Distinct xs, Member a xs) => Many xs -> Maybe a
-fromMany (Many n v) = if n == fromIntegral (natVal @(IndexOf a xs) Proxy)
+fromMany :: forall x xs. (Member x xs) => Many xs -> Maybe x
+fromMany (Many n v) = if n == fromIntegral (natVal @(IndexOf x xs) Proxy)
             then Just (unsafeCoerce v :: a)
             else Nothing
 
--- | Deconstruct a Many into Either the Right value or the Left-over possibilities.
+-- | Try to pick a value out of a Many, and get Either the Right value or the Left-over possibilities.
 pick
-    :: forall a xs ys.
-       (Distinct xs, Distinct ys, Member a xs, ys ~ Without a xs)
-    => Many xs -> Either (Many ys) a
-pick (Many n v) = let i = fromIntegral (natVal @(IndexOf a xs) Proxy)
+    :: forall x xs.
+       (Distinct (Without x xs), Member x xs)
+    => Many xs -> Either (Many (Without x xs)) x
+pick (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
                   in if n == i
-                     then Right (unsafeCoerce v :: a)
+                     then Right (unsafeCoerce v :: x)
                      else if n > i
                           then Left (Many (n - 1) v)
                           else Left (Many n v)
@@ -138,14 +163,14 @@ class Facet branch tree where
     facet :: Prism' tree branch
 
 -- | UndecidableInstance due to xs appearing more often in the constraint.
--- Safe because xs will not expand to Many xs or bigger.
+-- Safe because xs will not expand to @Many xs@ or bigger.
 instance (Distinct xs, Member a xs) => Facet a (Many xs) where
     facet = prism' toMany fromMany
     {-# INLINE facet #-}
 
 -- | Injection.
--- Basically the same class as 'Facet' but with type params reversed.
 -- A Many can be narrowed to contain more types or have it order changed by injecting into another Many type.
+-- This typeclass looks like 'Facet' but is used for different purposes. Also it has the type params reversed.
 class Inject tree branch where
     -- | Enlarge number of or change order of types in the variant.
     -- Use TypeApplication to specify the destination type.

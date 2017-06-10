@@ -66,7 +66,7 @@ main = do
                     x = preview (facet @Int) y
                 x `shouldBe` (Just 5)
 
-            it "omit and until it's not many" $ do
+            it "can be pick'ed until it's not many" $ do
                 let y = toMany (5 :: Int) :: Many '[Int, Bool]
                     -- y' = toMany (5 :: Int) :: Many '[Int]
                     x = pick y :: Either (Many '[Int]) Bool
