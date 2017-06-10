@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -12,8 +11,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ConstrainedClassMethods #-}
-{-# LANGUAGE PolyKinds #-}
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
@@ -52,8 +49,13 @@ data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 -- data Many (xs :: [Type]) where
 --     Many :: (Distinct xs) => {-# UNPACK #-} !Word -> Any -> Many xs
 
--- | Unlike Haskus and HList versions, nominal is required for GADTs with constraints
+-- | Just like Haskus and HList versions, inferred type is phamtom which is wrong
+-- NB. nominal is required for GADTs with constraints
 type role Many representational
+
+-- | Catamorphism for many. This is @flip switch@
+many :: Switch xs handler r => handler xs r -> Many xs -> r
+many = flip switch
 
 -- | A switch/case statement for Many.
 -- There is only one instance of this class which visits through the possibilities in Many,
@@ -67,10 +69,12 @@ instance (Case p '[x] r) => Switch '[x] p r where
     switch v p = case notMany v of
             a -> picked p a
 
+-- | This code will be efficiently compiled into a single case statement in 8.2.1
+-- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
 instance (Case p (x ': x' ': xs) r, Switch (x' ': xs) p r) =>
          Switch (x ': x' ': xs) p r where
     switch v p =
-        case pickHead v of
+        case pickOne v of
             Right a -> picked p a
             Left v' -> switch v' (next p)
 
@@ -101,16 +105,12 @@ instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
     picked (Cases s) = s ^. item
     next (Cases s) = Cases s
 
--- | Catamorphism for many. This is @flip switch@
-many :: Switch xs handler r => handler xs r -> Many xs -> r
-many = flip switch
-
 ----------------
 
 -- FIXME: Naming
 -- Copied from https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Variant.hs#L363
--- This will be efficiently compiled into a single case statement in 8.2.1
--- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
+-- | Convert a Many to another Many that includes other possibilities.
+-- Can be used to rearrange the order of the types in the Many.
 class Increase xs ys where
     increase :: Many xs -> Many ys
 
@@ -124,10 +124,11 @@ instance forall x x' xs ys.
       , Distinct ys
       ) => Increase (x ': x' ': xs) ys
    where
-      increase v = case pickHead v of
+      increase v = case pickOne v of
          Right a  -> toMany a
          Left  v' -> increase v'
 
+-- | Convert a Many into possibly another Many
 class Decrease xs ys where
     decrease :: Many xs -> Maybe (Many ys) -- FIXME: Use Either
 
@@ -143,28 +144,28 @@ instance forall x x' xs ys.
       , Distinct ys
       ) => Decrease (x ': x' ': xs) ys
    where
-      decrease v = case pickHead v of
+      decrease v = case pickOne v of
          Right a  -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
                          0 -> Nothing
                          i -> Just $ Many (i - 1) (unsafeCoerce a)
          Left  v' -> decrease v'
 
 -- increase :: Many as -> Many ys
--- increase a = case pickHead a of
+-- increase a = case pickOne a of
 --     Right v -> undefined
 --     Left v -> undefined -- increase v
 
-proxy2 :: a -> Proxy a
-proxy2 _ = Proxy
+-- proxy2 :: a -> Proxy a
+-- proxy2 _ = Proxy
 
 -- increase :: forall xs ys. (Distinct ys, AllMemberCtx ys ys) => Many xs -> Many ys
--- increase a = case pickHead a of
+-- increase a = case pickOne a of
 --     Right v -> case proxy2 v of
 --                    (_ :: Proxy v') -> Many (fromIntegral (natVal @(IndexOf v' xs) Proxy)) (unsafeCoerce v)
 --     Left v -> undefined --increase v
 
 -- increase2 :: (Distinct ys, AllMemberCtx ys ys, AllMemberCtx xs xs) => Many xs -> Many ys
--- increase2 a = case pickHead a of
+-- increase2 a = case pickOne a of
 --     Right v -> toMany v
 --     Left v -> error "hi"
 
@@ -191,19 +192,19 @@ pick (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
                           else Left (Many n v)
 
 -- | Pick the first type in the type list.
-pickHead :: Many (x ': xs) -> Either (Many xs) x
-pickHead (Many n v) = if n == 0
+pickOne :: Many (x ': xs) -> Either (Many xs) x
+pickOne (Many n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Many (n - 1) v)
 
--- pickHead
+-- pickOne
 --     :: forall xs t h. ( Member h xs
 --        -- , t ~ (Without h xs)
 --        , t ~ Tail xs
 --        , h ~ Head xs
 --        )
 --     => Many xs -> Either (Many t) h
--- pickHead (Many n v) = let i = fromIntegral (natVal @(IndexOf (Head xs) xs) Proxy)
+-- pickOne (Many n v) = let i = fromIntegral (natVal @(IndexOf (Head xs) xs) Proxy)
 --                       in if n == i
 --                          then Right (unsafeCoerce v)
 --                          else if n > i
