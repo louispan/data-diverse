@@ -108,9 +108,10 @@ forany f (Many n v) =
         SomeNat (_ :: Proxy i) ->
             f (unsafeCoerce v :: TypeAt i xs)
 
--- more :: forall xs ys. (Distinct ys, AllMember ys) => Many xs -> Many ys
+-- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
 -- more = forany toMany
--- Not working as GHC does not know that i is within our range!
+
+-- -- | Not working as GHC does not know that i is within our range!
 -- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
 -- more (Many n v) =
 --     let someNat = fromJust (someNatVal (toInteger n))
@@ -130,13 +131,13 @@ forany f (Many n v) =
 toMany :: forall x xs. (Distinct xs, Member x xs) => x -> Many xs
 toMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
-toMany' :: forall x xs. (Distinct xs) => x -> Maybe (Many xs)
-toMany' = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+-- toMany' :: forall x xs. (Distinct xs) => x -> Maybe (Many xs)
+-- toMany' = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | Deconstruct a Many into a Maybe value
 fromMany :: forall x xs. (Member x xs) => Many xs -> Maybe x
 fromMany (Many n v) = if n == fromIntegral (natVal @(IndexOf x xs) Proxy)
-            then Just (unsafeCoerce v :: a)
+            then Just (unsafeCoerce v)
             else Nothing
 
 -- | Try to pick a value out of a Many, and get Either the Right value or the Left-over possibilities.

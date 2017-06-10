@@ -10,10 +10,10 @@ import GHC.TypeLits
 
 -- | Get the first index of a type with exception on original search list
 -- Modified from https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L223
-type family IndexOfEx (ctx :: [Type]) x (xs :: [Type]) :: Nat where
-   IndexOfEx ctx x (x ': xs) = 0
-   IndexOfEx ctx y (x ': xs) = 1 + IndexOfEx ctx y xs
-   IndexOfEx ctx y '[]       = TypeError ( 'Text "‘"
+type family IndexOfImpl (ctx :: [Type]) x (xs :: [Type]) :: Nat where
+   IndexOfImpl ctx x (x ': xs) = 0
+   IndexOfImpl ctx y (x ': xs) = 1 + IndexOfImpl ctx y xs
+   IndexOfImpl ctx y '[]       = TypeError ( 'Text "‘"
                                            ':<>: 'ShowType y
                                            ':<>: 'Text "’"
                                            ':<>: 'Text " is not a member of "
@@ -23,11 +23,11 @@ type family IndexOfEx (ctx :: [Type]) x (xs :: [Type]) :: Nat where
 
 -- | Add a type to a typelist, disallowing duplicates.
 -- NB. xs are not checked.
-type family InsertEx (ctx :: [Type]) (xs :: [Type]) (y :: Type) :: [Type] where
+type family InsertImpl (ctx :: [Type]) (y :: Type) (xs :: [Type]) :: [Type] where
     -- empty case
-    InsertEx ctx '[] y = '[y]
+    InsertImpl ctx y '[] = '[y]
     -- case when the type matched the head
-    InsertEx ctx (x ': xs) x = TypeError ( 'Text "‘"
+    InsertImpl ctx  x (x ': xs) = TypeError ( 'Text "‘"
                                            ':<>: 'ShowType x
                                            ':<>: 'Text "’"
                                            ':<>: 'Text " is a duplicate in "
@@ -35,15 +35,8 @@ type family InsertEx (ctx :: [Type]) (xs :: [Type]) (y :: Type) :: [Type] where
                                            ':<>: 'ShowType ctx
                                            ':<>: 'Text "’")
     -- recurse if the type doesn't match the head
-    InsertEx ctx (x ': xs) y = x ': (InsertEx ctx xs y)
+    InsertImpl ctx  y (x ': xs) = x ': (InsertImpl ctx y xs)
 
--- | Combine two type lists together, assuming disallowing duplicates from ys
--- NB. xs are not checked.
-type family UnionEx (ctx :: [Type]) (xs :: [Type]) (ys :: [Type]) :: [Type] where
-    -- empty case
-    UnionEx ctx '[] '[] = '[]
-    UnionEx ctx xs '[] = xs
-    UnionEx ctx xs (y ': ys) = UnionEx ctx (InsertEx ctx xs y) ys
 
 
 -- type family SwitchResultEx (ctx :: [Type]) r (xs :: [Type]) :: Type where
@@ -85,22 +78,22 @@ type family UnionEx (ctx :: [Type]) (xs :: [Type]) (ys :: [Type]) :: [Type] wher
 --                                     ':<>: 'Text "’")
 
 -- | Indexed access into the list
-type family TypeAtEx (orig :: Nat) (ctx :: [Type]) (n :: Nat) (xs :: [Type]) where
-   TypeAtEx i ctx 0 '[] = TypeError ( 'Text "Index ‘"
+type family TypeAtImpl (orig :: Nat) (ctx :: [Type]) (n :: Nat) (xs :: [Type]) :: Type where
+   TypeAtImpl i ctx 0 '[] = TypeError ( 'Text "Index ‘"
                                    ':<>: 'ShowType i
                                    ':<>: 'Text "’"
                                    ':<>: 'Text " is out of bounds of "
                                    ':<>: 'Text "‘"
                                    ':<>: 'ShowType ctx
                                    ':<>: 'Text "’")
-   TypeAtEx i ctx 0 (x ': xs) = x
-   TypeAtEx i ctx n (x ': xs) = TypeAtEx i ctx (n - 1) xs
+   TypeAtImpl i ctx 0 (x ': xs) = x
+   TypeAtImpl i ctx n (x ': xs) = TypeAtImpl i ctx (n - 1) xs
 
-type family DoReverse (ok :: [Type]) (xs :: [Type]) :: [Type] where
-    DoReverse ok '[] = ok
-    DoReverse ok (x ': xs) = DoReverse (x ': ok) xs
+type family ReverseImpl (ok :: [Type]) (xs :: [Type]) :: [Type] where
+    ReverseImpl ok '[] = ok
+    ReverseImpl ok (x ': xs) = ReverseImpl (x ': ok) xs
 
-type family DoWithout x (ok :: [Type]) (xs :: [Type]) :: [Type] where
-    DoWithout x ok '[] = DoReverse '[] ok
-    DoWithout x ok (x ': xs) = DoWithout x ok xs
-    DoWithout x ok (y ': xs) = DoWithout x (y ': ok) xs
+type family WithoutImpl x (ok :: [Type]) (xs :: [Type]) :: [Type] where
+    WithoutImpl x ok '[] = ReverseImpl '[] ok
+    WithoutImpl x ok (x ': xs) = WithoutImpl x ok xs
+    WithoutImpl x ok (y ': xs) = WithoutImpl x (y ': ok) xs

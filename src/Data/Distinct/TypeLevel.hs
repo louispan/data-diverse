@@ -13,8 +13,20 @@ import Data.Kind
 import GHC.TypeLits
 import Data.Dynamic
 
+-- | Add a type to a typelist, disallowing duplicates.
+-- NB. xs are not checked.
+type Insert (y :: Type) (xs :: [Type]) = InsertImpl xs y xs
+
+-- | Combine two type lists together, assuming disallowing duplicates from ys
+-- NB. xs are not checked.
+type family Union (xs :: [Type]) (ys :: [Type]) :: [Type] where
+    -- empty case
+    Union '[] '[] = '[]
+    Union xs '[] = xs
+    Union xs (y ': ys) = Union (Insert y xs) ys
+
 -- | A constraint ensuring that the type list contain unique types
-type Distinct (xs :: [Type]) = UnionEx xs '[] xs ~ xs
+type Distinct (xs :: [Type]) = Union '[] xs ~ xs
 
 -- | Convert a list types into a list of handlers/continuations with a result type.
 type family Accepts r (xs :: [Type]) :: [Type] where
@@ -44,10 +56,10 @@ type family TypesOf x :: [Type] where
 --     TupleOf '[a] = a
 
 -- | Get the first index of a type
-type IndexOf x (xs :: [Type]) = IndexOfEx xs x xs
+type IndexOf x (xs :: [Type]) = IndexOfImpl xs x xs
 
 -- | Get the type at an index
-type TypeAt (n :: Nat) (xs :: [Type]) = TypeAtEx n xs n xs
+type TypeAt (n :: Nat) (xs :: [Type]) = TypeAtImpl n xs n xs
 
 -- | Constraint: x member of xs
 -- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L257
@@ -57,12 +69,13 @@ type TypeAt (n :: Nat) (xs :: [Type]) = TypeAtEx n xs n xs
 --    , KnownNat (IndexOf x xs)
 --    )
 
-type Without x (xs :: [Type]) = DoWithout x '[] xs
+type Without x (xs :: [Type]) = WithoutImpl x '[] xs
 
-type Reverse (xs :: [Type]) = DoReverse '[] xs
+type Reverse (xs :: [Type]) = ReverseImpl '[] xs
 
 -- | FIXME: Rename
-type Member x xs = (KnownNat (IndexOf x xs)) -- Constraint
+-- | Constraint
+type Member x xs = (KnownNat (IndexOf x xs))
 -- type Member x xs =
 --    ( x ~ TypeAt (IndexOf x xs) xs
 --    , KnownNat (IndexOf x xs)
