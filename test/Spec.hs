@@ -78,22 +78,18 @@ main = do
 
             it "can be switched with a catalog of handlers in any order" $ do
                 let y = toMany (5 :: Int) :: Many '[Int, Bool]
-                switch y (cases
+                switch y (Cases (catalog
                     ( show @Bool
                     , show @Int)
-                    ) `shouldBe` "5"
+                    )) `shouldBe` "5"
 
             it "can be switched with CaseTypeable" $ do
                 let y = toMany (5 :: Int) :: Many '[Int, Bool]
+                switch y (CaseTypeable @'[Int, Bool] (show . typeRep . proxy)) `shouldBe` "Int"
+
+            it "can be switched with CaseTypeable unambiguously" $ do
+                let y = toMany (5 :: Int) :: Many '[Int, Bool]
                 switch y (CaseTypeable (show . typeRep . proxy)) `shouldBe` "Int"
-
-            it "can be switched with CaseTypeable2" $ do
-                let y = toMany (5 :: Int) :: Many '[Int, Bool]
-                forMany y (CaseTypeable2 @'[Int, Bool] (show . typeRep . proxy)) `shouldBe` "Int"
-
-            it "can be switched with CaseTypeable2 unambiguously" $ do
-                let y = toMany (5 :: Int) :: Many '[Int, Bool]
-                forMany y (CaseTypeable2 (show . typeRep . proxy)) `shouldBe` "Int"
 
             -- it "can be switched with forany" $ do
             --     let y = pick (5 :: Int) :: Many '[Int, Bool]

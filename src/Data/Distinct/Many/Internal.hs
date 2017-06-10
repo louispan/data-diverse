@@ -43,11 +43,11 @@ import Data.Monoid hiding (Any)
 -- and https://hackage.haskell.org/package/HList-0.4.1.0/docs/src/Data-HList-Many.html
 --
 -- This encoding has the following differences:
--- * No duplicate types allowed in the type list, enforced by GADTs.
+-- * No duplicate types allowed in the type list
 -- * Labels are not required, just use TypeApplication for the expected type.
 -- * Not exposing the type index position, so there is not getByIndex api.
--- Not using GADTs as the Distinct constraint as it gets in the way when I know something is Distinct, but I don't know
--- how to prove it to GHC. Eg a subset of something distinct is also distinct...
+-- Not using GADTs with the Distinct constraint as it gets in the way when I know something is Distinct,
+-- but I don't know how to prove it to GHC. Eg a subset of something Distinct is also Distinct...
 data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 -- data Many (xs :: [Type]) where
 --     Many :: (Distinct xs) => {-# UNPACK #-} !Word -> Any -> Many xs
@@ -55,78 +55,78 @@ data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 -- | Unlike Haskus and HList versions, nominal is required for GADTs with constraints
 type role Many representational
 
--- | A switch/case statement for Many. Apply a 'Catalog' of functions to a variant of values.
--- The functional dependency helps avoid undecidable instances
-class Switch xs handlers r | handlers -> r where
-    switch :: Many xs -> handlers -> r
+-- | A switch/case statement for Many.
+-- There is only one instance of this class which visits through the possibilities in Many,
+-- delegating work to 'CaseMany', ensuring termination when Many only contains one type.
+-- Uses 'Case' instances like 'Cases' to apply a 'Catalog' of functions to a variant of values.
+-- Or 'CaseTypeable' to apply a polymorphic function that work on all 'Typeables'.
+class Switch xs handler r where
+    switch :: Many xs -> handler xs r -> r
+
+instance (Case p '[x] r) => Switch '[x] p r where
+    switch v p = case notMany v of
+            a -> (accept p) a
+
+instance (Case p (x ': x' ': xs) r, Switch (x' ': xs) p r) =>
+         Switch (x ': x' ': xs) p r where
+    switch v p =
+        case pickHead v of
+            Right a -> (accept p) a
+            Left v' -> switch v' (next p)
+
+-- | Allows storing polymorphic functions with extra constraints that
+-- is used on each iteration of 'Switch'
+class Case p xs r where
+    accept :: p xs r -> (Head xs -> r)
+    next :: p xs r -> p (Tail xs) r
+
+-- | Uses a phantom xs in order for Case instances to carry additional constraints
+data CaseTypeable (xs :: [Type]) r = CaseTypeable (forall a. Typeable a => a -> r)
+
+instance Typeable (Head xs) => Case CaseTypeable xs r where
+    accept (CaseTypeable f) = f
+    next (CaseTypeable f) = CaseTypeable f
+
+newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
+
+instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
+    accept (Cases catalog) = catalog ^. item
+    next (Cases catalog) = Cases catalog
 
 -- | A convenient synonym function to create a Catalogs for handling 'switch'.
 -- Example: @switch a $ cases (f, g, h)@
 -- FIXME: Add additional constraints on return type Accept r
-cases :: (xs ~ TypesOf (Unwrapped (Catalog xs)), Wrapped (Catalog xs)) => Unwrapped (Catalog xs) -> Catalog xs
-cases = catalog
+-- cases :: (xs ~ TypesOf (Unwrapped (Catalog xs)), Wrapped (Catalog xs)) => Unwrapped (Catalog xs) -> Catalog xs
+-- cases = catalog
 
 -- | Catamorphism for many. This is @flip switch@
-many :: Switch xs handlers r => handlers -> Many xs -> r
+many :: Switch xs handler r => handler xs r -> Many xs -> r
 many = flip switch
 
--- | This accepts a phantom r to allow 'Catalog' to be used as a type instance for 'Switch'
-type Case (xs :: [Type]) r = Catalog xs
+-- -- | FIXME: Implement in termns of ForMany and AcceptMany instead
+-- instance ( Length xs ~ Length '[a]
+--          , Has (a -> r) (Case xs r)) => Switch '[a] (Case xs r) r where
+--     switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
 
--- | FIXME: Implement in termns of ForMany and AcceptMany instead
-instance ( Length xs ~ Length '[a]
-         , Has (a -> r) (Case xs r)) => Switch '[a] (Case xs r) r where
-    switch (Many _ v) t = (t ^. item) (unsafeCoerce v :: a)
-
-instance ( Length xs ~ Length '[a, b]
-         , AllHas (Case xs r) (Accepts r '[a, b])) => Switch '[a, b] (Case xs r) r where
-    switch (Many n v) t = case n of
-         0 -> (t ^. item) (unsafeCoerce v :: a)
-         _ -> (t ^. item) (unsafeCoerce v :: b)
+-- instance ( Length xs ~ Length '[a, b]
+--          , AllHas (Case xs r) (Accepts r '[a, b])) => Switch '[a, b] (Case xs r) r where
+--     switch (Many n v) t = case n of
+--          0 -> (t ^. item) (unsafeCoerce v :: a)
+--          _ -> (t ^. item) (unsafeCoerce v :: b)
 
 ---------------
 
 
--- | Holds an existential that can handle any Typeable input
-data CaseTypeable r = CaseTypeable (forall a. Typeable a => a -> r)
+-- -- | Holds an existential that can handle any Typeable input
+-- data CaseTypeable r = CaseTypeable (forall a. Typeable a => a -> r)
 
-instance Typeable a => Switch '[a] (CaseTypeable r) r where
-    switch (Many _ v) (CaseTypeable f) = f (unsafeCoerce v :: a)
+-- instance Typeable a => Switch '[a] (CaseTypeable r) r where
+--     switch (Many _ v) (CaseTypeable f) = f (unsafeCoerce v :: a)
 
-instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
-    switch (Many n v) (CaseTypeable f) = case n of
-         0 -> f (unsafeCoerce v :: a)
-         _ -> f (unsafeCoerce v :: b)
-
-
-
-data CaseTypeable2 xs r = CaseTypeable2 (forall a. Typeable a => a -> r)
-
-instance Typeable (Head xs) => AcceptsMany CaseTypeable2 xs r where
-    accept (CaseTypeable2 f) = f
-    next (CaseTypeable2 f) = CaseTypeable2 f
-
--- | Allows storing polymorphic functions with extra constraints that
--- is used on each iteration of ForMany
-class AcceptsMany p xs r where
-    accept :: p xs r -> (Head xs -> r)
-    next :: p xs r -> p (Tail xs) r
-
--- | Controlled looping of Many, ensuring termination when Many only contains one type
-class ForMany xs f r where
-    forMany :: Many xs -> f xs r -> r
-
-instance (AcceptsMany p '[x] r) => ForMany '[x] p r where
-    forMany v p = case notMany v of
-            a -> (accept p) a
-
-instance (AcceptsMany p (x ': x' ': xs) r, ForMany (x' ': xs) p r) =>
-         ForMany (x ': x' ': xs) p r where
-    forMany v p =
-        case pickHead v of
-            Right a -> (accept p) a
-            Left v' -> forMany v' (next p)
-
+-- instance AllTypeable '[a, b] => Switch '[a, b] (CaseTypeable r) r where
+--     switch (Many n v) (CaseTypeable f) = case n of
+--          0 -> f (unsafeCoerce v :: a)
+--          _ -> f (unsafeCoerce v :: b)
 
 
 -- class ForMany xs where
