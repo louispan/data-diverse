@@ -55,7 +55,8 @@ type role Many representational
 ----------------------------------------------
 
 -- | Lift a value into a Many of possibly other types.
-pick :: forall x xs. (Distinct xs, Member x xs) => x -> Many xs
+-- NB. forall used to specify xs first, so TypeApplications can be used to specify xs.
+pick :: forall xs x. (Distinct xs, Member x xs) => x -> Many xs
 pick = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | A variation of 'pick' into a Many of a single type
@@ -142,10 +143,10 @@ many = flip switch
 -- An instance of this knows how to construct a handler of the first type in the 'xs' typelist, or
 -- how to construct the remaining 'Case's for the rest of the types in the type list.
 class Case c xs r where
-    -- | Return the handler/continuation when x is observed.
-    delegate :: c xs r -> (Head xs -> r)
     -- | The remaining cases without the type x.
     remaining :: c xs r -> c (Tail xs) r
+    -- | Return the handler/continuation when x is observed.
+    delegate :: c xs r -> (Head xs -> r)
 
 -------------------------------------------
 
@@ -155,8 +156,8 @@ newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
 -- | An instance of 'Case' that can be 'Switch'ed where it contains a 'Catalog' of handlers/continuations
 -- for all thypes in the 'xs' typelist.
 instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
-    delegate (Cases s) = s ^. item
     remaining (Cases s) = Cases s
+    delegate (Cases s) = s ^. item
 
 -- | Create Cases for handling 'switch' from a tuple.
 -- This function imposes additional constraints than using 'Cases' constructor directly:
@@ -172,63 +173,53 @@ cases = Cases . catalog
 data TypeableCase (xs :: [Type]) r = TypeableCase (forall x. Typeable x => x -> r)
 
 instance Typeable (Head xs) => Case TypeableCase xs r where
-    delegate (TypeableCase f) = f
     remaining (TypeableCase f) = TypeableCase f
+    delegate (TypeableCase f) = f
 
 -------------------------------------------
 
 -- | Convert a Many to another Many that may include other possibilities.
 -- That is, xs is equal or is a subset of ys.
 -- Can be used to rearrange the order of the types in the Many.
--- This is a class so that TypeApplications can be used to specify ys.
-class Diversify ys xs where
-    diversify :: Many xs -> Many ys
+-- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
+-- The Switch constraint is fulfilled with
+-- (Distinct ys, forall x (in xs). Member x xs)
+diversify :: forall ys xs. Switch xs (DiversifyCase ys) (Many ys) => Many xs -> Many ys
+diversify = many (DiversifyCase @ys)
 
 data DiversifyCase (ys :: [Type]) (xs :: [Type]) r = DiversifyCase
 
 instance (Member (Head xs) ys, Distinct ys) => Case (DiversifyCase ys) xs (Many ys) where
-    delegate DiversifyCase = pick
     remaining DiversifyCase = DiversifyCase
-
-instance Switch xs (DiversifyCase ys) (Many ys) => Diversify ys xs where
-    diversify = many (DiversifyCase @ys)
+    delegate DiversifyCase = pick
 
 -------------------------------------------
 
 -- | Convert a Many into possibly another Many with a totally different typelist.
--- This is a class so that TypeApplications can be used to specify ys.
-class Reinterpret ys xs where
-    reinterpret :: Many xs -> Maybe (Many ys)
+-- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
+-- The Switch constraint is fulfilled with
+-- (Distinct ys, forall x (in xs). (MaybeMember x ys)
+reinterpret :: forall ys xs. Switch xs (ReinterpretCase ys) (Maybe (Many ys)) => Many xs -> Maybe (Many ys)
+reinterpret = many (ReinterpretCase @ys)
 
 data ReinterpretCase (ys :: [Type]) (xs :: [Type]) r = ReinterpretCase
 
 instance (MaybeMember (Head xs) ys, Distinct ys) => Case (ReinterpretCase ys) xs (Maybe (Many ys)) where
-    delegate ReinterpretCase a = case fromIntegral (natVal @(PositionOf (Head xs) ys) Proxy) of
-                         0 -> Nothing
-                         i -> Just $ Many (i - 1) (unsafeCoerce a)
     remaining ReinterpretCase = ReinterpretCase
+    delegate ReinterpretCase a = case fromIntegral (natVal @(PositionOf (Head xs) ys) Proxy) of
+                                     0 -> Nothing
+                                     i -> Just $ Many (i - 1) (unsafeCoerce a)
 
-
-instance (MaybeMember x ys, Distinct ys) => Reinterpret ys '[x] where
-    reinterpret v = case notMany v of
-        a -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
-                0 -> Nothing
-                i -> Just $ Many (i - 1) (unsafeCoerce a)
-
-instance forall x x' xs ys.
-      ( Reinterpret ys (x' ': xs)
-      , MaybeMember x ys
-      , Distinct ys
-      ) => Reinterpret ys (x ': x' ': xs)
-   where
-      reinterpret v = case trialEither' v of
-         Right a  -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
-                         0 -> Nothing
-                         i -> Just $ Many (i - 1) (unsafeCoerce a)
-         Left  v' -> reinterpret v'
 
 -- | Like reinterpret, but return the Complement (the parts of xs not in ys) in the case of failure.
-reinterpretEither :: (Diversify (Complement xs ys) xs, Reinterpret ys xs) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
+-- The Switch constraints is fulfilled with
+-- (Distinct ys, forall x (in xs). (MaybeMember x ys, Member x (Complement xs ys)))
+reinterpretEither
+    :: forall ys xs.
+       ( Switch xs (DiversifyCase (Complement xs ys)) (Many (Complement xs ys))
+       , Switch xs (ReinterpretCase ys) (Maybe (Many ys))
+       )
+    => Many xs -> Either (Many (Complement xs ys)) (Many ys)
 reinterpretEither v = case reinterpret v of
     Nothing -> Left (diversify v)
     Just v' -> Right v'

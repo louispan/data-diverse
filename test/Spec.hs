@@ -111,7 +111,7 @@ main = do
                 switch y'' (TypeableCase (show . typeRep . proxy)) `shouldBe` "Int"
 
             it "can be reinterpreted into a different Many" $ do
-                let y = pick' (5 :: Int)
+                let y = pick @[Int, Char] (5 :: Int)
                     y' = reinterpret @[String, Bool] y
                 case y' of
                     Nothing -> pure ()
@@ -119,6 +119,19 @@ main = do
                                         ( show @Bool
                                         , show @String
                                         )) `shouldBe` "this case doesn't happen. Remove when Eq is implemented"
+
+            -- it "can be reinterpreted into either one of two different Many" $ do
+            --     let y = pick @[Int, Char] (5 :: Int)
+            --         y' = reinterpretEither @[String, Bool] y
+            --     case y' of
+            --         Left v -> switch v (cases
+            --                             ( show @Char
+            --                             , show @Int
+            --                             )) `shouldBe` "Int"
+            --         Right v -> switch v (cases
+            --                             ( show @Bool
+            --                             , show @String
+            --                             )) `shouldBe` "this case doesn't happen. Remove when Eq is implemented"
 
             -- it "can be reinterpreted into a different Many" $ do
             --     let y = pick' (5 :: Int)
