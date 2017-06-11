@@ -224,18 +224,15 @@ reinterpretEither v = case reinterpret v of
     Nothing -> Left (diversify v)
     Just v' -> Right v'
 
--- class Diverge xs ys where
---     diverge :: Many xs -> Many ys
-
--- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
-
--- http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
+-------------------------------------------
 
 -- | A Many has a prism to an the inner type.
-class Facet branch tree where
-    -- | Use TypeApplication to specify the destination type of the lens.
+-- That is, a value can be 'pick'ed into a Many or mabye 'trial'ed out of a Many.
+-- | Use TypeApplication to specify the destination type of the prism.
+-- Example: @facet \@[Int, Bool]@
+class Facet leaf branch where
     -- Example: @facet \@Int@
-    facet :: Prism' tree branch
+    facet :: Prism' branch leaf
 
 -- | UndecidableInstance due to xs appearing more often in the constraint.
 -- Safe because xs will not expand to @Many xs@ or bigger.
@@ -243,113 +240,31 @@ instance (Distinct xs, Member a xs) => Facet a (Many xs) where
     facet = prism' pick trial
     {-# INLINE facet #-}
 
+-------------------------------------------
+
 -- | Injection.
--- A Many can be narrowed to contain more types or have it order changed by injecting into another Many type.
--- This typeclass looks like 'Facet' but is used for different purposes. Also it has the type params reversed.
+-- A Many can be 'diversify'ed to contain more types or 'reinterpret'ed into possibly another Many type.
+-- This typeclass looks like 'Facet' but is used for different purposes. Also it has the type params reversed,
+-- so that TypeApplications can be used to specify the larger Many type.
+-- | Use TypeApplication to specify the destination type of the prism.
+-- Example: @inject \@[Int, Bool]@
 class Inject tree branch where
     -- | Enlarge number of or change order of types in the variant.
     -- Use TypeApplication to specify the destination type.
     -- Example: @inject \@(Many '[Int, String])@
     inject :: Prism' tree branch
 
--- instance Inject tree (Many branch) where
---     inject = prism' undefined undefined
-
--- Prism' tree branch
-wock :: Prism' String (Last Int)
-wock = undefined
-
-weck2 :: String -> (Last Int)
-weck2 i = view wock i
-
-weck :: (Last Int) -> String
-weck i = review wock i
-
-eck :: String -> Maybe (Last Int)
-eck i = preview wock i
-
-ack = re wock
-
--- weck2 i = preview wock i
-
--- wack :: forall a. (Many '[a] -> a)
--- wack v = review facet (fromJust (preview (facet) v))
-
--- instance IsSubSet smaller larger => Project (Many smaller) (Many larger) where
---     project = lens
-
--- wack :: Many larger -> Many smaller
-
+instance ( (Switch branch (DiversifyCase tree) (Many tree))
+         , (Switch tree (ReinterpretCase branch) (Maybe (Many branch)))
+         ) =>
+         Inject (Many tree) (Many branch) where
+    inject = prism' diversify reinterpret
+    {-# INLINE inject #-}
 
 -- | Utilites
 
--- -- | AllowAmbiguousTypes!
--- natValue :: forall (n :: Nat) a. (KnownNat n, Num a) => a
--- natValue = fromIntegral (natVal (Proxy :: Proxy n))
--- {-# INLINE natValue #-}
-
--- check :: Bool -> a -> Maybe a
--- check p a = if p then Just a else Nothing
-
 -- TODO:
-
--- Create a way to extract value from a 'Many of sized 1 without Maybe
-
--- Naming: reinterpret_cast, dynamic_cast ?
-
-
--- To project from smaller Many to larger Many (always ok)
-
--- To Inject from larger Many to smaller Many (use Maybe)
-
 
 -- Show and Read instances
 
 -- Eq instance?
-
--- disallow empty many
-
--- FIXME: use type family avoid repeated constraints for each type in xs
-
-
-
--- more :: forall xs ys. Distinct ys, Subset xs ys xs) => Many xs -> Many ys
--- more = forany pick
-
--- -- | Not working as GHC does not know that i is within our range!
--- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
--- more (Many n v) =
---     let someNat = fromJust (someNatVal (toInteger n))
---     in case someNat of
---         SomeNat (_ :: Proxy i) ->
---             let n' = fromIntegral (natVal @(IndexOf (TypeAt i xs) ys) Proxy)
---             in Many n' v
-
--- more :: forall xs ys. (Distinct ys, Subset xs ys xs) => Many xs -> Many ys
--- more (Many n v) =
---     let someNat = fromJust (someNatVal (toInteger n))
---     in case someNat of
---         SomeNat (_ :: Proxy i) -> pick' (unsafeCoerce v :: TypeAt i xs)
---   where
---     -- | Doesn't work, GHC cannot instantiate a KnownNat forall x
---     pick' :: forall x. (Distinct ys, Member x ys) => x -> Many ys
---     pick' = Many (fromIntegral (natVal @(IndexOf x ys) Proxy)) . unsafeCoerce
-
-
--- Unfortunately the following doesn't work. GHC isn't able to deduce that (TypeAt x xs) is a Typeable
--- It is safe to use fromJust as the constructor ensures n is >= 0
--- instance AllTypeable xs => Switch xs (TypeableCase r) r where
---     switch (Many n v) (TypeableCase f) = let Just someNat = someNatVal (toInteger n)
---                                      in case someNat of
---                                             SomeNat (_ :: Proxy x) -> f (unsafeCoerce v :: TypeAt x xs)
-
-
-
--- -- | It is safe to use fromJust as the constructor ensures n is >= 0
--- -- Remove as it's not really useful
--- forany :: forall xs r. (forall a. a -> r) -> Many xs -> r
--- forany f (Many n v) =
---     let someNat = fromJust (someNatVal (toInteger n))
---     in case someNat of
---         SomeNat (_ :: Proxy i) ->
---             f (unsafeCoerce v :: TypeAt i xs)
