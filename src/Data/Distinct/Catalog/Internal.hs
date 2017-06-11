@@ -136,3 +136,4 @@ instance (Distinct '[a, b], AllHas t '[a, b]) => Project (Catalog '[a, b]) t whe
 
 
 -- FIXME: provide convenient get, set, project, inject
+-- FIXME: friendly typeerror when typelist is too big for me to provide Has instances

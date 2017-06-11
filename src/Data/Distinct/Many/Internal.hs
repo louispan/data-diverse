@@ -25,7 +25,6 @@ import GHC.Prim (Any)
 import GHC.TypeLits
 import Unsafe.Coerce
 import Data.Typeable
-import Data.Maybe
 
 import Data.Monoid hiding (Any)
 
@@ -54,8 +53,8 @@ data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 type role Many representational
 
 -- | Lift a value into a Many of possibly other types.
-asMany :: forall x xs. (Distinct xs, Member x xs) => x -> Many xs
-asMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+pick :: forall x xs. (Distinct xs, Member x xs) => x -> Many xs
+pick = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | Internal function to create a many without bothering with the 'Distinct' constraint
 -- This is useful when we know something is Distinct, but I don't know how (or can't be bothered)
@@ -69,31 +68,37 @@ asMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 notMany :: Many '[a] -> a
 notMany (Many _ v) = unsafeCoerce v
 
--- | Deconstruct a Many into a Maybe value
-pick :: forall x xs. (Member x xs) => Many xs -> Maybe x
-pick (Many n v) = if n == fromIntegral (natVal @(IndexOf x xs) Proxy)
+-- | For a specified or inferred type, deconstruct a Many into a Maybe value of that type.
+trial :: forall x xs. (Member x xs) => Many xs -> Maybe x
+trial (Many n v) = if n == fromIntegral (natVal @(IndexOf x xs) Proxy)
             then Just (unsafeCoerce v)
             else Nothing
 
--- | Try to pick a value out of a Many, and get Either the Right value or the Left-over possibilities.
-pickEither
+-- | A version of 'trial'' which trys the first type in the type list.
+trial' :: Many (x ': xs) -> Maybe x
+trial' (Many n v) = if n == 0
+            then Just (unsafeCoerce v)
+            else Nothing
+
+-- | 'trial' a value out of a Many, and get Either the Right value or the Left-over possibilities.
+trialEither
     :: forall x xs.
        (Member x xs)
     => Many xs -> Either (Many (Without x xs)) x
-pickEither (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
+trialEither (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
                   in if n == i
                      then Right (unsafeCoerce v)
                      else if n > i
                           then Left (Many (n - 1) v)
                           else Left (Many n v)
 
--- | A version of 'pickEither' which picks the first type in the type list.
-pickEither' :: Many (x ': xs) -> Either (Many xs) x
-pickEither' (Many n v) = if n == 0
+-- | A version of 'trialEither' which trys the first type in the type list.
+trialEither' :: Many (x ': xs) -> Either (Many xs) x
+trialEither' (Many n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Many (n - 1) v)
 
--- | Catamorphism for many. This is @flip switch@
+-- | Catamorphism for many. This is @flip switch@. See 'Switch'
 many :: Switch xs handler r => handler xs r -> Many xs -> r
 many = flip switch
 
@@ -102,29 +107,38 @@ many = flip switch
 -- delegating work to 'CaseMany', ensuring termination when Many only contains one type.
 -- Uses 'Case' instances like 'Cases' to apply a 'Catalog' of functions to a variant of values.
 -- Or 'CaseTypeable' to apply a polymorphic function that work on all 'Typeables'.
+-- Or you may use your own custom instance of 'Case'.
 class Switch xs handler r where
     switch :: Many xs -> handler xs r -> r
 
-instance (Case p '[x] r) => Switch '[x] p r where
-    switch v p = case notMany v of
-            a -> picked p a
-
--- | This code will be efficiently compiled into a single case statement in 8.2.1
+-- | 'trial' each type in a Many, and either delegate the handling of the value discovered, or loop
+-- trying the next type in the type list.
+-- This code will be efficiently compiled into a single case statement in GHC 8.2.1
 -- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
-instance (Case p (x ': x' ': xs) r, Switch (x' ': xs) p r) =>
-         Switch (x ': x' ': xs) p r where
-    switch v p =
-        case pickEither' v of
-            Right a -> picked p a
-            Left v' -> switch v' (remaining p)
+instance (Case c (x ': x' ': xs) r, Switch (x' ': xs) c r) =>
+         Switch (x ': x' ': xs) c r where
+    switch v c =
+        case trialEither' v of
+            Right a -> delegate c a
+            Left v' -> switch v' (remaining c)
 
--- | Allows storing polymorphic functions with extra constraints that is used on each iteration of 'Switch'.
-class Case p xs r where
-    -- | Return the continuation when x is picked.
-    picked :: p xs r -> (Head xs -> r)
-    -- | The remaining cases without x.
-    remaining :: p xs r -> p (Tail xs) r
+-- | Terminating instead of the loop, ensuring that a instance of @Switch '[]@
+-- with an empty typelist is not required.
+instance (Case c '[x] r) => Switch '[x] c r where
+    switch v c = case notMany v of
+            a -> delegate c a
 
+-- | This class allows storing polymorphic functions with extra constraints that is used on each iteration of 'Switch'.
+-- An instance of this knows how to construct a handler of the first type in the 'xs' typelist, or
+-- how to construct the remaining 'Case's for the rest of the types in the type list.
+class Case c xs r where
+    -- | Return the handler/continuation when x is observed.
+    delegate :: c xs r -> (Head xs -> r)
+    -- | The remaining cases without the type x.
+    remaining :: c xs r -> c (Tail xs) r
+
+-- | An instance of 'Case' that can be 'Switch'ed where it contains a 'Catalog' of handlers/continuations
+-- for all thypes in the 'xs' typelist.
 newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
 
 -- | Create Cases for handling 'switch' from a tuple.
@@ -135,69 +149,69 @@ newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
 cases :: (SameLength fs xs, Outcome fs ~ r, fs ~ TypesOf (Unwrapped (Catalog fs)), Wrapped (Catalog fs)) => Unwrapped (Catalog fs) -> Cases fs xs r
 cases = Cases . catalog
 
--- | Uses a phantom xs in order for Case instances to carry additional constraints
-data CaseTypeable (xs :: [Type]) r = CaseTypeable (forall a. Typeable a => a -> r)
+-- | This handler stores a polymorphic function for all Typeables.
+data TypeableCase (xs :: [Type]) r = TypeableCase (forall x. Typeable x => x -> r)
 
-instance Typeable (Head xs) => Case CaseTypeable xs r where
-    picked (CaseTypeable f) = f
-    remaining (CaseTypeable f) = CaseTypeable f
+instance Typeable (Head xs) => Case TypeableCase xs r where
+    delegate (TypeableCase f) = f
+    remaining (TypeableCase f) = TypeableCase f
 
 instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
-    picked (Cases s) = s ^. item
+    delegate (Cases s) = s ^. item
     remaining (Cases s) = Cases s
 
 ----------------
 
 -- FIXME: Use Switch to implement?
 -- Copied from https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Variant.hs#L363
--- | Convert a Many to another Many that may includes other possibilities.
+-- | Convert a Many to another Many that may encompasss other possibilities.
 -- That is, xs is equal or is a subset of ys.
 -- Can be used to rearrange the order of the types in the Many.
--- Mnemonic (to differentiate between 'Select'): Possibly this or that, means all of this is a possibility.
-class Possibly ys xs where
-    possibly :: Many xs -> Many ys
+class Encompass ys xs where
+    encompass :: Many xs -> Many ys
 
-instance (Member x ys, Distinct ys) => Possibly ys '[x] where
-    possibly v = case notMany v of
-            a -> asMany a
+data CaseEncompass ys (xs :: [Type]) r = Encompass (forall x. (Member x ys, Distinct ys) => x -> r)
+
+instance (Member x ys, Distinct ys) => Encompass ys '[x] where
+    encompass v = case notMany v of
+            a -> pick a
 
 instance forall x x' xs ys.
-      ( Possibly ys (x' ': xs)
+      ( Encompass ys (x' ': xs)
       , Member x ys
       , Distinct ys
-      ) => Possibly ys (x ': x' ': xs)
+      ) => Encompass ys (x ': x' ': xs)
    where
-      possibly v = case pickEither' v of
-         Right a  -> asMany a
-         Left  v' -> possibly v'
+      encompass v = case trialEither' v of
+         Right a  -> pick a
+         Left  v' -> encompass v'
 
 -- | Convert a Many into possibly another Many with a totally different typelist.
--- Mnemonic: Select is like 'pick'ing many alternatives.
-class Select ys xs where
-    select :: Many xs -> Maybe (Many ys)
+class Reinterpret ys xs where
+    reinterpret :: Many xs -> Maybe (Many ys)
 
-instance (KnownNat (PositionOf x ys), Distinct ys) => Select ys '[x] where
-    select v = case notMany v of
+instance (MaybeMember x ys, Distinct ys) => Reinterpret ys '[x] where
+    reinterpret v = case notMany v of
         a -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
                 0 -> Nothing
                 i -> Just $ Many (i - 1) (unsafeCoerce a)
 
 instance forall x x' xs ys.
-      ( Select ys (x' ': xs)
-      , KnownNat (PositionOf x ys)
+      ( Reinterpret ys (x' ': xs)
+      , MaybeMember x ys
       , Distinct ys
-      ) => Select ys (x ': x' ': xs)
+      ) => Reinterpret ys (x ': x' ': xs)
    where
-      select v = case pickEither' v of
+      reinterpret v = case trialEither' v of
          Right a  -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
                          0 -> Nothing
                          i -> Just $ Many (i - 1) (unsafeCoerce a)
-         Left  v' -> select v'
+         Left  v' -> reinterpret v'
 
--- | Like select, but return the Left Complement (the parts of xs not in ys) in the case of failure.
-selectEither :: (Possibly (Complement xs ys) xs, Select ys xs) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
-selectEither v = case select v of
-    Nothing -> Left (possibly v)
+-- | Like reinterpret, but return the Complement (the parts of xs not in ys) in the case of failure.
+reinterpretEither :: (Encompass (Complement xs ys) xs, Reinterpret ys xs) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
+reinterpretEither v = case reinterpret v of
+    Nothing -> Left (encompass v)
     Just v' -> Right v'
 
 -- class Diverge xs ys where
@@ -216,7 +230,7 @@ class Facet branch tree where
 -- | UndecidableInstance due to xs appearing more often in the constraint.
 -- Safe because xs will not expand to @Many xs@ or bigger.
 instance (Distinct xs, Member a xs) => Facet a (Many xs) where
-    facet = prism' asMany pick
+    facet = prism' pick trial
     {-# INLINE facet #-}
 
 -- | Injection.
@@ -281,6 +295,8 @@ ack = re wock
 
 -- Show and Read instances
 
+-- Eq instance?
+
 -- disallow empty many
 
 -- FIXME: use type family avoid repeated constraints for each type in xs
@@ -288,7 +304,7 @@ ack = re wock
 
 
 -- more :: forall xs ys. Distinct ys, Subset xs ys xs) => Many xs -> Many ys
--- more = forany asMany
+-- more = forany pick
 
 -- -- | Not working as GHC does not know that i is within our range!
 -- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
@@ -303,17 +319,17 @@ ack = re wock
 -- more (Many n v) =
 --     let someNat = fromJust (someNatVal (toInteger n))
 --     in case someNat of
---         SomeNat (_ :: Proxy i) -> asMany' (unsafeCoerce v :: TypeAt i xs)
+--         SomeNat (_ :: Proxy i) -> pick' (unsafeCoerce v :: TypeAt i xs)
 --   where
 --     -- | Doesn't work, GHC cannot instantiate a KnownNat forall x
---     asMany' :: forall x. (Distinct ys, Member x ys) => x -> Many ys
---     asMany' = Many (fromIntegral (natVal @(IndexOf x ys) Proxy)) . unsafeCoerce
+--     pick' :: forall x. (Distinct ys, Member x ys) => x -> Many ys
+--     pick' = Many (fromIntegral (natVal @(IndexOf x ys) Proxy)) . unsafeCoerce
 
 
 -- Unfortunately the following doesn't work. GHC isn't able to deduce that (TypeAt x xs) is a Typeable
 -- It is safe to use fromJust as the constructor ensures n is >= 0
--- instance AllTypeable xs => Switch xs (CaseTypeable r) r where
---     switch (Many n v) (CaseTypeable f) = let Just someNat = someNatVal (toInteger n)
+-- instance AllTypeable xs => Switch xs (TypeableCase r) r where
+--     switch (Many n v) (TypeableCase f) = let Just someNat = someNatVal (toInteger n)
 --                                      in case someNat of
 --                                             SomeNat (_ :: Proxy x) -> f (unsafeCoerce v :: TypeAt x xs)
 

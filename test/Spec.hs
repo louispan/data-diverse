@@ -63,36 +63,43 @@ main = do
 
         describe "Many" $ do
             it "can be constructed and destructed" $ do
-                let y = asMany (5 :: Int) :: Many '[Int]
+                let y = pick (5 :: Int) :: Many '[Int]
                     x = preview (facet @Int) y
                 x `shouldBe` (Just 5)
 
-            it "can be pick'ed until it's not many" $ do
-                let y = asMany (5 :: Int) :: Many '[Int, Bool]
-                    -- y' = asMany (5 :: Int) :: Many '[Int]
-                    x = pickEither y :: Either (Many '[Int]) Bool
+            it "can be sampled until it's not many" $ do
+                let y = pick (5 :: Int) :: Many '[Int, Bool]
+                    -- y' = pick (5 :: Int) :: Many '[Int]
+                    x = trialEither y :: Either (Many '[Int]) Bool
                 -- x `shouldBe` (Left y') -- FIXME: Eq not done yet
                 case x of
                     Left y' -> (notMany y') `shouldBe` (5 :: Int)
                     Right _ -> pure ()
 
             it "can be switched with a catalog of handlers in any order" $ do
-                let y = asMany (5 :: Int) :: Many '[Int, Bool]
+                let y = pick (5 :: Int) :: Many '[Int, Bool]
                 switch y (cases
                     ( show @Bool
-                    , show @Int)
-                    ) `shouldBe` "5"
+                    , show @Int
+                    )) `shouldBe` "5"
 
-            it "can be switched with CaseTypeable" $ do
-                let y = asMany (5 :: Int) :: Many '[Int, Bool]
-                switch y (CaseTypeable @'[Int, Bool] (show . typeRep . proxy)) `shouldBe` "Int"
+            it "can be switched with a catalog of handlers with extraneous content" $ do
+                let y = pick (5 :: Int) :: Many '[Int]
+                switch y (Cases (catalog( -- cannot use `cases` function if you can redundant cases
+                    ( show @Int
+                    , 20 :: Int
+                    )))) `shouldBe` "5"
 
-            it "can be switched with CaseTypeable unambiguously" $ do
-                let y = asMany (5 :: Int) :: Many '[Int, Bool]
-                switch y (CaseTypeable (show . typeRep . proxy)) `shouldBe` "Int"
+            it "can be switched with TypeableCase" $ do
+                let y = pick (5 :: Int) :: Many '[Int, Bool]
+                switch y (TypeableCase @'[Int, Bool] (show . typeRep . proxy)) `shouldBe` "Int"
+
+            it "can be switched with TypeableCase unambiguously" $ do
+                let y = pick (5 :: Int) :: Many '[Int, Bool]
+                switch y (TypeableCase (show . typeRep . proxy)) `shouldBe` "Int"
 
             -- it "can be switched with forany" $ do
-            --     let y = pick (5 :: Int) :: Many '[Int, Bool]
+            --     let y = sample (5 :: Int) :: Many '[Int, Bool]
             --     let x = case y of
             --                 Many n v -> let someNat = fromJust (someNatVal (toInteger n))
             --                             in case someNat of
@@ -102,7 +109,7 @@ main = do
             --     x `shouldBe` "Int"
 
             -- it "can be switched with forany" $ do
-            --     let y = pick (5 :: Int) :: Many '[Int, Bool]
+            --     let y = sample (5 :: Int) :: Many '[Int, Bool]
             --     forany y (show . typeRep . proxy) `shouldBe` "Int"
 
         --     it "is a Read and Show" $ do

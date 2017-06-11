@@ -33,7 +33,7 @@ type Distinct (xs :: [Type]) = Union '[] xs ~ xs
 --     Accepts r '[] = '[]
 --     Accepts r (x ': xs) = (x -> r) ': Accepts r xs
 
--- | Gets the result type from an list of handler/continuations of different types.
+-- | Gets the result type from an list of handlers/continuations of different types.
 type family Outcome (xs :: [Type]) :: Type where
     Outcome '[] = TypeError ( 'Text "No continuation found in empty type list")
     Outcome ((a -> r) ': xs) = OutcomeImpl ((a -> r) ': xs) r xs
@@ -83,33 +83,17 @@ type Without x (xs :: [Type]) = WithoutImpl x '[] xs
 
 type Reverse (xs :: [Type]) = ReverseImpl '[] xs
 
--- | FIXME: Rename
--- | Constraint
+-- | KnownNat constraint is proof to GHC that it can instantiate a value of KnownNat
+-- for a particular typelevel Nat for a particular usage of 'natVal'.
+-- 'Member' is required for using 'natVal' for a particular index (starting from 0)
+-- of a type in a typelist.
 type Member x xs = (KnownNat (IndexOf x xs))
--- type Member x xs =
---    ( x ~ TypeAt (IndexOf x xs) xs
---    , KnownNat (IndexOf x xs)
---    )
 
--- type Member2 x xs ys =
---    ( KnownNat (IndexOf (TypeAt (IndexOf x xs) xs) xs)
---    , KnownNat (IndexOf (TypeAt (IndexOf x ys) ys) ys)
---    , KnownNat (IndexOf x xs)
---    , KnownNat (IndexOf x ys)
---    )
-
--- type Member3 x xs =
---    ( KnownNat (IndexOf (TypeAt (IndexOf x xs) xs) xs)
---    , KnownNat (IndexOf x xs)
---    )
-
--- type Member4 head tail xs =
---    ( Member head xs
---    , Distinct tail
---    , tail ~ (Without head xs)
---    , tail ~ Tail xs
---    , head ~ Head xs
---    )
+-- | KnownNat constraint is proof to GHC that it can instantiate a value of KnownNat
+-- for a particular typelevel Nat for a particular usage of 'natVal'.
+-- MaybeMember required to use 'natVal' for a particular position (starting from 1)
+-- of a type in a typelist, or 0 if the type is not found.
+type MaybeMember x xs = KnownNat (PositionOf x xs)
 
 -- type AllMember (xs :: [Type]) = AllMemberCtx xs xs
 
@@ -154,6 +138,7 @@ type SameLength (xs :: [Type]) (ys :: [Type]) = SameLengthImpl xs ys xs ys
 type family Complement (xs :: [Type]) (ys :: [Type]) :: [Type] where
     Complement '[] ys = ys
     Complement (x ': xs) ys = Complement xs (Without x ys)
+
 -- -- | Check that a list is a subset of another
 -- type family IsSubset smaller larger :: Bool where
 --    IsSubset s l = IsSubsetEx l s l
