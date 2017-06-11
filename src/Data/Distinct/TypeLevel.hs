@@ -34,10 +34,10 @@ type Distinct (xs :: [Type]) = Union '[] xs ~ xs
 --     Accepts r (x ': xs) = (x -> r) ': Accepts r xs
 
 -- | Gets the result type from an list of handler/continuations of different types.
-type family CaseResult (xs :: [Type]) :: Type where
-    CaseResult '[] = TypeError ( 'Text "No continuation found in empty type list")
-    CaseResult ((a -> r) ': xs) = CaseResultImpl ((a -> r) ': xs) r xs
-    CaseResult ctx = TypeError ( 'Text "No continuation found in head of "
+type family Outcome (xs :: [Type]) :: Type where
+    Outcome '[] = TypeError ( 'Text "No continuation found in empty type list")
+    Outcome ((a -> r) ': xs) = OutcomeImpl ((a -> r) ': xs) r xs
+    Outcome ctx = TypeError ( 'Text "No continuation found in head of "
                                     ':<>: 'Text "‘"
                                     ':<>: 'ShowType ctx
                                     ':<>: 'Text "’")

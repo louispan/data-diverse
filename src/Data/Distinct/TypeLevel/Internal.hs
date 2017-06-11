@@ -37,10 +37,10 @@ type family InsertImpl (ctx :: [Type]) (y :: Type) (xs :: [Type]) :: [Type] wher
     -- recurse if the type doesn't match the head
     InsertImpl ctx  y (x ': xs) = x ': (InsertImpl ctx y xs)
 
-type family CaseResultImpl (ctx :: [Type]) r (xs :: [Type]) :: Type where
-    CaseResultImpl ctx r '[] = r
-    CaseResultImpl ctx r ((a -> r) ': xs) = CaseResultImpl ctx r xs
-    CaseResultImpl ctx r b = TypeError ('Text "‘"
+type family OutcomeImpl (ctx :: [Type]) r (xs :: [Type]) :: Type where
+    OutcomeImpl ctx r '[] = r
+    OutcomeImpl ctx r ((a -> r) ': xs) = OutcomeImpl ctx r xs
+    OutcomeImpl ctx r b = TypeError ('Text "‘"
                                     ':<>: 'ShowType r
                                     ':<>: 'Text "’"
                                     ':<>: 'Text " is not a result of all types in "

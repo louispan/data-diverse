@@ -116,22 +116,23 @@ instance (Case p (x ': x' ': xs) r, Switch (x' ': xs) p r) =>
     switch v p =
         case pickOne v of
             Right a -> picked p a
-            Left v' -> switch v' (next p)
+            Left v' -> switch v' (remaining p)
 
 -- | Allows storing polymorphic functions with extra constraints that is used on each iteration of 'Switch'.
--- What is the Visitor pattern doing here?
 class Case p xs r where
+    -- | Return the continuation when x is picked.
     picked :: p xs r -> (Head xs -> r)
-    next :: p xs r -> p (Tail xs) r
+    -- | The remaining cases without x.
+    remaining :: p xs r -> p (Tail xs) r
 
 newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
 
 -- | Create Cases for handling 'switch' from a tuple.
 -- This function imposes additional constraints than using 'Cases' constructor directly:
 -- * SameLength constraints to prevent human confusion with unusable cases.
--- * CaseResult fs ~ r constraints to ensure that the Catalog only continutations that return r.
+-- * Outcome fs ~ r constraints to ensure that the Catalog only continutations that return r.
 -- Example: @switch a $ cases (f, g, h)@
-cases :: (SameLength fs xs, CaseResult fs ~ r, fs ~ TypesOf (Unwrapped (Catalog fs)), Wrapped (Catalog fs)) => Unwrapped (Catalog fs) -> Cases fs xs r
+cases :: (SameLength fs xs, Outcome fs ~ r, fs ~ TypesOf (Unwrapped (Catalog fs)), Wrapped (Catalog fs)) => Unwrapped (Catalog fs) -> Cases fs xs r
 cases = Cases . catalog
 
 -- | Uses a phantom xs in order for Case instances to carry additional constraints
@@ -139,52 +140,54 @@ data CaseTypeable (xs :: [Type]) r = CaseTypeable (forall a. Typeable a => a -> 
 
 instance Typeable (Head xs) => Case CaseTypeable xs r where
     picked (CaseTypeable f) = f
-    next (CaseTypeable f) = CaseTypeable f
+    remaining (CaseTypeable f) = CaseTypeable f
 
 instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
     picked (Cases s) = s ^. item
-    next (Cases s) = Cases s
+    remaining (Cases s) = Cases s
 
 ----------------
 
 -- FIXME: Naming
 -- FIXME: Use Switch to implement?
 -- Copied from https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Variant.hs#L363
--- | Convert a Many to another Many that includes other possibilities.
+-- | Convert a Many to another Many that may includes other possibilities.
+-- That is, xs is equal or is a subset of ys.
 -- Can be used to rearrange the order of the types in the Many.
-class Increase xs ys where
+class Increase ys xs where
     increase :: Many xs -> Many ys
 
-instance (Member x ys, Distinct ys) => Increase '[x] ys where
+instance (Member x ys, Distinct ys) => Increase ys '[x] where
     increase v = case notMany v of
             a -> toMany a
 
 instance forall x x' xs ys.
-      ( Increase (x' ': xs) ys
+      ( Increase ys (x' ': xs)
       , Member x ys
       , Distinct ys
-      ) => Increase (x ': x' ': xs) ys
+      ) => Increase ys (x ': x' ': xs)
    where
       increase v = case pickOne v of
          Right a  -> toMany a
          Left  v' -> increase v'
 
--- | Convert a Many into possibly another Many
+-- | Convert a Many into possibly another Many with a totally different set
+-- of possibilities.
 -- FIXME: Naming
-class Decrease xs ys where
+class Decrease ys xs where
     decrease :: Many xs -> Maybe (Many ys) -- FIXME: Use Either
 
-instance (KnownNat (PositionOf x ys), Distinct ys) => Decrease '[x] ys where
+instance (KnownNat (PositionOf x ys), Distinct ys) => Decrease ys '[x] where
     decrease v = case notMany v of
         a -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
                 0 -> Nothing
                 i -> Just $ Many (i - 1) (unsafeCoerce a)
 
 instance forall x x' xs ys.
-      ( Decrease (x' ': xs) ys
+      ( Decrease ys (x' ': xs)
       , KnownNat (PositionOf x ys)
       , Distinct ys
-      ) => Decrease (x ': x' ': xs) ys
+      ) => Decrease ys (x ': x' ': xs)
    where
       decrease v = case pickOne v of
          Right a  -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
@@ -192,27 +195,8 @@ instance forall x x' xs ys.
                          i -> Just $ Many (i - 1) (unsafeCoerce a)
          Left  v' -> decrease v'
 
--- increase :: Many as -> Many ys
--- increase a = case pickOne a of
---     Right v -> undefined
---     Left v -> undefined -- increase v
-
--- proxy2 :: a -> Proxy a
--- proxy2 _ = Proxy
-
--- increase :: forall xs ys. (Distinct ys, AllMemberCtx ys ys) => Many xs -> Many ys
--- increase a = case pickOne a of
---     Right v -> case proxy2 v of
---                    (_ :: Proxy v') -> Many (fromIntegral (natVal @(IndexOf v' xs) Proxy)) (unsafeCoerce v)
---     Left v -> undefined --increase v
-
--- increase2 :: (Distinct ys, AllMemberCtx ys ys, AllMemberCtx xs xs) => Many xs -> Many ys
--- increase2 a = case pickOne a of
---     Right v -> toMany v
---     Left v -> error "hi"
-
--- | Split the possibilities of Many 
-split :: (Increase xs (Complement xs ys), Decrease xs ys) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
+-- | Split the possibilities of Many
+split :: (Increase (Complement xs ys) xs, Decrease ys xs) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
 split v = case decrease v of
     Nothing -> Left (increase v)
     Just v' -> Right v'
