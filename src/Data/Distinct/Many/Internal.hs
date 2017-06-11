@@ -148,30 +148,31 @@ instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
 
 ----------------
 
--- FIXME: Naming to Perhaps
 -- FIXME: Use Switch to implement?
 -- Copied from https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Variant.hs#L363
 -- | Convert a Many to another Many that may includes other possibilities.
 -- That is, xs is equal or is a subset of ys.
 -- Can be used to rearrange the order of the types in the Many.
-class Perhaps ys xs where
-    perhaps :: Many xs -> Many ys
+-- Mnemonic (to differentiate between 'Select'): Possibly this or that, means all of this is a possibility.
+class Possibly ys xs where
+    possibly :: Many xs -> Many ys
 
-instance (Member x ys, Distinct ys) => Perhaps ys '[x] where
-    perhaps v = case notMany v of
+instance (Member x ys, Distinct ys) => Possibly ys '[x] where
+    possibly v = case notMany v of
             a -> asMany a
 
 instance forall x x' xs ys.
-      ( Perhaps ys (x' ': xs)
+      ( Possibly ys (x' ': xs)
       , Member x ys
       , Distinct ys
-      ) => Perhaps ys (x ': x' ': xs)
+      ) => Possibly ys (x ': x' ': xs)
    where
-      perhaps v = case pickEither' v of
+      possibly v = case pickEither' v of
          Right a  -> asMany a
-         Left  v' -> perhaps v'
+         Left  v' -> possibly v'
 
 -- | Convert a Many into possibly another Many with a totally different typelist.
+-- Mnemonic: Select is like 'pick'ing many alternatives.
 class Select ys xs where
     select :: Many xs -> Maybe (Many ys)
 
@@ -193,25 +194,11 @@ instance forall x x' xs ys.
                          i -> Just $ Many (i - 1) (unsafeCoerce a)
          Left  v' -> select v'
 
--- | Like select, but instead of Nothing return the Left Complement in the case of failure.
-selectEither :: (Perhaps (Complement xs ys) xs, Select ys xs) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
+-- | Like select, but return the Left Complement (the parts of xs not in ys) in the case of failure.
+selectEither :: (Possibly (Complement xs ys) xs, Select ys xs) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
 selectEither v = case select v of
-    Nothing -> Left (perhaps v)
+    Nothing -> Left (possibly v)
     Just v' -> Right v'
-
--- pickEither'
---     :: forall xs t h. ( Member h xs
---        -- , t ~ (Without h xs)
---        , t ~ Tail xs
---        , h ~ Head xs
---        )
---     => Many xs -> Either (Many t) h
--- pickEither' (Many n v) = let i = fromIntegral (natVal @(IndexOf (Head xs) xs) Proxy)
---                       in if n == i
---                          then Right (unsafeCoerce v)
---                          else if n > i
---                               then Left (Many (n - 1) v)
---                               else Left (Many n v)
 
 -- class Diverge xs ys where
 --     diverge :: Many xs -> Many ys
