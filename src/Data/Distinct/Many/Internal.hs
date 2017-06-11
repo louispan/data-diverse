@@ -53,9 +53,9 @@ data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 -- NB. nominal is required for GADTs with constraints
 type role Many representational
 
--- | Construct a Many out of a value
-toMany :: forall x xs. (Distinct xs, Member x xs) => x -> Many xs
-toMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+-- | Lift a value into a Many of possibly other types.
+asMany :: forall x xs. (Distinct xs, Member x xs) => x -> Many xs
+asMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | Internal function to create a many without bothering with the 'Distinct' constraint
 -- This is useful when we know something is Distinct, but I don't know how (or can't be bothered)
@@ -64,32 +64,32 @@ toMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 -- unsafeToMany :: forall x xs. (Member x xs) => x -> Many xs
 -- unsafeToMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
--- | Deconstruct a Many into a Maybe value
-fromMany :: forall x xs. (Member x xs) => Many xs -> Maybe x
-fromMany (Many n v) = if n == fromIntegral (natVal @(IndexOf x xs) Proxy)
-            then Just (unsafeCoerce v)
-            else Nothing
-
 -- | A Many with one type is not many at all.
 -- We can retrieve the value without a Maybe
 notMany :: Many '[a] -> a
 notMany (Many _ v) = unsafeCoerce v
 
+-- | Deconstruct a Many into a Maybe value
+pick :: forall x xs. (Member x xs) => Many xs -> Maybe x
+pick (Many n v) = if n == fromIntegral (natVal @(IndexOf x xs) Proxy)
+            then Just (unsafeCoerce v)
+            else Nothing
+
 -- | Try to pick a value out of a Many, and get Either the Right value or the Left-over possibilities.
-pick
+pickEither
     :: forall x xs.
        (Member x xs)
     => Many xs -> Either (Many (Without x xs)) x
-pick (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
+pickEither (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
                   in if n == i
                      then Right (unsafeCoerce v)
                      else if n > i
                           then Left (Many (n - 1) v)
                           else Left (Many n v)
 
--- | Pick the first type in the type list.
-pickOne :: Many (x ': xs) -> Either (Many xs) x
-pickOne (Many n v) = if n == 0
+-- | A version of 'pickEither' which picks the first type in the type list.
+pickEither' :: Many (x ': xs) -> Either (Many xs) x
+pickEither' (Many n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Many (n - 1) v)
 
@@ -114,7 +114,7 @@ instance (Case p '[x] r) => Switch '[x] p r where
 instance (Case p (x ': x' ': xs) r, Switch (x' ': xs) p r) =>
          Switch (x ': x' ': xs) p r where
     switch v p =
-        case pickOne v of
+        case pickEither' v of
             Right a -> picked p a
             Left v' -> switch v' (remaining p)
 
@@ -148,67 +148,65 @@ instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
 
 ----------------
 
--- FIXME: Naming
+-- FIXME: Naming to Perhaps
 -- FIXME: Use Switch to implement?
 -- Copied from https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Variant.hs#L363
 -- | Convert a Many to another Many that may includes other possibilities.
 -- That is, xs is equal or is a subset of ys.
 -- Can be used to rearrange the order of the types in the Many.
-class Increase ys xs where
-    increase :: Many xs -> Many ys
+class Perhaps ys xs where
+    perhaps :: Many xs -> Many ys
 
-instance (Member x ys, Distinct ys) => Increase ys '[x] where
-    increase v = case notMany v of
-            a -> toMany a
+instance (Member x ys, Distinct ys) => Perhaps ys '[x] where
+    perhaps v = case notMany v of
+            a -> asMany a
 
 instance forall x x' xs ys.
-      ( Increase ys (x' ': xs)
+      ( Perhaps ys (x' ': xs)
       , Member x ys
       , Distinct ys
-      ) => Increase ys (x ': x' ': xs)
+      ) => Perhaps ys (x ': x' ': xs)
    where
-      increase v = case pickOne v of
-         Right a  -> toMany a
-         Left  v' -> increase v'
+      perhaps v = case pickEither' v of
+         Right a  -> asMany a
+         Left  v' -> perhaps v'
 
--- | Convert a Many into possibly another Many with a totally different set
--- of possibilities.
--- FIXME: Naming
-class Decrease ys xs where
-    decrease :: Many xs -> Maybe (Many ys) -- FIXME: Use Either
+-- | Convert a Many into possibly another Many with a totally different typelist.
+class Select ys xs where
+    select :: Many xs -> Maybe (Many ys)
 
-instance (KnownNat (PositionOf x ys), Distinct ys) => Decrease ys '[x] where
-    decrease v = case notMany v of
+instance (KnownNat (PositionOf x ys), Distinct ys) => Select ys '[x] where
+    select v = case notMany v of
         a -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
                 0 -> Nothing
                 i -> Just $ Many (i - 1) (unsafeCoerce a)
 
 instance forall x x' xs ys.
-      ( Decrease ys (x' ': xs)
+      ( Select ys (x' ': xs)
       , KnownNat (PositionOf x ys)
       , Distinct ys
-      ) => Decrease ys (x ': x' ': xs)
+      ) => Select ys (x ': x' ': xs)
    where
-      decrease v = case pickOne v of
+      select v = case pickEither' v of
          Right a  -> case fromIntegral (natVal @(PositionOf x ys) Proxy) of
                          0 -> Nothing
                          i -> Just $ Many (i - 1) (unsafeCoerce a)
-         Left  v' -> decrease v'
+         Left  v' -> select v'
 
--- | Split the possibilities of Many
-split :: (Increase (Complement xs ys) xs, Decrease ys xs) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
-split v = case decrease v of
-    Nothing -> Left (increase v)
+-- | Like select, but instead of Nothing return the Left Complement in the case of failure.
+selectEither :: (Perhaps (Complement xs ys) xs, Select ys xs) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
+selectEither v = case select v of
+    Nothing -> Left (perhaps v)
     Just v' -> Right v'
 
--- pickOne
+-- pickEither'
 --     :: forall xs t h. ( Member h xs
 --        -- , t ~ (Without h xs)
 --        , t ~ Tail xs
 --        , h ~ Head xs
 --        )
 --     => Many xs -> Either (Many t) h
--- pickOne (Many n v) = let i = fromIntegral (natVal @(IndexOf (Head xs) xs) Proxy)
+-- pickEither' (Many n v) = let i = fromIntegral (natVal @(IndexOf (Head xs) xs) Proxy)
 --                       in if n == i
 --                          then Right (unsafeCoerce v)
 --                          else if n > i
@@ -231,7 +229,7 @@ class Facet branch tree where
 -- | UndecidableInstance due to xs appearing more often in the constraint.
 -- Safe because xs will not expand to @Many xs@ or bigger.
 instance (Distinct xs, Member a xs) => Facet a (Many xs) where
-    facet = prism' toMany fromMany
+    facet = prism' asMany pick
     {-# INLINE facet #-}
 
 -- | Injection.
@@ -303,7 +301,7 @@ ack = re wock
 
 
 -- more :: forall xs ys. Distinct ys, Subset xs ys xs) => Many xs -> Many ys
--- more = forany toMany
+-- more = forany asMany
 
 -- -- | Not working as GHC does not know that i is within our range!
 -- more :: forall xs ys. (Distinct xs, Distinct ys, Subset xs ys xs) => Many xs -> Many ys
@@ -318,11 +316,11 @@ ack = re wock
 -- more (Many n v) =
 --     let someNat = fromJust (someNatVal (toInteger n))
 --     in case someNat of
---         SomeNat (_ :: Proxy i) -> toMany' (unsafeCoerce v :: TypeAt i xs)
+--         SomeNat (_ :: Proxy i) -> asMany' (unsafeCoerce v :: TypeAt i xs)
 --   where
 --     -- | Doesn't work, GHC cannot instantiate a KnownNat forall x
---     toMany' :: forall x. (Distinct ys, Member x ys) => x -> Many ys
---     toMany' = Many (fromIntegral (natVal @(IndexOf x ys) Proxy)) . unsafeCoerce
+--     asMany' :: forall x. (Distinct ys, Member x ys) => x -> Many ys
+--     asMany' = Many (fromIntegral (natVal @(IndexOf x ys) Proxy)) . unsafeCoerce
 
 
 -- Unfortunately the following doesn't work. GHC isn't able to deduce that (TypeAt x xs) is a Typeable
