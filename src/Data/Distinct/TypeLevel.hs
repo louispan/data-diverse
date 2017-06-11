@@ -62,10 +62,7 @@ type IndexOf x (xs :: [Type]) = IndexOfImpl xs x xs
 
 -- | Get the first index of a type (Indexed by 1)
 -- Will return 0 if x doesn't exists in xs.
-type family PositionOf x (xs :: [Type]) :: Nat where
-   PositionOf x (x ': xs) = 1
-   PositionOf y (x ': xs) = 1 + PositionOf y xs
-   PositionOf x '[]       = 0
+type PositionOf x (xs :: [Type]) = PositionOfImpl 0 x xs
 
 -- | Get the type at an index
 type TypeAt (n :: Nat) (xs :: [Type]) = TypeAtImpl n xs n xs
@@ -95,12 +92,10 @@ type Member x xs = (KnownNat (IndexOf x xs))
 -- of a type in a typelist, or 0 if the type is not found.
 type MaybeMember x xs = KnownNat (PositionOf x xs)
 
--- type AllMember (xs :: [Type]) = AllMemberCtx xs xs
-
--- type family AllMemberCtx (ctx :: [Type]) (xs :: [Type]) :: Constraint where
---     AllMemberCtx ctx '[] = ()
---     AllMemberCtx ctx (x ': xs) = (Member3 x ctx,  AllMemberCtx ctx xs)
---     -- AllMemberCtx ctx (x ': xs) = (Member3 x ctx, Member4 x xs (x ': xs),  AllMemberCtx ctx xs)
+-- | For all x in xs, provide a proof that there is a KnownNat of x in ys.
+type family MembersOf (ctx :: [Type]) (xs :: [Type]) :: Constraint where
+    MembersOf ctx '[] = ()
+    MembersOf ctx (x ': xs) = (Member x ctx,  MembersOf ctx xs)
 
 -- -- | For each x in xs, create a (KnownNat (IndexOf x ys)) contraint
 -- type family Subset (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) :: Constraint where

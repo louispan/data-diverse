@@ -52,9 +52,15 @@ data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 -- NB. nominal is required for GADTs with constraints
 type role Many representational
 
+----------------------------------------------
+
 -- | Lift a value into a Many of possibly other types.
 pick :: forall x xs. (Distinct xs, Member x xs) => x -> Many xs
 pick = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+
+-- | A variation of 'pick' into a Many of a single type
+pick' :: x -> Many '[x]
+pick' = pick
 
 -- | Internal function to create a many without bothering with the 'Distinct' constraint
 -- This is useful when we know something is Distinct, but I don't know how (or can't be bothered)
@@ -63,8 +69,8 @@ pick = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 -- unsafeToMany :: forall x xs. (Member x xs) => x -> Many xs
 -- unsafeToMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
--- | A Many with one type is not many at all.
--- We can retrieve the value without a Maybe
+-- | Retrieving the value out of a 'Many' of one type is always successful.
+-- Mnemonic: A 'Many' with one type is 'notMany' at all.
 notMany :: Many '[a] -> a
 notMany (Many _ v) = unsafeCoerce v
 
@@ -98,15 +104,13 @@ trialEither' (Many n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Many (n - 1) v)
 
--- | Catamorphism for many. This is @flip switch@. See 'Switch'
-many :: Switch xs handler r => handler xs r -> Many xs -> r
-many = flip switch
+-------------------------------------------
 
 -- | A switch/case statement for Many.
 -- There is only one instance of this class which visits through the possibilities in Many,
 -- delegating work to 'CaseMany', ensuring termination when Many only contains one type.
 -- Uses 'Case' instances like 'Cases' to apply a 'Catalog' of functions to a variant of values.
--- Or 'CaseTypeable' to apply a polymorphic function that work on all 'Typeables'.
+-- Or 'TypeableCase' to apply a polymorphic function that work on all 'Typeables'.
 -- Or you may use your own custom instance of 'Case'.
 class Switch xs handler r where
     switch :: Many xs -> handler xs r -> r
@@ -128,6 +132,12 @@ instance (Case c '[x] r) => Switch '[x] c r where
     switch v c = case notMany v of
             a -> delegate c a
 
+-- | Catamorphism for many. This is @flip switch@. See 'Switch'
+many :: Switch xs handler r => handler xs r -> Many xs -> r
+many = flip switch
+
+-------------------------------------------
+
 -- | This class allows storing polymorphic functions with extra constraints that is used on each iteration of 'Switch'.
 -- An instance of this knows how to construct a handler of the first type in the 'xs' typelist, or
 -- how to construct the remaining 'Case's for the rest of the types in the type list.
@@ -137,9 +147,16 @@ class Case c xs r where
     -- | The remaining cases without the type x.
     remaining :: c xs r -> c (Tail xs) r
 
+-------------------------------------------
+
+-- | Contains a 'Catalog' of handlers/continuations for all thypes in the 'xs' typelist.
+newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
+
 -- | An instance of 'Case' that can be 'Switch'ed where it contains a 'Catalog' of handlers/continuations
 -- for all thypes in the 'xs' typelist.
-newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
+instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
+    delegate (Cases s) = s ^. item
+    remaining (Cases s) = Cases s
 
 -- | Create Cases for handling 'switch' from a tuple.
 -- This function imposes additional constraints than using 'Cases' constructor directly:
@@ -149,6 +166,8 @@ newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
 cases :: (SameLength fs xs, Outcome fs ~ r, fs ~ TypesOf (Unwrapped (Catalog fs)), Wrapped (Catalog fs)) => Unwrapped (Catalog fs) -> Cases fs xs r
 cases = Cases . catalog
 
+-------------------------------------------
+
 -- | This handler stores a polymorphic function for all Typeables.
 data TypeableCase (xs :: [Type]) r = TypeableCase (forall x. Typeable x => x -> r)
 
@@ -156,39 +175,39 @@ instance Typeable (Head xs) => Case TypeableCase xs r where
     delegate (TypeableCase f) = f
     remaining (TypeableCase f) = TypeableCase f
 
-instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
-    delegate (Cases s) = s ^. item
-    remaining (Cases s) = Cases s
+-------------------------------------------
 
-----------------
-
--- FIXME: Use Switch to implement?
--- Copied from https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Variant.hs#L363
--- | Convert a Many to another Many that may encompasss other possibilities.
+-- | Convert a Many to another Many that may include other possibilities.
 -- That is, xs is equal or is a subset of ys.
 -- Can be used to rearrange the order of the types in the Many.
-class Encompass ys xs where
-    encompass :: Many xs -> Many ys
+-- This is a class so that TypeApplications can be used to specify ys.
+class Diversify ys xs where
+    diversify :: Many xs -> Many ys
 
-data CaseEncompass ys (xs :: [Type]) r = Encompass (forall x. (Member x ys, Distinct ys) => x -> r)
+data DiversifyCase (ys :: [Type]) (xs :: [Type]) r = DiversifyCase
 
-instance (Member x ys, Distinct ys) => Encompass ys '[x] where
-    encompass v = case notMany v of
-            a -> pick a
+instance (Member (Head xs) ys, Distinct ys) => Case (DiversifyCase ys) xs (Many ys) where
+    delegate DiversifyCase = pick
+    remaining DiversifyCase = DiversifyCase
 
-instance forall x x' xs ys.
-      ( Encompass ys (x' ': xs)
-      , Member x ys
-      , Distinct ys
-      ) => Encompass ys (x ': x' ': xs)
-   where
-      encompass v = case trialEither' v of
-         Right a  -> pick a
-         Left  v' -> encompass v'
+instance Switch xs (DiversifyCase ys) (Many ys) => Diversify ys xs where
+    diversify = many (DiversifyCase @ys)
+
+-------------------------------------------
 
 -- | Convert a Many into possibly another Many with a totally different typelist.
+-- This is a class so that TypeApplications can be used to specify ys.
 class Reinterpret ys xs where
     reinterpret :: Many xs -> Maybe (Many ys)
+
+data ReinterpretCase (ys :: [Type]) (xs :: [Type]) r = ReinterpretCase
+
+instance (MaybeMember (Head xs) ys, Distinct ys) => Case (ReinterpretCase ys) xs (Maybe (Many ys)) where
+    delegate ReinterpretCase a = case fromIntegral (natVal @(PositionOf (Head xs) ys) Proxy) of
+                         0 -> Nothing
+                         i -> Just $ Many (i - 1) (unsafeCoerce a)
+    remaining ReinterpretCase = ReinterpretCase
+
 
 instance (MaybeMember x ys, Distinct ys) => Reinterpret ys '[x] where
     reinterpret v = case notMany v of
@@ -209,9 +228,9 @@ instance forall x x' xs ys.
          Left  v' -> reinterpret v'
 
 -- | Like reinterpret, but return the Complement (the parts of xs not in ys) in the case of failure.
-reinterpretEither :: (Encompass (Complement xs ys) xs, Reinterpret ys xs) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
+reinterpretEither :: (Diversify (Complement xs ys) xs, Reinterpret ys xs) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
 reinterpretEither v = case reinterpret v of
-    Nothing -> Left (encompass v)
+    Nothing -> Left (diversify v)
     Just v' -> Right v'
 
 -- class Diverge xs ys where

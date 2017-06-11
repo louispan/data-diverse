@@ -13,7 +13,7 @@ import Data.Distinct
 import Data.Typeable
 import Test.Hspec
 
--- import GHC.TypeLits
+import GHC.TypeLits
 -- import Data.Proxy
 -- import Data.Maybe
 -- import Data.Distinct.Many.Internal
@@ -61,13 +61,19 @@ main = do
                 y `shouldBe` Nothing
                 z `shouldBe` Just x
 
+        describe "TypeLevel" $ do
+            it "PositionOf" $ do
+                fromIntegral (natVal @(PositionOf String '[Bool, Int]) Proxy) `shouldBe` (0 :: Int)
+                fromIntegral (natVal @(PositionOf Bool '[Bool, Int]) Proxy) `shouldBe` (1 :: Int)
+                fromIntegral (natVal @(PositionOf Int '[Bool, Int]) Proxy) `shouldBe` (2 :: Int)
+
         describe "Many" $ do
             it "can be constructed and destructed" $ do
                 let y = pick (5 :: Int) :: Many '[Int]
                     x = preview (facet @Int) y
                 x `shouldBe` (Just 5)
 
-            it "can be sampled until it's not many" $ do
+            it "can be trialled until it's not a Many" $ do
                 let y = pick (5 :: Int) :: Many '[Int, Bool]
                     -- y' = pick (5 :: Int) :: Many '[Int]
                     x = trialEither y :: Either (Many '[Int]) Bool
@@ -97,6 +103,29 @@ main = do
             it "can be switched with TypeableCase unambiguously" $ do
                 let y = pick (5 :: Int) :: Many '[Int, Bool]
                 switch y (TypeableCase (show . typeRep . proxy)) `shouldBe` "Int"
+
+            it "can be extended and rearranged with diversify" $ do
+                let y = pick' (5 :: Int)
+                    y' = diversify @[Int, Bool] y
+                    y'' = diversify @[Bool, Int] y'
+                switch y'' (TypeableCase (show . typeRep . proxy)) `shouldBe` "Int"
+
+            it "can be reinterpreted into a different Many" $ do
+                let y = pick' (5 :: Int)
+                    y' = reinterpret @[String, Bool] y
+                case y' of
+                    Nothing -> pure ()
+                    Just v -> switch v (cases
+                                        ( show @Bool
+                                        , show @String
+                                        )) `shouldBe` "this case doesn't happen. Remove when Eq is implemented"
+
+            -- it "can be reinterpreted into a different Many" $ do
+            --     let y = pick' (5 :: Int)
+            --         y' = reinterpretEither @[Bool] y
+            --     case y' of
+            --         Left v -> switch y' (TypeableCase (show . typeRep . proxy)) `shouldBe` "Int"
+            --         Right v -> switch y' (TypeableCase (show . typeRep . proxy)) `shouldBe` "Bool"
 
             -- it "can be switched with forany" $ do
             --     let y = sample (5 :: Int) :: Many '[Int, Bool]

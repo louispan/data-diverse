@@ -8,6 +8,13 @@ module Data.Distinct.TypeLevel.Internal where
 import Data.Kind
 import GHC.TypeLits
 
+-- | Get the first index of a type (Indexed by 1)
+-- Will return 0 if x doesn't exists in xs.
+type family PositionOfImpl (i :: Nat) x (xs :: [Type]) :: Nat where
+   PositionOfImpl i x (x ': xs) = i + 1
+   PositionOfImpl i y (x ': xs) = PositionOfImpl (i + 1) y xs
+   PositionOfImpl i x '[]       = 0
+
 -- | Get the first index of a type with exception on original search list
 -- Modified from https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L223
 type family IndexOfImpl (ctx :: [Type]) x (xs :: [Type]) :: Nat where
