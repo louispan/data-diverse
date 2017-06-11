@@ -29,20 +29,20 @@ import Data.Maybe
 
 import Data.Monoid hiding (Any)
 
--- | A polymorphic variant or co-record where there are no duplicates in the type list of possible types.
--- This means TypeApplication (instead of labels) can be used to index the variant.
+-- | A Many is an anonymous sum type (also known as a polymorphic variant, or co-record)
+-- that has only distincs types in the list of possible types.
+-- That is, there are no duplicates types in the possibilities of this type.
+-- This means labels are not required, since the type itself (with type annotations or -XTypeApplications)
+-- can be used to try values in the Many.
 -- This is essentially a typed version of 'Data.Dynamic'
--- Mnemonic: It doesn't not one of Any type, it contains one of of Many types.
+-- Mnemonic: It doesn't contain one of Any type, it contains one of of Many types.
 --
--- The variant contains a value whose type is at the given position in the type list.
+-- Encoding: The variant contains a value whose type is at the given position in the type list.
 -- This is similar to the encoding as Haskus.Util.Many and HList (which used Int instead of Word)
+-- but with a different api.
 -- See https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Many.hs
 -- and https://hackage.haskell.org/package/HList-0.4.1.0/docs/src/Data-HList-Many.html
 --
--- This encoding has the following differences:
--- * No duplicate types allowed in the type list
--- * Labels are not required, just use TypeApplication for the expected type.
--- * Not exposing the type index position, so there is not getByIndex api.
 -- Not using GADTs with the Distinct constraint as it gets in the way when I know something is Distinct,
 -- but I don't know how to prove it to GHC. Eg a subset of something Distinct is also Distinct...
 data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
@@ -52,6 +52,46 @@ data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 -- | Just like Haskus and HList versions, inferred type is phamtom which is wrong
 -- NB. nominal is required for GADTs with constraints
 type role Many representational
+
+-- | Construct a Many out of a value
+toMany :: forall x xs. (Distinct xs, Member x xs) => x -> Many xs
+toMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+
+-- | Internal function to create a many without bothering with the 'Distinct' constraint
+-- This is useful when we know something is Distinct, but I don't know how (or can't be bothered)
+-- to prove it to GHC.
+-- Eg. a subset of something Distinct is also Distinct.
+-- unsafeToMany :: forall x xs. (Member x xs) => x -> Many xs
+-- unsafeToMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+
+-- | Deconstruct a Many into a Maybe value
+fromMany :: forall x xs. (Member x xs) => Many xs -> Maybe x
+fromMany (Many n v) = if n == fromIntegral (natVal @(IndexOf x xs) Proxy)
+            then Just (unsafeCoerce v)
+            else Nothing
+
+-- | A Many with one type is not many at all.
+-- We can retrieve the value without a Maybe
+notMany :: Many '[a] -> a
+notMany (Many _ v) = unsafeCoerce v
+
+-- | Try to pick a value out of a Many, and get Either the Right value or the Left-over possibilities.
+pick
+    :: forall x xs.
+       (Member x xs)
+    => Many xs -> Either (Many (Without x xs)) x
+pick (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
+                  in if n == i
+                     then Right (unsafeCoerce v)
+                     else if n > i
+                          then Left (Many (n - 1) v)
+                          else Left (Many n v)
+
+-- | Pick the first type in the type list.
+pickOne :: Many (x ': xs) -> Either (Many xs) x
+pickOne (Many n v) = if n == 0
+           then Right (unsafeCoerce v)
+           else Left (Many (n - 1) v)
 
 -- | Catamorphism for many. This is @flip switch@
 many :: Switch xs handler r => handler xs r -> Many xs -> r
@@ -108,6 +148,7 @@ instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
 ----------------
 
 -- FIXME: Naming
+-- FIXME: Use Switch to implement?
 -- Copied from https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Variant.hs#L363
 -- | Convert a Many to another Many that includes other possibilities.
 -- Can be used to rearrange the order of the types in the Many.
@@ -129,6 +170,7 @@ instance forall x x' xs ys.
          Left  v' -> increase v'
 
 -- | Convert a Many into possibly another Many
+-- FIXME: Naming
 class Decrease xs ys where
     decrease :: Many xs -> Maybe (Many ys) -- FIXME: Use Either
 
@@ -169,33 +211,11 @@ instance forall x x' xs ys.
 --     Right v -> toMany v
 --     Left v -> error "hi"
 
--- | Construct a Many out of a value
-toMany :: forall x xs. (Distinct xs, Member x xs) => x -> Many xs
-toMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
-
--- | Deconstruct a Many into a Maybe value
-fromMany :: forall x xs. (Member x xs) => Many xs -> Maybe x
-fromMany (Many n v) = if n == fromIntegral (natVal @(IndexOf x xs) Proxy)
-            then Just (unsafeCoerce v)
-            else Nothing
-
--- | Try to pick a value out of a Many, and get Either the Right value or the Left-over possibilities.
-pick
-    :: forall x xs.
-       (Member x xs)
-    => Many xs -> Either (Many (Without x xs)) x
-pick (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
-                  in if n == i
-                     then Right (unsafeCoerce v)
-                     else if n > i
-                          then Left (Many (n - 1) v)
-                          else Left (Many n v)
-
--- | Pick the first type in the type list.
-pickOne :: Many (x ': xs) -> Either (Many xs) x
-pickOne (Many n v) = if n == 0
-           then Right (unsafeCoerce v)
-           else Left (Many (n - 1) v)
+-- | Split the possibilities of Many 
+split :: (Increase xs (Complement xs ys), Decrease xs ys) => Many xs -> Either (Many (Complement xs ys)) (Many ys)
+split v = case decrease v of
+    Nothing -> Left (increase v)
+    Just v' -> Right v'
 
 -- pickOne
 --     :: forall xs t h. ( Member h xs
@@ -210,11 +230,6 @@ pickOne (Many n v) = if n == 0
 --                          else if n > i
 --                               then Left (Many (n - 1) v)
 --                               else Left (Many n v)
-
--- | A Many with one type is not many at all.
--- We can retrieve the value without a Maybe
-notMany :: Many '[a] -> a
-notMany (Many _ v) = unsafeCoerce v
 
 -- class Diverge xs ys where
 --     diverge :: Many xs -> Many ys

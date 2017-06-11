@@ -78,6 +78,7 @@ type TypeAt (n :: Nat) (xs :: [Type]) = TypeAtImpl n xs n xs
 --    , KnownNat (IndexOf x xs)
 --    )
 
+-- | The typelist xs without x. It is okay for x not to exist in xs
 type Without x (xs :: [Type]) = WithoutImpl x '[] xs
 
 type Reverse (xs :: [Type]) = ReverseImpl '[] xs
@@ -148,6 +149,11 @@ type family Head (xs :: [Type]) :: Type where
     Head (x ': xs) = x
 
 type SameLength (xs :: [Type]) (ys :: [Type]) = SameLengthImpl xs ys xs ys
+
+-- | Set complement. Returns the set of things in xs that are not in ys.
+type family Complement (xs :: [Type]) (ys :: [Type]) :: [Type] where
+    Complement '[] ys = ys
+    Complement (x ': xs) ys = Complement xs (Without x ys)
 -- -- | Check that a list is a subset of another
 -- type family IsSubset smaller larger :: Bool where
 --    IsSubset s l = IsSubsetEx l s l

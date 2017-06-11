@@ -87,14 +87,14 @@ type family TypeAtImpl (orig :: Nat) (ctx :: [Type]) (n :: Nat) (xs :: [Type]) :
    TypeAtImpl i ctx 0 (x ': xs) = x
    TypeAtImpl i ctx n (x ': xs) = TypeAtImpl i ctx (n - 1) xs
 
-type family ReverseImpl (ok :: [Type]) (xs :: [Type]) :: [Type] where
-    ReverseImpl ok '[] = ok
-    ReverseImpl ok (x ': xs) = ReverseImpl (x ': ok) xs
+type family ReverseImpl (ret :: [Type]) (xs :: [Type]) :: [Type] where
+    ReverseImpl ret '[] = ret
+    ReverseImpl ret (x ': xs) = ReverseImpl (x ': ret) xs
 
-type family WithoutImpl x (ok :: [Type]) (xs :: [Type]) :: [Type] where
-    WithoutImpl x ok '[] = ReverseImpl '[] ok
-    WithoutImpl x ok (x ': xs) = WithoutImpl x ok xs
-    WithoutImpl x ok (y ': xs) = WithoutImpl x (y ': ok) xs
+type family WithoutImpl x (ret :: [Type]) (xs :: [Type]) :: [Type] where
+    WithoutImpl x ret '[] = ReverseImpl '[] ret
+    WithoutImpl x ret (x ': xs) = WithoutImpl x ret xs
+    WithoutImpl x ret (y ': xs) = WithoutImpl x (y ': ret) xs
 
 
 type family SameLengthImpl (ctx :: [Type]) (cty :: [Type]) (xs :: [Type]) (yx :: [Type]) :: Constraint where

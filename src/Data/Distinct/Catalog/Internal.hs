@@ -19,9 +19,10 @@ import Data.Ix
 import Data.Kind
 import qualified GHC.Generics as G
 
--- | Catalog contains a tuple of unique types.
--- Use '_Cataloged' iso to create a Catalog.
--- Example: @review _Cataloged' ("foo", 6)@
+-- | A Catalog is an anonymous product type (also know as polymorphic record), that has fields of distinct types.
+-- That is, there are no duplicates types in the fields of the record.
+-- This means labels are not required, since the type itself (with type annotations or -XTypeApplications)
+-- can be used to get and set fields in the Catalog.
 data family Catalog (xs :: [Type])
 
 newtype instance Catalog '[] = Catalog0 ()
