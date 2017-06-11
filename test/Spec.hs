@@ -23,7 +23,6 @@ import GHC.TypeLits
 proxy :: a -> Proxy a
 proxy _ = Proxy
 
-
 main :: IO ()
 main = do
     hspec $ do
@@ -66,6 +65,17 @@ main = do
                 fromIntegral (natVal @(PositionOf String '[Bool, Int]) Proxy) `shouldBe` (0 :: Int)
                 fromIntegral (natVal @(PositionOf Bool '[Bool, Int]) Proxy) `shouldBe` (1 :: Int)
                 fromIntegral (natVal @(PositionOf Int '[Bool, Int]) Proxy) `shouldBe` (2 :: Int)
+                fromIntegral (natVal @(PositionOf Int '[Bool, Int, Char]) Proxy) `shouldBe` (2 :: Int)
+                fromIntegral (natVal @(PositionOf Int '[Bool, String, Char]) Proxy) `shouldBe` (0 :: Int)
+
+            it "ComplementOf" $ do
+                let complementTest :: (Complement xs ys ~ comp) => Proxy xs -> Proxy ys -> Proxy comp -> Proxy comp
+                    complementTest _ _ comp = comp
+
+                complementTest (Proxy @[String, Int]) (Proxy @[Bool, Int]) (Proxy @'[String]) `shouldBe` Proxy
+                complementTest (Proxy @[String, Int, Char]) (Proxy @[Bool, Int]) (Proxy @[String, Char]) `shouldBe` Proxy
+                complementTest (Proxy @[Bool, Int]) (Proxy @[Bool, Int]) (Proxy @'[]) `shouldBe` Proxy
+                complementTest (Proxy @[String, Bool]) (Proxy @[Int, Char]) (Proxy @'[String, Bool]) `shouldBe` Proxy
 
         describe "Many" $ do
             it "can be constructed and destructed" $ do
@@ -120,18 +130,18 @@ main = do
                                         , show @String
                                         )) `shouldBe` "this case doesn't happen. Remove when Eq is implemented"
 
-            -- it "can be reinterpreted into either one of two different Many" $ do
-            --     let y = pick @[Int, Char] (5 :: Int)
-            --         y' = reinterpretEither @[String, Bool] y
-            --     case y' of
-            --         Left v -> switch v (cases
-            --                             ( show @Char
-            --                             , show @Int
-            --                             )) `shouldBe` "Int"
-            --         Right v -> switch v (cases
-            --                             ( show @Bool
-            --                             , show @String
-            --                             )) `shouldBe` "this case doesn't happen. Remove when Eq is implemented"
+            it "can be reinterpreted into either one of two different Many" $ do
+                let y = pick @[Int, Char] (5 :: Int)
+                    y' = reinterpretEither @[String, Bool] y
+                case y' of
+                    Left v -> switch v (cases
+                                        ( show @Char
+                                        , show @Int
+                                        )) `shouldBe` "5"
+                    Right v -> switch v (cases
+                                        ( show @Bool
+                                        , show @String
+                                        )) `shouldBe` "this case doesn't happen. Remove when Eq is implemented"
 
             -- it "can be reinterpreted into a different Many" $ do
             --     let y = pick' (5 :: Int)

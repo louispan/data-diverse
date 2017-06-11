@@ -131,8 +131,8 @@ type SameLength (xs :: [Type]) (ys :: [Type]) = SameLengthImpl xs ys xs ys
 
 -- | Set complement. Returns the set of things in xs that are not in ys.
 type family Complement (xs :: [Type]) (ys :: [Type]) :: [Type] where
-    Complement '[] ys = ys
-    Complement (x ': xs) ys = Complement xs (Without x ys)
+    Complement xs '[] = xs
+    Complement xs (y ': ys)  = Complement (Without y xs) ys
 
 -- -- | Check that a list is a subset of another
 -- type family IsSubset smaller larger :: Bool where
