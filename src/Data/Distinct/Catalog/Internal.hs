@@ -52,6 +52,7 @@ showCatalog d t = showParen (d >= 11) ((showString "Catalog ") . (showsPrec 11 t
 instance (Distinct '[], AllRead '[]) => Read (Catalog '[]) where
     readPrec = readCatalog Catalog0
 
+-- | NB. This read instance is ambiguous
 instance (Distinct '[a], AllRead '[a]) => Read (Catalog '[a]) where
     readPrec = readCatalog Catalog1
 
@@ -164,7 +165,3 @@ instance (Distinct '[a], Items t '[a]) => Project (Catalog '[a]) t where
 instance (Distinct '[a, b], Items t '[a, b]) => Project (Catalog '[a, b]) t where
     project f t = fmap (\(Catalog2 (a, b)) -> t & item .~ a & item .~ b) (f $ Catalog2 (t ^. item, t ^. item))
     {-# INLINE project #-}
-
-------------------------------------------------------
-
--- FIXME: Read/Show with contructor as just "Catalog", don't worry about Catalog1 - let it be inferred

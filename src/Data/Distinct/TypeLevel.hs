@@ -83,6 +83,11 @@ type PositionOf x (xs :: [Type]) = PositionOfImpl 0 x xs
 -- | Get the type at an index
 type TypeAt (n :: Nat) (xs :: [Type]) = TypeAtImpl n xs n xs
 
+-- -- | Convert a type list to a list of (x, x) for every x in xs
+-- type family PairOf (xs :: [Type]) :: [Type] where
+--     PairOf '[] = '[]
+--     PairOf (x ': xs) = (x, x) ': PairOf xs
+
 -- | Constraint: x member of xs
 -- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L257
 -- type Member x xs =
@@ -135,16 +140,6 @@ type family Length (xs :: [Type]) :: Nat where
 --     Typeables '[] = ()
 --     Typeables (x ': xs) = (Typeable x, Typeables xs)
 
--- | A Read x For each x in xs
-type family AllRead (xs :: [Type]) :: Constraint where
-    AllRead '[] = ()
-    AllRead (x ': xs) = (Read x, AllRead xs)
-
--- | A Read x For each x in xs
-type family AllShow (xs :: [Type]) :: Constraint where
-    AllShow '[] = ()
-    AllShow (x ': xs) = (Show x, AllShow xs)
-
 type family Tail (xs :: [Type]) :: [Type] where
     Tail '[] = TypeError ('Text "Cannot Head an empty type list")
     Tail (x ': xs) = xs
@@ -167,3 +162,23 @@ type family Complement (xs :: [Type]) (ys :: [Type]) :: [Type] where
 -- -- | Check that a list is a subset of another
 -- type family IsSubset smaller larger :: Bool where
 --    IsSubset s l = IsSubsetEx l s l
+
+-- | @Read x@ For each x in xs
+type family AllRead (xs :: [Type]) :: Constraint where
+    AllRead '[] = ()
+    AllRead (x ': xs) = (Read x, AllRead xs)
+
+-- | @Show x@ For each x in xs
+type family AllShow (xs :: [Type]) :: Constraint where
+    AllShow '[] = ()
+    AllShow (x ': xs) = (Show x, AllShow xs)
+
+-- | @Eq x@ For each x in xs
+type family AllEq (xs :: [Type]) :: Constraint where
+    AllEq '[] = ()
+    AllEq (x ': xs) = (Eq x, AllEq xs)
+
+-- | @Eq x@ For each x in xs
+type family AllOrd (xs :: [Type]) :: Constraint where
+    AllOrd '[] = ()
+    AllOrd (x ': xs) = (Ord x, AllOrd xs)

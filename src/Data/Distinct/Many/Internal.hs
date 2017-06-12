@@ -176,7 +176,39 @@ instance Typeable (Head xs) => Case TypeableCase xs r where
     remaining (TypeableCase f) = TypeableCase f
     delegate (TypeableCase f) = f
 
--------------------------------------------
+-----------------------------------------------------------------
+
+instance (AllEq xs, Switch xs ManyEqCase Bool) => Eq (Many xs) where
+    l@(Many i _) == (Many j u) =
+        if i /= j
+            then False
+            else switch l (ManyEqCase u)
+
+-- | Do not export ManyEqCase as it only for internal use
+newtype ManyEqCase (xs :: [Type]) r = ManyEqCase Any
+
+instance (Eq (Head xs)) => Case ManyEqCase xs Bool where
+    remaining (ManyEqCase r) = (ManyEqCase r)
+    -- unsafeCoerce is ok because we know the Any in ManyEqCase must be the same type as l
+    delegate (ManyEqCase r) l = l == (unsafeCoerce r)
+
+-----------------------------------------------------------------
+
+instance (AllEq xs, AllOrd xs, Switch xs ManyEqCase Bool, Switch xs ManyOrdCase Ordering) => Ord (Many xs) where
+    compare l@(Many i _) (Many j u) =
+        if i /= j
+            then compare i j
+            else switch l (ManyOrdCase u)
+
+-- | Do not export ManyOrdCase as it only for internal use
+newtype ManyOrdCase (xs :: [Type]) r = ManyOrdCase Any
+
+instance (Ord (Head xs)) => Case ManyOrdCase xs Ordering where
+    remaining (ManyOrdCase r) = (ManyOrdCase r)
+    -- we know the Any in InternalEqCase must be the same type as l
+    delegate (ManyOrdCase r) l = compare l (unsafeCoerce r)
+
+------------------------------------------------------------------
 
 -- | Convert a Many to another Many that may include other possibilities.
 -- That is, xs is equal or is a subset of ys.
@@ -261,8 +293,4 @@ instance ( (Switch branch (DiversifyCase tree) (Many tree))
     inject = prism' diversify reinterpret
     {-# INLINE inject #-}
 
--- | Utilites
-
--- FIXME: Show and Read instances
-
--- FIXME: Eq instance?
+-- FIXME: Read and Show instances
