@@ -39,16 +39,18 @@ import Data.Typeable
 -- but with a different api.
 -- See https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Many.hs
 -- and https://hackage.haskell.org/package/HList-0.4.1.0/docs/src/Data-HList-Many.html
---
+data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
+
+-- | Just like Haskus and HList versions, inferred type is phamtom which is wrong
+type role Many representational
+
 -- Not using GADTs with the Distinct constraint as it gets in the way when I know something is Distinct,
 -- but I don't know how to prove it to GHC. Eg a subset of something Distinct is also Distinct...
-data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
 -- data Many (xs :: [Type]) where
 --     Many :: (Distinct xs) => {-# UNPACK #-} !Word -> Any -> Many xs
 
--- | Just like Haskus and HList versions, inferred type is phamtom which is wrong
 -- NB. nominal is required for GADTs with constraints
-type role Many representational
+-- type role Many nominal
 
 ----------------------------------------------
 
@@ -160,9 +162,9 @@ instance (Item (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
 -- | Create Cases for handling 'switch' from a tuple.
 -- This function imposes additional constraints than using 'Cases' constructor directly:
 -- * SameLength constraints to prevent human confusion with unusable cases.
--- * Outcome fs ~ r constraints to ensure that the Catalog only continutations that return r.
+-- * OutcomeOf fs ~ r constraints to ensure that the Catalog only continutations that return r.
 -- Example: @switch a $ cases (f, g, h)@
-cases :: (SameLength fs xs, Outcome fs ~ r, Cataloged fs, fs ~ TypesOf (TupleOf fs)) => TupleOf fs -> Cases fs xs r
+cases :: (SameLength fs xs, OutcomeOf fs ~ r, Cataloged fs, fs ~ TypesOf (TupleOf fs)) => TupleOf fs -> Cases fs xs r
 cases = Cases . catalog
 
 -------------------------------------------
@@ -261,8 +263,6 @@ instance ( (Switch branch (DiversifyCase tree) (Many tree))
 
 -- | Utilites
 
--- TODO:
+-- FIXME: Show and Read instances
 
--- Show and Read instances
-
--- Eq instance?
+-- FIXME: Eq instance?

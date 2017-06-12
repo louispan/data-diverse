@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -19,6 +18,9 @@ import Data.Distinct.TypeLevel
 import Data.Ix
 import Data.Kind
 import qualified GHC.Generics as G
+import Text.ParserCombinators.ReadPrec
+import Text.Read
+import qualified Text.Read.Lex as L
 
 -- | A Catalog is an anonymous product type (also know as polymorphic record), that has fields of distinct types.
 -- That is, there are no duplicates types in the fields of the record.
@@ -27,16 +29,49 @@ import qualified GHC.Generics as G
 data family Catalog (xs :: [Type])
 
 newtype instance Catalog '[] = Catalog0 ()
-    deriving (Read, Show, Eq, Ord, Ix, Bounded, G.Generic)
+    deriving (Eq, Ord, Ix, Bounded, G.Generic)
 newtype instance Catalog '[a] = Catalog1 a
-    deriving (Read, Show, Eq, Ord, Ix, Bounded, G.Generic)
+    deriving (Eq, Ord, Ix, Bounded, G.Generic)
 newtype instance Catalog '[a, b] = Catalog2 (a, b)
-    deriving (Show, Eq, Ord, Ix, Bounded, G.Generic)
-newtype instance Catalog '[a, b, c] = C3 (a, b, c)
-    deriving (Show, Eq, Ord, Ix, Bounded, G.Generic)
+    deriving (Eq, Ord, Ix, Bounded, G.Generic)
+newtype instance Catalog '[a, b, c] = Catalog3 (a, b, c)
+    deriving (Eq, Ord, Ix, Bounded, G.Generic)
 
-deriving instance (Distinct '[a, b], Read a, Read b) => Read (Catalog '[a, b])
-deriving instance (Distinct '[a, b, c], Read a, Read b, Read c) => Read (Catalog '[a, b, c])
+-- deriving instance (Distinct '[a, b], Read a, Read b) => Read (Catalog '[a, b])
+-- deriving instance (Distinct '[a, b, c], Read a, Read b, Read c) => Read (Catalog '[a, b, c])
+
+readCatalog :: Read t => (t -> a) -> ReadPrec a
+readCatalog f = parens $ prec 10 $ do
+    lift $ L.expect (Ident "Catalog")
+    t <- step readPrec
+    pure (f t)
+
+showCatalog :: Show a => Int -> a -> ShowS
+showCatalog d t = showParen (d >= 11) ((showString "Catalog ") . (showsPrec 11 t))
+
+instance (Distinct '[], AllRead '[]) => Read (Catalog '[]) where
+    readPrec = readCatalog Catalog0
+
+instance (Distinct '[a], AllRead '[a]) => Read (Catalog '[a]) where
+    readPrec = readCatalog Catalog1
+
+instance (Distinct '[a, b], AllRead '[a, b]) => Read (Catalog '[a, b]) where
+    readPrec = readCatalog Catalog2
+
+instance (Distinct '[a, b, c], AllRead [a, b, c]) => Read (Catalog '[a, b, c]) where
+    readPrec = readCatalog Catalog3
+
+instance (AllShow '[]) => Show (Catalog '[]) where
+    showsPrec d (Catalog0 t) = showCatalog d t
+
+instance (AllShow '[a]) => Show (Catalog '[a]) where
+    showsPrec d (Catalog1 t) = showCatalog d t
+
+instance (AllShow '[a, b]) => Show (Catalog '[a, b]) where
+    showsPrec d (Catalog2 t) = showCatalog d t
+
+instance (AllShow '[a, b, c]) => Show (Catalog '[a, b, c]) where
+    showsPrec d (Catalog3 t) = showCatalog d t
 
 ------------------------------------------------------
 
@@ -78,12 +113,12 @@ class Item value record where
     -- Example: @item \@Int@
     item :: Lens' record value
 
--- | Get a value from a catalog. Not called get to be consistent with replace.
+-- | Get a value from a catalog. Not called @get@ to be consistent with 'replace'.
 fetch :: Item value record => record -> value
 fetch = view item
 {-# INLINE fetch #-}
 
--- | Set a value in a Catalog. Not called set as it conflicts with Control.Lens.set
+-- | Set a value in a Catalog. Not called @set@ as it conflicts with 'Control.Lens.set'
 replace :: Item value record => value -> record -> record
 replace = set item
 {-# INLINE replace #-}

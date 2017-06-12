@@ -28,12 +28,12 @@ main = do
     hspec $ do
         describe "Catalog" $ do
             it "is a Read and Show" $ do
-                let s = "Catalog2 (5,False)"
+                let s = "Catalog (5,False)"
                     x = read s :: Catalog '[Int, Bool]
                 show x `shouldBe` s
 
             it "is a Eq" $ do
-                let s = "Catalog2 (5,False)"
+                let s = "Catalog (5,False)"
                     x = read s :: Catalog '[Int, Bool]
                     y = catalog (5, False)
                 x `shouldBe` y

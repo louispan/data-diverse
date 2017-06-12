@@ -11,7 +11,6 @@ module Data.Distinct.TypeLevel where
 import Data.Distinct.TypeLevel.Internal
 import Data.Kind
 import GHC.TypeLits
-import Data.Dynamic
 
 -- | Add a type to a typelist, disallowing duplicates.
 -- NB. xs are not checked.
@@ -34,10 +33,10 @@ type Distinct (xs :: [Type]) = Union '[] xs ~ xs
 --     Accepts r (x ': xs) = (x -> r) ': Accepts r xs
 
 -- | Gets the result type from an list of handlers/continuations of different types.
-type family Outcome (xs :: [Type]) :: Type where
-    Outcome '[] = TypeError ('Text "No continuation found in empty type list")
-    Outcome ((a -> r) ': xs) = OutcomeImpl ((a -> r) ': xs) r xs
-    Outcome ctx = TypeError ('Text "No continuation found in head of "
+type family OutcomeOf (xs :: [Type]) :: Type where
+    OutcomeOf '[] = TypeError ('Text "No continuation found in empty type list")
+    OutcomeOf ((a -> r) ': xs) = OutcomeOfImpl ((a -> r) ': xs) r xs
+    OutcomeOf ctx = TypeError ('Text "No continuation found in head of "
                                     ':<>: 'Text "‘"
                                     ':<>: 'ShowType ctx
                                     ':<>: 'Text "’")
@@ -132,9 +131,19 @@ type family Length (xs :: [Type]) :: Nat where
 -- -- | Check that a type is member of a type list
 -- type IsMember x xs = IsMemberEx xs x xs
 
-type family AllTypeable (xs :: [Type]) :: Constraint where
-    AllTypeable '[] = ()
-    AllTypeable (x ': xs) = (Typeable x, AllTypeable xs)
+-- type family Typeables (xs :: [Type]) :: Constraint where
+--     Typeables '[] = ()
+--     Typeables (x ': xs) = (Typeable x, Typeables xs)
+
+-- | A Read x For each x in xs
+type family AllRead (xs :: [Type]) :: Constraint where
+    AllRead '[] = ()
+    AllRead (x ': xs) = (Read x, AllRead xs)
+
+-- | A Read x For each x in xs
+type family AllShow (xs :: [Type]) :: Constraint where
+    AllShow '[] = ()
+    AllShow (x ': xs) = (Show x, AllShow xs)
 
 type family Tail (xs :: [Type]) :: [Type] where
     Tail '[] = TypeError ('Text "Cannot Head an empty type list")
