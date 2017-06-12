@@ -40,12 +40,14 @@ newtype instance Catalog '[a, b, c] = Catalog3 (a, b, c)
 -- deriving instance (Distinct '[a, b], Read a, Read b) => Read (Catalog '[a, b])
 -- deriving instance (Distinct '[a, b, c], Read a, Read b, Read c) => Read (Catalog '[a, b, c])
 
+-- | Internal helper for 'Read' instance
 readCatalog :: Read t => (t -> a) -> ReadPrec a
 readCatalog f = parens $ prec 10 $ do
     lift $ L.expect (Ident "Catalog")
     t <- step readPrec
     pure (f t)
 
+-- | Internal helper for 'Show' instance
 showCatalog :: Show a => Int -> a -> ShowS
 showCatalog d t = showParen (d >= 11) ((showString "Catalog ") . (showsPrec 11 t))
 
@@ -165,3 +167,6 @@ instance (Distinct '[a], Items t '[a]) => Project (Catalog '[a]) t where
 instance (Distinct '[a, b], Items t '[a, b]) => Project (Catalog '[a, b]) t where
     project f t = fmap (\(Catalog2 (a, b)) -> t & item .~ a & item .~ b) (f $ Catalog2 (t ^. item, t ^. item))
     {-# INLINE project #-}
+
+
+-- FIXME: Inline in all modules

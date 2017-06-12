@@ -16,15 +16,20 @@
 
 module Data.Distinct.Many.Internal where
 
+import Control.Applicative
 import Control.Lens
 import Data.Distinct.Catalog
 import Data.Distinct.TypeLevel
 import Data.Kind
 import Data.Proxy
+import Data.Typeable
 import GHC.Prim (Any)
 import GHC.TypeLits
+import Text.ParserCombinators.ReadPrec
+import Text.Read
+import qualified Text.Read.Lex as L
 import Unsafe.Coerce
-import Data.Typeable
+
 
 -- | A Many is an anonymous sum type (also known as a polymorphic variant, or co-record)
 -- that has only distincs types in the list of possible types.
@@ -113,8 +118,17 @@ trialEither' (Many n v) = if n == 0
 -- Uses 'Case' instances like 'Cases' to apply a 'Catalog' of functions to a variant of values.
 -- Or 'TypeableCase' to apply a polymorphic function that work on all 'Typeables'.
 -- Or you may use your own custom instance of 'Case'.
-class Switch xs handler r where
+class Switch (xs :: [Type]) handler r where
     switch :: Many xs -> handler xs r -> r
+
+-- | This class allows storing polymorphic functions with extra constraints that is used on each iteration of 'Switch'.
+-- An instance of this knows how to construct a handler of the first type in the 'xs' typelist, or
+-- how to construct the remaining 'Case's for the rest of the types in the type list.
+class Case c (xs :: [Type]) r where
+    -- | The remaining cases without the type x.
+    remaining :: c xs r -> c (Tail xs) r
+    -- | Return the handler/continuation when x is observed.
+    delegate :: c xs r -> (Head xs -> r)
 
 -- | 'trial' each type in a Many, and either delegate the handling of the value discovered, or loop
 -- trying the next type in the type list.
@@ -127,31 +141,20 @@ instance (Case c (x ': x' ': xs) r, Switch (x' ': xs) c r) =>
             Right a -> delegate c a
             Left v' -> switch v' (remaining c)
 
--- | Terminating instead of the loop, ensuring that a instance of @Switch '[]@
+-- | Terminating case of the loop, ensuring that a instance of @Switch '[]@
 -- with an empty typelist is not required.
 instance (Case c '[x] r) => Switch '[x] c r where
     switch v c = case notMany v of
             a -> delegate c a
 
 -- | Catamorphism for many. This is @flip switch@. See 'Switch'
-many :: Switch xs handler r => handler xs r -> Many xs -> r
-many = flip switch
-
--------------------------------------------
-
--- | This class allows storing polymorphic functions with extra constraints that is used on each iteration of 'Switch'.
--- An instance of this knows how to construct a handler of the first type in the 'xs' typelist, or
--- how to construct the remaining 'Case's for the rest of the types in the type list.
-class Case c xs r where
-    -- | The remaining cases without the type x.
-    remaining :: c xs r -> c (Tail xs) r
-    -- | Return the handler/continuation when x is observed.
-    delegate :: c xs r -> (Head xs -> r)
+foldMany :: Switch xs handler r => handler xs r -> Many xs -> r
+foldMany = flip switch
 
 -------------------------------------------
 
 -- | Contains a 'Catalog' of handlers/continuations for all thypes in the 'xs' typelist.
-newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
+newtype Cases (fs :: [Type]) (xs :: [Type]) r = Cases (Catalog fs)
 
 -- | An instance of 'Case' that can be 'Switch'ed where it contains a 'Catalog' of handlers/continuations
 -- for all thypes in the 'xs' typelist.
@@ -178,35 +181,83 @@ instance Typeable (Head xs) => Case TypeableCase xs r where
 
 -----------------------------------------------------------------
 
-instance (AllEq xs, Switch xs ManyEqCase Bool) => Eq (Many xs) where
+instance (AllEq xs, Switch xs EqManyCase Bool) => Eq (Many xs) where
     l@(Many i _) == (Many j u) =
         if i /= j
             then False
-            else switch l (ManyEqCase u)
+            else switch l (EqManyCase u)
 
--- | Do not export ManyEqCase as it only for internal use
-newtype ManyEqCase (xs :: [Type]) r = ManyEqCase Any
+-- | Do not export constructor
+-- Stores the right Any to be compared when the correct type is discovered
+newtype EqManyCase (xs :: [Type]) r = EqManyCase Any
 
-instance (Eq (Head xs)) => Case ManyEqCase xs Bool where
-    remaining (ManyEqCase r) = (ManyEqCase r)
-    -- unsafeCoerce is ok because we know the Any in ManyEqCase must be the same type as l
-    delegate (ManyEqCase r) l = l == (unsafeCoerce r)
+instance (Eq (Head xs)) => Case EqManyCase xs Bool where
+    remaining (EqManyCase r) = (EqManyCase r)
+    delegate (EqManyCase r) l = l == (unsafeCoerce r)
 
 -----------------------------------------------------------------
 
-instance (AllEq xs, AllOrd xs, Switch xs ManyEqCase Bool, Switch xs ManyOrdCase Ordering) => Ord (Many xs) where
+instance (AllEq xs, AllOrd xs, Switch xs EqManyCase Bool, Switch xs OrdManyCase Ordering) => Ord (Many xs) where
     compare l@(Many i _) (Many j u) =
         if i /= j
             then compare i j
-            else switch l (ManyOrdCase u)
+            else switch l (OrdManyCase u)
 
--- | Do not export ManyOrdCase as it only for internal use
-newtype ManyOrdCase (xs :: [Type]) r = ManyOrdCase Any
+-- | Do not export constructor
+-- Stores the right Any to be compared when the correct type is discovered
+newtype OrdManyCase (xs :: [Type]) r = OrdManyCase Any
 
-instance (Ord (Head xs)) => Case ManyOrdCase xs Ordering where
-    remaining (ManyOrdCase r) = (ManyOrdCase r)
-    -- we know the Any in InternalEqCase must be the same type as l
-    delegate (ManyOrdCase r) l = compare l (unsafeCoerce r)
+instance (Ord (Head xs)) => Case OrdManyCase xs Ordering where
+    remaining (OrdManyCase r) = (OrdManyCase r)
+    delegate (OrdManyCase r) l = compare l (unsafeCoerce r)
+
+------------------------------------------------------------------
+
+-- -- | for each type in the typelist call a delegate with the remaing typelist.
+-- class FoldTypeList (xs :: [Type]) handler r where
+--     foldTypeList :: handler xs r -> r -> r
+
+-- instance (Case' c (x ': x' ': xs) r, FoldTypeList (x' ': xs) c r) =>
+--          FoldTypeList (x ': x' ': xs) c r where
+--     foldTypeList c r = foldTypeList (remaining' c) (delegate' c r)
+
+-- -- | Terminating case of the loop, ensuring that a instance of @Iterate '[]@
+-- -- with an empty typelist is not required.
+-- instance (Case' c '[x] r) => FoldTypeList '[x] c r where
+--     foldTypeList c r = delegate' c r
+
+-- class Case' c xs r where
+--     -- | The remaining cases without the type x.
+--     remaining' :: c xs r -> c (Tail xs) r
+--     -- | Return the handler/continuation when x is observed.
+--     delegate' :: c xs r -> r -> r
+
+------------------------------------------------------------------
+
+class ReadMany (xs :: [Type]) where
+   readMany :: Proxy xs -> Word -> ReadPrec (Word, Any) -> ReadPrec (Word, Any)
+
+-- | Terminating case of the loop, ensuring that a instance of with an empty typelist is not required.
+instance Read x => ReadMany '[x] where
+   readMany _ n r = r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x)))
+
+instance (ReadMany xs, Read x) => ReadMany (x ': xs) where
+   readMany _ n r = readMany @xs Proxy (n + 1) (r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x))))
+
+
+-- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
+instance (Distinct xs, ReadMany xs) => Read (Many xs) where
+    readPrec = parens $ prec 10 $ do
+        lift $ L.expect (Ident "Many")
+        (n, v) <- step (readMany @xs Proxy 0 empty)
+        pure (Many n v)
+
+-- -- | Do not export constructor
+-- data ReadManyCase' (xs :: [Type]) r = ReadManyCase' {-# UNPACK #-} !Word
+
+-- instance (Read (Head xs)) => Case' ReadManyCase' xs (ReadPrec (Int, Any)) where
+--     remaining' (ReadManyCase' n) = ReadManyCase' (n + 1)
+--     delegate' (ReadManyCase' n) r = r <|> ((\a -> (n, a)) <$> readPrec @(Head xs))
 
 ------------------------------------------------------------------
 
@@ -217,7 +268,7 @@ instance (Ord (Head xs)) => Case ManyOrdCase xs Ordering where
 -- The Switch constraint is fulfilled with
 -- (Distinct ys, forall x (in xs). Member x xs)
 diversify :: forall ys xs. Switch xs (DiversifyCase ys) (Many ys) => Many xs -> Many ys
-diversify = many (DiversifyCase @ys)
+diversify = foldMany (DiversifyCase @ys)
 
 data DiversifyCase (ys :: [Type]) (xs :: [Type]) r = DiversifyCase
 
@@ -232,7 +283,7 @@ instance (Member (Head xs) ys, Distinct ys) => Case (DiversifyCase ys) xs (Many 
 -- The Switch constraint is fulfilled with
 -- (Distinct ys, forall x (in xs). (MaybeMember x ys)
 reinterpret :: forall ys xs. Switch xs (ReinterpretCase ys) (Maybe (Many ys)) => Many xs -> Maybe (Many ys)
-reinterpret = many (ReinterpretCase @ys)
+reinterpret = foldMany (ReinterpretCase @ys)
 
 data ReinterpretCase (ys :: [Type]) (xs :: [Type]) r = ReinterpretCase
 
