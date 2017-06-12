@@ -63,10 +63,12 @@ type role Many representational
 -- NB. forall used to specify xs first, so TypeApplications can be used to specify xs.
 pick :: forall xs x. (Distinct xs, Member x xs) => x -> Many xs
 pick = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+{-# INLINE pick #-}
 
 -- | A variation of 'pick' into a Many of a single type
 pick' :: x -> Many '[x]
 pick' = pick
+{-# INLINE pick' #-}
 
 -- | Internal function to create a many without bothering with the 'Distinct' constraint
 -- This is useful when we know something is Distinct, but I don't know how (or can't be bothered)
@@ -79,6 +81,7 @@ pick' = pick
 -- Mnemonic: A 'Many' with one type is 'notMany' at all.
 notMany :: Many '[a] -> a
 notMany (Many _ v) = unsafeCoerce v
+{-# INLINE notMany #-}
 
 -- | For a specified or inferred type, deconstruct a Many into a Maybe value of that type.
 trial :: forall x xs. (Member x xs) => Many xs -> Maybe x
@@ -91,6 +94,7 @@ trial' :: Many (x ': xs) -> Maybe x
 trial' (Many n v) = if n == 0
             then Just (unsafeCoerce v)
             else Nothing
+{-# INLINE trial' #-}
 
 -- | 'trial' a value out of a Many, and get Either the Right value or the Left-over possibilities.
 trialEither
@@ -103,14 +107,109 @@ trialEither (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
                      else if n > i
                           then Left (Many (n - 1) v)
                           else Left (Many n v)
+{-# INLINE trialEither #-}
 
 -- | A version of 'trialEither' which trys the first type in the type list.
 trialEither' :: Many (x ': xs) -> Either (Many xs) x
 trialEither' (Many n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Many (n - 1) v)
+{-# INLINE trialEither' #-}
 
--------------------------------------------
+------------------------------------------------------------------
+
+-- | A Many has a prism to an the inner type.
+-- That is, a value can be 'pick'ed into a Many or mabye 'trial'ed out of a Many.
+-- | Use TypeApplication to specify the smaller type of the prism.
+-- Example: @facet \@[Int, Bool]@
+class Facet leaf branch where
+    -- Example: @facet \@Int@
+    facet :: Prism' branch leaf
+
+-- | UndecidableInstance due to xs appearing more often in the constraint.
+-- Safe because xs will not expand to @Many xs@ or bigger.
+instance (Distinct xs, Member a xs) => Facet a (Many xs) where
+    facet = prism' pick trial
+    {-# INLINE facet #-}
+
+------------------------------------------------------------------
+
+-- | Convert a Many to another Many that may include other possibilities.
+-- That is, xs is equal or is a subset of ys.
+-- Can be used to rearrange the order of the types in the Many.
+-- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
+-- The Switch constraint is fulfilled with
+-- (Distinct ys, forall x (in xs). Member x xs)
+diversify :: forall ys xs. Switch xs (CaseDiversify ys) (Many ys) => Many xs -> Many ys
+diversify = foldMany (CaseDiversify @ys)
+{-# INLINE diversify #-}
+
+data CaseDiversify (ys :: [Type]) (xs :: [Type]) r = CaseDiversify
+
+instance (Member (Head xs) ys, Distinct ys) => Case (CaseDiversify ys) xs (Many ys) where
+    remaining CaseDiversify = CaseDiversify
+    {-# INLINE remaining #-}
+    delegate CaseDiversify = pick
+    {-# INLINE delegate #-}
+
+------------------------------------------------------------------
+
+-- | Convert a Many into possibly another Many with a totally different typelist.
+-- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
+-- The Switch constraint is fulfilled with
+-- (Distinct ys, forall x (in xs). (MaybeMember x ys)
+reinterpret :: forall ys xs. Switch xs (CaseReinterpret ys) (Maybe (Many ys)) => Many xs -> Maybe (Many ys)
+reinterpret = foldMany (CaseReinterpret @ys)
+{-# INLINE reinterpret #-}
+
+data CaseReinterpret (ys :: [Type]) (xs :: [Type]) r = CaseReinterpret
+
+instance (MaybeMember (Head xs) ys, Distinct ys) => Case (CaseReinterpret ys) xs (Maybe (Many ys)) where
+    remaining CaseReinterpret = CaseReinterpret
+    {-# INLINE remaining #-}
+    delegate CaseReinterpret a = case fromIntegral (natVal @(PositionOf (Head xs) ys) Proxy) of
+                                     0 -> Nothing
+                                     i -> Just $ Many (i - 1) (unsafeCoerce a)
+    {-# INLINE delegate #-}
+
+
+-- | Like reinterpret, but return the Complement (the parts of xs not in ys) in the case of failure.
+-- The Switch constraints is fulfilled with
+-- (Distinct ys, forall x (in xs). (MaybeMember x ys, Member x (Complement xs ys)))
+reinterpretEither
+    :: forall ys xs.
+       ( Switch xs (CaseDiversify (Complement xs ys)) (Many (Complement xs ys))
+       , Switch xs (CaseReinterpret ys) (Maybe (Many ys))
+       )
+    => Many xs -> Either (Many (Complement xs ys)) (Many ys)
+reinterpretEither v = case reinterpret v of
+    Nothing -> Left (diversify v)
+    Just v' -> Right v'
+{-# INLINE reinterpretEither #-}
+
+------------------------------------------------------------------
+
+-- | Injection.
+-- A Many can be 'diversify'ed to contain more types or 'reinterpret'ed into possibly another Many type.
+-- This typeclass looks like 'Facet' but is used for different purposes. Also it has the type params reversed,
+-- so that TypeApplications can be used to specify the larger Many type.
+-- Use TypeApplication to specify the larger type of the prism.
+-- Example: @inject \@[Int, Bool]@
+class Inject tree branch where
+    -- | Enlarge number of or change order of types in the variant.
+    -- Use TypeApplication to specify the destination type.
+    -- Example: @inject \@(Many '[Int, String])@
+    inject :: Prism' tree branch
+
+instance ( (Switch branch (CaseDiversify tree) (Many tree))
+         , (Switch tree (CaseReinterpret branch) (Maybe (Many branch)))
+         ) =>
+         Inject (Many tree) (Many branch) where
+    inject = prism' diversify reinterpret
+    {-# INLINE inject #-}
+
+
+------------------------------------------------------------------
 
 -- | A switch/case statement for Many.
 -- There is only one instance of this class which visits through the possibilities in Many,
@@ -140,16 +239,19 @@ instance (Case c (x ': x' ': xs) r, Switch (x' ': xs) c r) =>
         case trialEither' v of
             Right a -> delegate c a
             Left v' -> switch v' (remaining c)
+    {-# INLINE switch #-}
 
 -- | Terminating case of the loop, ensuring that a instance of @Switch '[]@
 -- with an empty typelist is not required.
 instance (Case c '[x] r) => Switch '[x] c r where
     switch v c = case notMany v of
             a -> delegate c a
+    {-# INLINE switch #-}
 
 -- | Catamorphism for many. This is @flip switch@. See 'Switch'
 foldMany :: Switch xs handler r => handler xs r -> Many xs -> r
 foldMany = flip switch
+{-# INLINE foldMany #-}
 
 -------------------------------------------
 
@@ -160,7 +262,9 @@ newtype Cases (fs :: [Type]) (xs :: [Type]) r = Cases (Catalog fs)
 -- for all thypes in the 'xs' typelist.
 instance (Item (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
     remaining (Cases s) = Cases s
+    {-# INLINE remaining #-}
     delegate (Cases s) = s ^. item
+    {-# INLINE delegate #-}
 
 -- | Create Cases for handling 'switch' from a tuple.
 -- This function imposes additional constraints than using 'Cases' constructor directly:
@@ -169,6 +273,7 @@ instance (Item (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
 -- Example: @switch a $ cases (f, g, h)@
 cases :: (SameLength fs xs, OutcomeOf fs ~ r, Cataloged fs, fs ~ TypesOf (TupleOf fs)) => TupleOf fs -> Cases fs xs r
 cases = Cases . catalog
+{-# INLINE cases #-}
 
 -------------------------------------------
 
@@ -177,7 +282,9 @@ data CaseTypeable (xs :: [Type]) r = CaseTypeable (forall x. Typeable x => x -> 
 
 instance Typeable (Head xs) => Case CaseTypeable xs r where
     remaining (CaseTypeable f) = CaseTypeable f
+    {-# INLINE remaining #-}
     delegate (CaseTypeable f) = f
+    {-# INLINE delegate #-}
 
 -----------------------------------------------------------------
 
@@ -186,6 +293,7 @@ instance (AllEq xs, Switch xs CaseEqMany Bool) => Eq (Many xs) where
         if i /= j
             then False
             else switch l (CaseEqMany u)
+    {-# INLINE (==) #-}
 
 -- | Do not export constructor
 -- Stores the right Any to be compared when the correct type is discovered
@@ -193,7 +301,9 @@ newtype CaseEqMany (xs :: [Type]) r = CaseEqMany Any
 
 instance (Eq (Head xs)) => Case CaseEqMany xs Bool where
     remaining (CaseEqMany r) = (CaseEqMany r)
+    {-# INLINE remaining #-}
     delegate (CaseEqMany r) l = l == (unsafeCoerce r)
+    {-# INLINE delegate #-}
 
 -----------------------------------------------------------------
 
@@ -202,6 +312,7 @@ instance (AllEq xs, AllOrd xs, Switch xs CaseEqMany Bool, Switch xs CaseOrdMany 
         if i /= j
             then compare i j
             else switch l (CaseOrdMany u)
+    {-# INLINE compare #-}
 
 -- | Do not export constructor
 -- Stores the right Any to be compared when the correct type is discovered
@@ -209,117 +320,37 @@ newtype CaseOrdMany (xs :: [Type]) r = CaseOrdMany Any
 
 instance (Ord (Head xs)) => Case CaseOrdMany xs Ordering where
     remaining (CaseOrdMany r) = (CaseOrdMany r)
+    {-# INLINE remaining #-}
     delegate (CaseOrdMany r) l = compare l (unsafeCoerce r)
-
-------------------------------------------------------------------
-
--- | Convert a Many to another Many that may include other possibilities.
--- That is, xs is equal or is a subset of ys.
--- Can be used to rearrange the order of the types in the Many.
--- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
--- The Switch constraint is fulfilled with
--- (Distinct ys, forall x (in xs). Member x xs)
-diversify :: forall ys xs. Switch xs (CaseDiversify ys) (Many ys) => Many xs -> Many ys
-diversify = foldMany (CaseDiversify @ys)
-
-data CaseDiversify (ys :: [Type]) (xs :: [Type]) r = CaseDiversify
-
-instance (Member (Head xs) ys, Distinct ys) => Case (CaseDiversify ys) xs (Many ys) where
-    remaining CaseDiversify = CaseDiversify
-    delegate CaseDiversify = pick
-
--------------------------------------------
-
--- | Convert a Many into possibly another Many with a totally different typelist.
--- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
--- The Switch constraint is fulfilled with
--- (Distinct ys, forall x (in xs). (MaybeMember x ys)
-reinterpret :: forall ys xs. Switch xs (CaseReinterpret ys) (Maybe (Many ys)) => Many xs -> Maybe (Many ys)
-reinterpret = foldMany (CaseReinterpret @ys)
-
-data CaseReinterpret (ys :: [Type]) (xs :: [Type]) r = CaseReinterpret
-
-instance (MaybeMember (Head xs) ys, Distinct ys) => Case (CaseReinterpret ys) xs (Maybe (Many ys)) where
-    remaining CaseReinterpret = CaseReinterpret
-    delegate CaseReinterpret a = case fromIntegral (natVal @(PositionOf (Head xs) ys) Proxy) of
-                                     0 -> Nothing
-                                     i -> Just $ Many (i - 1) (unsafeCoerce a)
-
-
--- | Like reinterpret, but return the Complement (the parts of xs not in ys) in the case of failure.
--- The Switch constraints is fulfilled with
--- (Distinct ys, forall x (in xs). (MaybeMember x ys, Member x (Complement xs ys)))
-reinterpretEither
-    :: forall ys xs.
-       ( Switch xs (CaseDiversify (Complement xs ys)) (Many (Complement xs ys))
-       , Switch xs (CaseReinterpret ys) (Maybe (Many ys))
-       )
-    => Many xs -> Either (Many (Complement xs ys)) (Many ys)
-reinterpretEither v = case reinterpret v of
-    Nothing -> Left (diversify v)
-    Just v' -> Right v'
-
--------------------------------------------
-
--- | A Many has a prism to an the inner type.
--- That is, a value can be 'pick'ed into a Many or mabye 'trial'ed out of a Many.
--- | Use TypeApplication to specify the smaller type of the prism.
--- Example: @facet \@[Int, Bool]@
-class Facet leaf branch where
-    -- Example: @facet \@Int@
-    facet :: Prism' branch leaf
-
--- | UndecidableInstance due to xs appearing more often in the constraint.
--- Safe because xs will not expand to @Many xs@ or bigger.
-instance (Distinct xs, Member a xs) => Facet a (Many xs) where
-    facet = prism' pick trial
-    {-# INLINE facet #-}
-
--------------------------------------------
-
--- | Injection.
--- A Many can be 'diversify'ed to contain more types or 'reinterpret'ed into possibly another Many type.
--- This typeclass looks like 'Facet' but is used for different purposes. Also it has the type params reversed,
--- so that TypeApplications can be used to specify the larger Many type.
--- Use TypeApplication to specify the larger type of the prism.
--- Example: @inject \@[Int, Bool]@
-class Inject tree branch where
-    -- | Enlarge number of or change order of types in the variant.
-    -- Use TypeApplication to specify the destination type.
-    -- Example: @inject \@(Many '[Int, String])@
-    inject :: Prism' tree branch
-
-instance ( (Switch branch (CaseDiversify tree) (Many tree))
-         , (Switch tree (CaseReinterpret branch) (Maybe (Many branch)))
-         ) =>
-         Inject (Many tree) (Many branch) where
-    inject = prism' diversify reinterpret
-    {-# INLINE inject #-}
-
+    {-# INLINE delegate #-}
 
 ------------------------------------------------------------------
 
 instance (Switch xs ShowManyCase ShowS) => Show (Many xs) where
     showsPrec d v = showParen (d >= 11) ((showString "Many ") . (foldMany (ShowManyCase 11) v))
+    {-# INLINE showsPrec #-}
 
 data ShowManyCase (xs :: [Type]) r = ShowManyCase Int
 
 instance Show (Head xs) => Case ShowManyCase xs ShowS where
     remaining (ShowManyCase d) = (ShowManyCase d)
+    {-# INLINE remaining #-}
     delegate (ShowManyCase d) = showsPrec d
+    {-# INLINE delegate #-}
 
 ------------------------------------------------------------------
 
 class ReadMany (xs :: [Type]) where
-   readMany :: Proxy xs -> Word -> ReadPrec (Word, Any) -> ReadPrec (Word, Any)
+    readMany :: Proxy xs -> Word -> ReadPrec (Word, Any) -> ReadPrec (Word, Any)
 
 -- | Terminating case of the loop, ensuring that a instance of with an empty typelist is not required.
 instance Read x => ReadMany '[x] where
-   readMany _ n r = r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x)))
+    readMany _ n r = r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x)))
+    {-# INLINE readMany #-}
 
 instance (ReadMany (x' ': xs), Read x) => ReadMany (x ': x' ': xs) where
-   readMany _ n r = readMany @(x' ': xs) Proxy (n + 1) (r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x))))
-
+    readMany _ n r = readMany @(x' ': xs) Proxy (n + 1) (r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x))))
+    {-# INLINE readMany #-}
 
 -- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
 instance (Distinct xs, ReadMany xs) => Read (Many xs) where
@@ -327,3 +358,4 @@ instance (Distinct xs, ReadMany xs) => Read (Many xs) where
         lift $ L.expect (Ident "Many")
         (n, v) <- step (readMany @xs Proxy 0 empty)
         pure (Many n v)
+    {-# INLINE readPrec #-}

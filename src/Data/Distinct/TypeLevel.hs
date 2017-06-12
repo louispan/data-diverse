@@ -19,7 +19,6 @@ type Insert (y :: Type) (xs :: [Type]) = InsertImpl xs y xs
 -- | Combine two type lists together, assuming disallowing duplicates from ys
 -- NB. xs are not checked.
 type family Union (xs :: [Type]) (ys :: [Type]) :: [Type] where
-    -- empty case
     Union '[] '[] = '[]
     Union xs '[] = xs
     Union xs (y ': ys) = Union (Insert y xs) ys
@@ -27,29 +26,24 @@ type family Union (xs :: [Type]) (ys :: [Type]) :: [Type] where
 -- | A constraint ensuring that the type list contain unique types
 type Distinct (xs :: [Type]) = Union '[] xs ~ xs
 
--- | Convert a list types into a list of handlers/continuations with a result type.
--- type family Accepts r (xs :: [Type]) :: [Type] where
---     Accepts r '[] = '[]
---     Accepts r (x ': xs) = (x -> r) ': Accepts r xs
-
 -- | Gets the result type from an list of handlers/continuations of different types.
 type family OutcomeOf (xs :: [Type]) :: Type where
     OutcomeOf '[] = TypeError ('Text "No continuation found in empty type list")
     OutcomeOf ((a -> r) ': xs) = OutcomeOfImpl ((a -> r) ': xs) r xs
     OutcomeOf ctx = TypeError ('Text "No continuation found in head of "
-                                    ':<>: 'Text "‘"
-                                    ':<>: 'ShowType ctx
-                                    ':<>: 'Text "’")
+                               ':<>: 'Text "‘"
+                               ':<>: 'ShowType ctx
+                               ':<>: 'Text "’")
 
 type family TypesOfNotSupported t :: [Type] where
     TypesOfNotSupported t = TypeError ('Text "TypesOf ‘"
-                                    ':<>: 'ShowType t
-                                    ':<>: 'Text "’ is too large to be suppored")
+                                       ':<>: 'ShowType t
+                                       ':<>: 'Text "’ is too large to be suppored")
 
 type family TupleOfNotSupported (xs :: [Type]) :: Type where
     TupleOfNotSupported xs = TypeError ('Text "TupleOf ‘"
-                                    ':<>: 'ShowType xs
-                                    ':<>: 'Text "’ is too large to be suppored")
+                                        ':<>: 'ShowType xs
+                                        ':<>: 'Text "’ is too large to be suppored")
 
 -- | Get the type list of out a tuple
 -- The size of this should be synchronized withe the number of 'Has' instances in Catalog
@@ -83,19 +77,6 @@ type PositionOf x (xs :: [Type]) = PositionOfImpl 0 x xs
 -- | Get the type at an index
 type TypeAt (n :: Nat) (xs :: [Type]) = TypeAtImpl n xs n xs
 
--- -- | Convert a type list to a list of (x, x) for every x in xs
--- type family PairOf (xs :: [Type]) :: [Type] where
---     PairOf '[] = '[]
---     PairOf (x ': xs) = (x, x) ': PairOf xs
-
--- | Constraint: x member of xs
--- https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L257
--- type Member x xs =
---    ( IsMember x xs ~ 'True
---    , x ~ TypeAt (IndexOf x xs) xs
---    , KnownNat (IndexOf x xs)
---    )
-
 -- | The typelist xs without x. It is okay for x not to exist in xs
 type Without x (xs :: [Type]) = WithoutImpl x '[] xs
 
@@ -118,27 +99,9 @@ type family MembersOf (ctx :: [Type]) (xs :: [Type]) :: Constraint where
     MembersOf ctx '[] = ()
     MembersOf ctx (x ': xs) = (Member x ctx,  MembersOf ctx xs)
 
--- -- | For each x in xs, create a (KnownNat (IndexOf x ys)) contraint
--- type family Subset (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) :: Constraint where
---     Subset as bs  '[] = ()
---     Subset as bs (x ': xs) = (Member2 x as bs, Subset as bs xs)
---     -- Subset as bs (x ': xs) = (Subset as bs xs)
-
--- -- | For each x in xs, create a (KnownNat (IndexOf (TypeAt i xs) ys)) contraint
--- type family Subset2 (smaller :: [Type]) (larger :: [Type]) :: Constraint where
---     Subset2 '[] ys = ()
---     Subset2 (x ': xs) ys = (Member x ys, Subset2 xs ys)
-
 type family Length (xs :: [Type]) :: Nat where
     Length '[] = 0
     Length (x ': xs) = 1 + Length xs
-
--- -- | Check that a type is member of a type list
--- type IsMember x xs = IsMemberEx xs x xs
-
--- type family Typeables (xs :: [Type]) :: Constraint where
---     Typeables '[] = ()
---     Typeables (x ': xs) = (Typeable x, Typeables xs)
 
 type family Tail (xs :: [Type]) :: [Type] where
     Tail '[] = TypeError ('Text "Cannot Head an empty type list")
@@ -154,14 +117,6 @@ type SameLength (xs :: [Type]) (ys :: [Type]) = SameLengthImpl xs ys xs ys
 type family Complement (xs :: [Type]) (ys :: [Type]) :: [Type] where
     Complement xs '[] = xs
     Complement xs (y ': ys)  = Complement (Without y xs) ys
-
--- -- | Check that a list is a subset of another
--- type family IsSubset smaller larger :: Bool where
---    IsSubset s l = IsSubsetEx l s l
-
--- -- | Check that a list is a subset of another
--- type family IsSubset smaller larger :: Bool where
---    IsSubset s l = IsSubsetEx l s l
 
 -- | @Read x@ For each x in xs
 type family AllRead (xs :: [Type]) :: Constraint where

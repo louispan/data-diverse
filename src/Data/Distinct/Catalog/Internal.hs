@@ -46,35 +46,45 @@ readCatalog f = parens $ prec 10 $ do
     lift $ L.expect (Ident "Catalog")
     t <- step readPrec
     pure (f t)
+{-# INLINE readCatalog #-}
 
 -- | Internal helper for 'Show' instance
 showCatalog :: Show a => Int -> a -> ShowS
 showCatalog d t = showParen (d >= 11) ((showString "Catalog ") . (showsPrec 11 t))
+{-# INLINE showCatalog #-}
 
 instance (Distinct '[], AllRead '[]) => Read (Catalog '[]) where
     readPrec = readCatalog Catalog0
+    {-# INLINE readPrec #-}
 
 -- | NB. This read instance is ambiguous
 instance (Distinct '[a], AllRead '[a]) => Read (Catalog '[a]) where
     readPrec = readCatalog Catalog1
+    {-# INLINE readPrec #-}
 
 instance (Distinct '[a, b], AllRead '[a, b]) => Read (Catalog '[a, b]) where
     readPrec = readCatalog Catalog2
+    {-# INLINE readPrec #-}
 
 instance (Distinct '[a, b, c], AllRead [a, b, c]) => Read (Catalog '[a, b, c]) where
     readPrec = readCatalog Catalog3
+    {-# INLINE readPrec #-}
 
 instance (AllShow '[]) => Show (Catalog '[]) where
     showsPrec d (Catalog0 t) = showCatalog d t
+    {-# INLINE showsPrec #-}
 
 instance (AllShow '[a]) => Show (Catalog '[a]) where
     showsPrec d (Catalog1 t) = showCatalog d t
+    {-# INLINE showsPrec #-}
 
 instance (AllShow '[a, b]) => Show (Catalog '[a, b]) where
     showsPrec d (Catalog2 t) = showCatalog d t
+    {-# INLINE showsPrec #-}
 
 instance (AllShow '[a, b, c]) => Show (Catalog '[a, b, c]) where
     showsPrec d (Catalog3 t) = showCatalog d t
+    {-# INLINE showsPrec #-}
 
 ------------------------------------------------------
 
@@ -153,9 +163,11 @@ class Project to from where
 
 narrow :: Project to from => from -> to
 narrow = view project
+{-# INLINE narrow #-}
 
 amend :: Project to from => to -> from -> from
 amend = set project
+{-# INLINE amend #-}
 
 instance Project (Catalog '[]) t where
     project f t = fmap (const t) (f $ Catalog0 ())
@@ -167,6 +179,3 @@ instance (Distinct '[a], Items t '[a]) => Project (Catalog '[a]) t where
 instance (Distinct '[a, b], Items t '[a, b]) => Project (Catalog '[a, b]) t where
     project f t = fmap (\(Catalog2 (a, b)) -> t & item .~ a & item .~ b) (f $ Catalog2 (t ^. item, t ^. item))
     {-# INLINE project #-}
-
-
--- FIXME: Inline in all modules
