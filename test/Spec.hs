@@ -107,50 +107,36 @@ main = do
                     -- , False
                     )))) `shouldBe` "5"
 
-            it "can be switched with TypeableCase" $ do
+            it "can be switched with CaseTypeable" $ do
                 let y = pick (5 :: Int) :: Many '[Int, Bool]
-                switch y (TypeableCase @'[Int, Bool] (show . typeRep . proxy)) `shouldBe` "Int"
+                switch y (CaseTypeable @'[Int, Bool] (show . typeRep . proxy)) `shouldBe` "Int"
 
-            it "can be switched with TypeableCase unambiguously" $ do
+            it "can be switched with CaseTypeable unambiguously" $ do
                 let y = pick (5 :: Int) :: Many '[Int, Bool]
-                switch y (TypeableCase (show . typeRep . proxy)) `shouldBe` "Int"
+                switch y (CaseTypeable (show . typeRep . proxy)) `shouldBe` "Int"
 
             it "can be extended and rearranged with diversify" $ do
                 let y = pick' (5 :: Int)
                     y' = diversify @[Int, Bool] y
                     y'' = diversify @[Bool, Int] y'
-                switch y'' (TypeableCase (show . typeRep . proxy)) `shouldBe` "Int"
+                switch y'' (CaseTypeable (show . typeRep . proxy)) `shouldBe` "Int"
 
             it "can be reinterpreted into a different Many" $ do
                 let y = pick @[Int, Char] (5 :: Int)
                     y' = reinterpret @[String, Bool] y
-                case y' of
-                    Nothing -> pure ()
-                    Just v -> switch v (cases
-                                        ( show @Bool
-                                        , show @String
-                                        )) `shouldBe` "this case doesn't happen. Remove when Eq is implemented"
+                y' `shouldBe` Nothing
 
             it "can be reinterpreted into either one of two different Many" $ do
                 let y = pick @[Int, Char] (5 :: Int)
                     y' = reinterpretEither @[String, Bool] y
-                case y' of
-                    Left v -> switch v (cases
-                                        ( show @Char
-                                        , show @Int
-                                        )) `shouldBe` "5"
-                    Right v -> switch v (cases
-                                        ( show @Bool
-                                        , show @String
-                                        )) `shouldBe` "this case doesn't happen. Remove when Eq is implemented"
+                y' `shouldBe` Left y
 
-        --     it "is a Read and Show" $ do
-        --         let s = "M2_1 5"
-        --             x = read s :: Many '[Int, Bool]
-        --         show x `shouldBe` s
-        --     it "is a Eq" $ do
-        --         let s = "M2_1 5"
-        --             x = read s :: Many '[Int, Bool]
-        --             y = M2_1 5
-        --         x `shouldBe` y
-        -- describe "Many" $ do
+            it "is a Read and Show" $ do
+                let s = "Many 5"
+                    x = read s :: Many '[Int, Bool]
+                show x `shouldBe` "Many 5"
+
+            it "is a Eq" $ do
+                let y = pick (5 :: Int) :: Many '[Int, Bool]
+                let y' = pick (5 :: Int) :: Many '[Int, Bool]
+                y `shouldBe` y'

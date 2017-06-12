@@ -173,91 +173,43 @@ cases = Cases . catalog
 -------------------------------------------
 
 -- | This handler stores a polymorphic function for all Typeables.
-data TypeableCase (xs :: [Type]) r = TypeableCase (forall x. Typeable x => x -> r)
+data CaseTypeable (xs :: [Type]) r = CaseTypeable (forall x. Typeable x => x -> r)
 
-instance Typeable (Head xs) => Case TypeableCase xs r where
-    remaining (TypeableCase f) = TypeableCase f
-    delegate (TypeableCase f) = f
+instance Typeable (Head xs) => Case CaseTypeable xs r where
+    remaining (CaseTypeable f) = CaseTypeable f
+    delegate (CaseTypeable f) = f
 
 -----------------------------------------------------------------
 
-instance (AllEq xs, Switch xs EqManyCase Bool) => Eq (Many xs) where
+instance (AllEq xs, Switch xs CaseEqMany Bool) => Eq (Many xs) where
     l@(Many i _) == (Many j u) =
         if i /= j
             then False
-            else switch l (EqManyCase u)
+            else switch l (CaseEqMany u)
 
 -- | Do not export constructor
 -- Stores the right Any to be compared when the correct type is discovered
-newtype EqManyCase (xs :: [Type]) r = EqManyCase Any
+newtype CaseEqMany (xs :: [Type]) r = CaseEqMany Any
 
-instance (Eq (Head xs)) => Case EqManyCase xs Bool where
-    remaining (EqManyCase r) = (EqManyCase r)
-    delegate (EqManyCase r) l = l == (unsafeCoerce r)
+instance (Eq (Head xs)) => Case CaseEqMany xs Bool where
+    remaining (CaseEqMany r) = (CaseEqMany r)
+    delegate (CaseEqMany r) l = l == (unsafeCoerce r)
 
 -----------------------------------------------------------------
 
-instance (AllEq xs, AllOrd xs, Switch xs EqManyCase Bool, Switch xs OrdManyCase Ordering) => Ord (Many xs) where
+instance (AllEq xs, AllOrd xs, Switch xs CaseEqMany Bool, Switch xs CaseOrdMany Ordering) => Ord (Many xs) where
     compare l@(Many i _) (Many j u) =
         if i /= j
             then compare i j
-            else switch l (OrdManyCase u)
+            else switch l (CaseOrdMany u)
 
 -- | Do not export constructor
 -- Stores the right Any to be compared when the correct type is discovered
-newtype OrdManyCase (xs :: [Type]) r = OrdManyCase Any
+newtype CaseOrdMany (xs :: [Type]) r = CaseOrdMany Any
 
-instance (Ord (Head xs)) => Case OrdManyCase xs Ordering where
-    remaining (OrdManyCase r) = (OrdManyCase r)
-    delegate (OrdManyCase r) l = compare l (unsafeCoerce r)
-
-------------------------------------------------------------------
-
--- -- | for each type in the typelist call a delegate with the remaing typelist.
--- class FoldTypeList (xs :: [Type]) handler r where
---     foldTypeList :: handler xs r -> r -> r
-
--- instance (Case' c (x ': x' ': xs) r, FoldTypeList (x' ': xs) c r) =>
---          FoldTypeList (x ': x' ': xs) c r where
---     foldTypeList c r = foldTypeList (remaining' c) (delegate' c r)
-
--- -- | Terminating case of the loop, ensuring that a instance of @Iterate '[]@
--- -- with an empty typelist is not required.
--- instance (Case' c '[x] r) => FoldTypeList '[x] c r where
---     foldTypeList c r = delegate' c r
-
--- class Case' c xs r where
---     -- | The remaining cases without the type x.
---     remaining' :: c xs r -> c (Tail xs) r
---     -- | Return the handler/continuation when x is observed.
---     delegate' :: c xs r -> r -> r
-
-------------------------------------------------------------------
-
-class ReadMany (xs :: [Type]) where
-   readMany :: Proxy xs -> Word -> ReadPrec (Word, Any) -> ReadPrec (Word, Any)
-
--- | Terminating case of the loop, ensuring that a instance of with an empty typelist is not required.
-instance Read x => ReadMany '[x] where
-   readMany _ n r = r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x)))
-
-instance (ReadMany xs, Read x) => ReadMany (x ': xs) where
-   readMany _ n r = readMany @xs Proxy (n + 1) (r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x))))
-
-
--- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
-instance (Distinct xs, ReadMany xs) => Read (Many xs) where
-    readPrec = parens $ prec 10 $ do
-        lift $ L.expect (Ident "Many")
-        (n, v) <- step (readMany @xs Proxy 0 empty)
-        pure (Many n v)
-
--- -- | Do not export constructor
--- data ReadManyCase' (xs :: [Type]) r = ReadManyCase' {-# UNPACK #-} !Word
-
--- instance (Read (Head xs)) => Case' ReadManyCase' xs (ReadPrec (Int, Any)) where
---     remaining' (ReadManyCase' n) = ReadManyCase' (n + 1)
---     delegate' (ReadManyCase' n) r = r <|> ((\a -> (n, a)) <$> readPrec @(Head xs))
+instance (Ord (Head xs)) => Case CaseOrdMany xs Ordering where
+    remaining (CaseOrdMany r) = (CaseOrdMany r)
+    delegate (CaseOrdMany r) l = compare l (unsafeCoerce r)
 
 ------------------------------------------------------------------
 
@@ -267,14 +219,14 @@ instance (Distinct xs, ReadMany xs) => Read (Many xs) where
 -- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
 -- The Switch constraint is fulfilled with
 -- (Distinct ys, forall x (in xs). Member x xs)
-diversify :: forall ys xs. Switch xs (DiversifyCase ys) (Many ys) => Many xs -> Many ys
-diversify = foldMany (DiversifyCase @ys)
+diversify :: forall ys xs. Switch xs (CaseDiversify ys) (Many ys) => Many xs -> Many ys
+diversify = foldMany (CaseDiversify @ys)
 
-data DiversifyCase (ys :: [Type]) (xs :: [Type]) r = DiversifyCase
+data CaseDiversify (ys :: [Type]) (xs :: [Type]) r = CaseDiversify
 
-instance (Member (Head xs) ys, Distinct ys) => Case (DiversifyCase ys) xs (Many ys) where
-    remaining DiversifyCase = DiversifyCase
-    delegate DiversifyCase = pick
+instance (Member (Head xs) ys, Distinct ys) => Case (CaseDiversify ys) xs (Many ys) where
+    remaining CaseDiversify = CaseDiversify
+    delegate CaseDiversify = pick
 
 -------------------------------------------
 
@@ -282,14 +234,14 @@ instance (Member (Head xs) ys, Distinct ys) => Case (DiversifyCase ys) xs (Many 
 -- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
 -- The Switch constraint is fulfilled with
 -- (Distinct ys, forall x (in xs). (MaybeMember x ys)
-reinterpret :: forall ys xs. Switch xs (ReinterpretCase ys) (Maybe (Many ys)) => Many xs -> Maybe (Many ys)
-reinterpret = foldMany (ReinterpretCase @ys)
+reinterpret :: forall ys xs. Switch xs (CaseReinterpret ys) (Maybe (Many ys)) => Many xs -> Maybe (Many ys)
+reinterpret = foldMany (CaseReinterpret @ys)
 
-data ReinterpretCase (ys :: [Type]) (xs :: [Type]) r = ReinterpretCase
+data CaseReinterpret (ys :: [Type]) (xs :: [Type]) r = CaseReinterpret
 
-instance (MaybeMember (Head xs) ys, Distinct ys) => Case (ReinterpretCase ys) xs (Maybe (Many ys)) where
-    remaining ReinterpretCase = ReinterpretCase
-    delegate ReinterpretCase a = case fromIntegral (natVal @(PositionOf (Head xs) ys) Proxy) of
+instance (MaybeMember (Head xs) ys, Distinct ys) => Case (CaseReinterpret ys) xs (Maybe (Many ys)) where
+    remaining CaseReinterpret = CaseReinterpret
+    delegate CaseReinterpret a = case fromIntegral (natVal @(PositionOf (Head xs) ys) Proxy) of
                                      0 -> Nothing
                                      i -> Just $ Many (i - 1) (unsafeCoerce a)
 
@@ -299,8 +251,8 @@ instance (MaybeMember (Head xs) ys, Distinct ys) => Case (ReinterpretCase ys) xs
 -- (Distinct ys, forall x (in xs). (MaybeMember x ys, Member x (Complement xs ys)))
 reinterpretEither
     :: forall ys xs.
-       ( Switch xs (DiversifyCase (Complement xs ys)) (Many (Complement xs ys))
-       , Switch xs (ReinterpretCase ys) (Maybe (Many ys))
+       ( Switch xs (CaseDiversify (Complement xs ys)) (Many (Complement xs ys))
+       , Switch xs (CaseReinterpret ys) (Maybe (Many ys))
        )
     => Many xs -> Either (Many (Complement xs ys)) (Many ys)
 reinterpretEither v = case reinterpret v of
@@ -337,11 +289,77 @@ class Inject tree branch where
     -- Example: @inject \@(Many '[Int, String])@
     inject :: Prism' tree branch
 
-instance ( (Switch branch (DiversifyCase tree) (Many tree))
-         , (Switch tree (ReinterpretCase branch) (Maybe (Many branch)))
+instance ( (Switch branch (CaseDiversify tree) (Many tree))
+         , (Switch tree (CaseReinterpret branch) (Maybe (Many branch)))
          ) =>
          Inject (Many tree) (Many branch) where
     inject = prism' diversify reinterpret
     {-# INLINE inject #-}
 
--- FIXME: Read and Show instances
+
+------------------------------------------------------------------
+
+instance (Switch xs ShowManyCase ShowS) => Show (Many xs) where
+    showsPrec d v = showParen (d >= 11) ((showString "Many ") . (foldMany (ShowManyCase 11) v))
+
+data ShowManyCase (xs :: [Type]) r = ShowManyCase Int
+
+instance Show (Head xs) => Case ShowManyCase xs ShowS where
+    remaining (ShowManyCase d) = (ShowManyCase d)
+    delegate (ShowManyCase d) = showsPrec d
+
+------------------------------------------------------------------
+
+class ReadMany (xs :: [Type]) where
+   readMany :: Proxy xs -> Word -> ReadPrec (Word, Any) -> ReadPrec (Word, Any)
+
+-- | Terminating case of the loop, ensuring that a instance of with an empty typelist is not required.
+instance Read x => ReadMany '[x] where
+   readMany _ n r = r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x)))
+
+instance (ReadMany (x' ': xs), Read x) => ReadMany (x ': x' ': xs) where
+   readMany _ n r = readMany @(x' ': xs) Proxy (n + 1) (r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x))))
+
+
+-- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
+instance (Distinct xs, ReadMany xs) => Read (Many xs) where
+    readPrec = parens $ prec 10 $ do
+        lift $ L.expect (Ident "Many")
+        (n, v) <- step (readMany @xs Proxy 0 empty)
+        pure (Many n v)
+
+-----
+
+-- -- | for each type in the typelist call a delegate with the remaing typelist.
+-- class FoldTypeList (xs :: [Type]) handler r where
+--     foldTypeList :: handler xs r -> r -> r
+
+-- instance (Case' c (x ': x' ': xs) r, FoldTypeList (x' ': xs) c r) =>
+--          FoldTypeList (x ': x' ': xs) c r where
+--     foldTypeList c r = foldTypeList (remaining' c) (delegate' c r)
+
+-- -- | Terminating case of the loop, ensuring that a instance of @Iterate '[]@
+-- -- with an empty typelist is not required.
+-- instance (Case' c '[x] r) => FoldTypeList '[x] c r where
+--     foldTypeList c r = delegate' c r
+
+-- class Case' c xs r where
+--     -- | The remaining cases without the type x.
+--     remaining' :: c xs r -> c (Tail xs) r
+--     -- | Return the handler/continuation when x is observed.
+--     delegate' :: c xs r -> r -> r
+
+-- instance (Distinct xs, AllRead xs) => Read (Many xs) where
+--     readPrec = parens $ prec 10 $ do
+--         lift $ L.expect (Ident "Many")
+--         v <- step readPrec
+--         pure (pick v)
+
+-- -- | Do not export constructor
+-- data ReadManyCase' (xs :: [Type]) r = ReadManyCase' {-# UNPACK #-} !Word
+
+-- data Wack a b = Wack a b
+
+-- instance (Read (Head xs)) => Case' ReadManyCase' xs (ReadPrec Any) where
+--     remaining' (ReadManyCase' n) = ReadManyCase' (n + 1)
+--     delegate' (ReadManyCase' n) r = r <|> ((\a -> (n, a)) <$> readPrec @(Head xs))
