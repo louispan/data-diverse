@@ -104,6 +104,7 @@ main = do
                 switch y (Cases (catalog( -- cannot use `cases` function if you can redundant cases
                     ( show @Int
                     , 20 :: Int
+                    -- , False
                     )))) `shouldBe` "5"
 
             it "can be switched with TypeableCase" $ do
@@ -142,27 +143,6 @@ main = do
                                         ( show @Bool
                                         , show @String
                                         )) `shouldBe` "this case doesn't happen. Remove when Eq is implemented"
-
-            -- it "can be reinterpreted into a different Many" $ do
-            --     let y = pick' (5 :: Int)
-            --         y' = reinterpretEither @[Bool] y
-            --     case y' of
-            --         Left v -> switch y' (TypeableCase (show . typeRep . proxy)) `shouldBe` "Int"
-            --         Right v -> switch y' (TypeableCase (show . typeRep . proxy)) `shouldBe` "Bool"
-
-            -- it "can be switched with forany" $ do
-            --     let y = sample (5 :: Int) :: Many '[Int, Bool]
-            --     let x = case y of
-            --                 Many n v -> let someNat = fromJust (someNatVal (toInteger n))
-            --                             in case someNat of
-            --                                    SomeNat (_ :: Proxy x) ->
-            --                                        (show . typeRep . proxy) (unsafeCoerce v :: TypeAt x '[Int, Bool])
-
-            --     x `shouldBe` "Int"
-
-            -- it "can be switched with forany" $ do
-            --     let y = sample (5 :: Int) :: Many '[Int, Bool]
-            --     forany y (show . typeRep . proxy) `shouldBe` "Int"
 
         --     it "is a Read and Show" $ do
         --         let s = "M2_1 5"

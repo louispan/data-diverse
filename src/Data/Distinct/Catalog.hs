@@ -1,14 +1,16 @@
 -- | Re-export Catalog without the constructor
 module Data.Distinct.Catalog
     ( Catalog
+    , Cataloged(..)
     , catalog
-    , _Cataloged
-    , _Cataloged'
-    , _Uncataloged
-    , _Uncataloged'
-    , AllHas
-    , Has(..)
+    , toTuple
+    , Item(..)
+    , Items
+    , fetch
+    , replace
     , Project(..)
+    , narrow
+    , amend
     ) where
 
 import Data.Distinct.Catalog.Internal

@@ -26,8 +26,6 @@ import GHC.TypeLits
 import Unsafe.Coerce
 import Data.Typeable
 
-import Data.Monoid hiding (Any)
-
 -- | A Many is an anonymous sum type (also known as a polymorphic variant, or co-record)
 -- that has only distincs types in the list of possible types.
 -- That is, there are no duplicates types in the possibilities of this type.
@@ -155,7 +153,7 @@ newtype Cases fs (xs :: [Type]) r = Cases (Catalog fs)
 
 -- | An instance of 'Case' that can be 'Switch'ed where it contains a 'Catalog' of handlers/continuations
 -- for all thypes in the 'xs' typelist.
-instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
+instance (Item (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
     remaining (Cases s) = Cases s
     delegate (Cases s) = s ^. item
 
@@ -164,7 +162,7 @@ instance (Has (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
 -- * SameLength constraints to prevent human confusion with unusable cases.
 -- * Outcome fs ~ r constraints to ensure that the Catalog only continutations that return r.
 -- Example: @switch a $ cases (f, g, h)@
-cases :: (SameLength fs xs, Outcome fs ~ r, fs ~ TypesOf (Unwrapped (Catalog fs)), Wrapped (Catalog fs)) => Unwrapped (Catalog fs) -> Cases fs xs r
+cases :: (SameLength fs xs, Outcome fs ~ r, Cataloged fs, fs ~ TypesOf (TupleOf fs)) => TupleOf fs -> Cases fs xs r
 cases = Cases . catalog
 
 -------------------------------------------
@@ -228,7 +226,7 @@ reinterpretEither v = case reinterpret v of
 
 -- | A Many has a prism to an the inner type.
 -- That is, a value can be 'pick'ed into a Many or mabye 'trial'ed out of a Many.
--- | Use TypeApplication to specify the destination type of the prism.
+-- | Use TypeApplication to specify the smaller type of the prism.
 -- Example: @facet \@[Int, Bool]@
 class Facet leaf branch where
     -- Example: @facet \@Int@
@@ -246,7 +244,7 @@ instance (Distinct xs, Member a xs) => Facet a (Many xs) where
 -- A Many can be 'diversify'ed to contain more types or 'reinterpret'ed into possibly another Many type.
 -- This typeclass looks like 'Facet' but is used for different purposes. Also it has the type params reversed,
 -- so that TypeApplications can be used to specify the larger Many type.
--- | Use TypeApplication to specify the destination type of the prism.
+-- Use TypeApplication to specify the larger type of the prism.
 -- Example: @inject \@[Int, Bool]@
 class Inject tree branch where
     -- | Enlarge number of or change order of types in the variant.

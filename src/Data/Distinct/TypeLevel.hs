@@ -35,26 +35,43 @@ type Distinct (xs :: [Type]) = Union '[] xs ~ xs
 
 -- | Gets the result type from an list of handlers/continuations of different types.
 type family Outcome (xs :: [Type]) :: Type where
-    Outcome '[] = TypeError ( 'Text "No continuation found in empty type list")
+    Outcome '[] = TypeError ('Text "No continuation found in empty type list")
     Outcome ((a -> r) ': xs) = OutcomeImpl ((a -> r) ': xs) r xs
-    Outcome ctx = TypeError ( 'Text "No continuation found in head of "
+    Outcome ctx = TypeError ('Text "No continuation found in head of "
                                     ':<>: 'Text "‘"
                                     ':<>: 'ShowType ctx
                                     ':<>: 'Text "’")
 
+type family TypesOfNotSupported t :: [Type] where
+    TypesOfNotSupported t = TypeError ('Text "TypesOf ‘"
+                                    ':<>: 'ShowType t
+                                    ':<>: 'Text "’ is too large to be suppored")
+
+type family TupleOfNotSupported (xs :: [Type]) :: Type where
+    TupleOfNotSupported xs = TypeError ('Text "TupleOf ‘"
+                                    ':<>: 'ShowType xs
+                                    ':<>: 'Text "’ is too large to be suppored")
+
+-- | Get the type list of out a tuple
+-- The size of this should be synchronized withe the number of 'Has' instances in Catalog
 type family TypesOf x :: [Type] where
     TypesOf () = '[]
     TypesOf (a, b) = '[a, b]
     TypesOf (a, b, c) = '[a, b, c]
+    TypesOf (a, b, c, d) = TypesOfNotSupported (a, b, c, d)
+    -- TypesOf (a, b, c) = '[a, b, c]
     -- declare overlapping instance last in this closed type family
     TypesOf a = '[a]
 
--- type family TupleOf (xs :: [Type]) :: Type where
---     TupleOf '[] = ()
---     TupleOf '[a, b] = (a, b)
---     TupleOf '[a, b, c] = (a, b, c)
---     -- declare overlapping instance last in this closed type family
---     TupleOf '[a] = a
+-- | Get the tuple with equivalent type list
+-- The size of this should be synchronized withe the number of 'Has' instances in Catalog
+type family TupleOf (xs :: [Type]) :: Type where
+    TupleOf '[] = ()
+    TupleOf '[a, b] = (a, b)
+    TupleOf '[a, b, c] = (a, b, c)
+    TupleOf '[a, b, c, d] = TupleOfNotSupported [a, b, c, d]
+    -- declare overlapping instance last in this closed type family
+    TupleOf '[a] = a
 
 -- | Get the first index of a type (Indexed by 0)
 -- Will result in type error if x doesn't exist in xs.
