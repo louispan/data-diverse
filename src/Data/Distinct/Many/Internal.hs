@@ -327,39 +327,3 @@ instance (Distinct xs, ReadMany xs) => Read (Many xs) where
         lift $ L.expect (Ident "Many")
         (n, v) <- step (readMany @xs Proxy 0 empty)
         pure (Many n v)
-
------
-
--- -- | for each type in the typelist call a delegate with the remaing typelist.
--- class FoldTypeList (xs :: [Type]) handler r where
---     foldTypeList :: handler xs r -> r -> r
-
--- instance (Case' c (x ': x' ': xs) r, FoldTypeList (x' ': xs) c r) =>
---          FoldTypeList (x ': x' ': xs) c r where
---     foldTypeList c r = foldTypeList (remaining' c) (delegate' c r)
-
--- -- | Terminating case of the loop, ensuring that a instance of @Iterate '[]@
--- -- with an empty typelist is not required.
--- instance (Case' c '[x] r) => FoldTypeList '[x] c r where
---     foldTypeList c r = delegate' c r
-
--- class Case' c xs r where
---     -- | The remaining cases without the type x.
---     remaining' :: c xs r -> c (Tail xs) r
---     -- | Return the handler/continuation when x is observed.
---     delegate' :: c xs r -> r -> r
-
--- instance (Distinct xs, AllRead xs) => Read (Many xs) where
---     readPrec = parens $ prec 10 $ do
---         lift $ L.expect (Ident "Many")
---         v <- step readPrec
---         pure (pick v)
-
--- -- | Do not export constructor
--- data ReadManyCase' (xs :: [Type]) r = ReadManyCase' {-# UNPACK #-} !Word
-
--- data Wack a b = Wack a b
-
--- instance (Read (Head xs)) => Case' ReadManyCase' xs (ReadPrec Any) where
---     remaining' (ReadManyCase' n) = ReadManyCase' (n + 1)
---     delegate' (ReadManyCase' n) r = r <|> ((\a -> (n, a)) <$> readPrec @(Head xs))
