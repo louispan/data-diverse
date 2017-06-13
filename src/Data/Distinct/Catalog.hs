@@ -5,10 +5,11 @@ module Data.Distinct.Catalog
     , catalog
     , toTuple
     , Item(..)
-    , Items
+    , AllItem
     , fetch
     , replace
     , Project(..)
+    , projected
     , narrow
     , amend
     ) where

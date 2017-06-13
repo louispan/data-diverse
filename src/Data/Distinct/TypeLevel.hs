@@ -12,6 +12,48 @@ import Data.Distinct.TypeLevel.Internal
 import Data.Kind
 import GHC.TypeLits
 
+type family TypesOfNotSupported t :: [Type] where
+    TypesOfNotSupported t = TypeError ('Text "TypesOf ‘"
+                                       ':<>: 'ShowType t
+                                       ':<>: 'Text "’ is too large to be suppored")
+
+type family TupleOfNotSupported (xs :: [Type]) :: Type where
+    TupleOfNotSupported xs = TypeError ('Text "TupleOf ‘"
+                                        ':<>: 'ShowType xs
+                                        ':<>: 'Text "’ is too large to be suppored")
+
+-- | Get the type list of out a tuple
+-- The size of this should be synchronized withe the number of 'Has' instances in Catalog
+type family TypesOf x :: [Type] where
+    TypesOf () = '[]
+    TypesOf (a, b) = '[a, b]
+    TypesOf (a, b, c) = '[a, b, c]
+    TypesOf (a, b, c, d) = '[a, b, c, d]
+    TypesOf (a, b, c, d, e) = '[a, b, c, d, e]
+    TypesOf (a, b, c, d, e, f) = '[a, b, c, d, e, f]
+    TypesOf (a, b, c, d, e, f, g) = '[a, b, c, d, e, f, g]
+    TypesOf (a, b, c, d, e, f, g, h) = '[a, b, c, d, e, f, g, h]
+    TypesOf (a, b, c, d, e, f, g, h, i) = TypesOfNotSupported (a, b, c, d, e, f, g, h, i)
+    -- TypesOf (a, b, c, d) = TypesOfNotSupported (a, b, c, d)
+    -- declare overlapping instance last in this closed type family
+    TypesOf a = '[a]
+
+-- | Get the tuple with equivalent type list
+-- The size of this should be synchronized withe the number of 'Has' instances in Catalog
+type family TupleOf (xs :: [Type]) :: Type where
+    TupleOf '[] = ()
+    TupleOf '[a, b] = (a, b)
+    TupleOf '[a, b, c] = (a, b, c)
+    TupleOf '[a, b, c, d] = (a, b, c, d)
+    TupleOf '[a, b, c, d, e] = (a, b, c, d, e)
+    TupleOf '[a, b, c, d, e, f] = (a, b, c, d, e, f)
+    TupleOf '[a, b, c, d, e, f, g] = (a, b, c, d, e, f, g)
+    TupleOf '[a, b, c, d, e, f, g, h] = (a, b, c, d, e, f, g, h)
+    TupleOf (a ': b ': c ': d ': e ': f ': g ': h ': i ': xs) = TupleOfNotSupported (a ': b ': c ': d ': e ': f ': g ': h ': i ': xs)
+    -- TupleOf (a ': b ': c ': d ': xs) = TupleOfNotSupported (a ': b ': c ': d ': xs)
+    -- declare overlapping instance last in this closed type family
+    TupleOf '[a] = a
+
 -- | Add a type to a typelist, disallowing duplicates.
 -- NB. xs are not checked.
 type Insert (y :: Type) (xs :: [Type]) = InsertImpl xs y xs
@@ -34,37 +76,6 @@ type family OutcomeOf (xs :: [Type]) :: Type where
                                ':<>: 'Text "‘"
                                ':<>: 'ShowType ctx
                                ':<>: 'Text "’")
-
-type family TypesOfNotSupported t :: [Type] where
-    TypesOfNotSupported t = TypeError ('Text "TypesOf ‘"
-                                       ':<>: 'ShowType t
-                                       ':<>: 'Text "’ is too large to be suppored")
-
-type family TupleOfNotSupported (xs :: [Type]) :: Type where
-    TupleOfNotSupported xs = TypeError ('Text "TupleOf ‘"
-                                        ':<>: 'ShowType xs
-                                        ':<>: 'Text "’ is too large to be suppored")
-
--- | Get the type list of out a tuple
--- The size of this should be synchronized withe the number of 'Has' instances in Catalog
-type family TypesOf x :: [Type] where
-    TypesOf () = '[]
-    TypesOf (a, b) = '[a, b]
-    TypesOf (a, b, c) = '[a, b, c]
-    TypesOf (a, b, c, d) = TypesOfNotSupported (a, b, c, d)
-    -- TypesOf (a, b, c) = '[a, b, c]
-    -- declare overlapping instance last in this closed type family
-    TypesOf a = '[a]
-
--- | Get the tuple with equivalent type list
--- The size of this should be synchronized withe the number of 'Has' instances in Catalog
-type family TupleOf (xs :: [Type]) :: Type where
-    TupleOf '[] = ()
-    TupleOf '[a, b] = (a, b)
-    TupleOf '[a, b, c] = (a, b, c)
-    TupleOf '[a, b, c, d] = TupleOfNotSupported [a, b, c, d]
-    -- declare overlapping instance last in this closed type family
-    TupleOf '[a] = a
 
 -- | Get the first index of a type (Indexed by 0)
 -- Will result in type error if x doesn't exist in xs.
@@ -118,22 +129,28 @@ type family Complement (xs :: [Type]) (ys :: [Type]) :: [Type] where
     Complement xs '[] = xs
     Complement xs (y ': ys)  = Complement (Without y xs) ys
 
--- | @Read x@ For each x in xs
-type family AllRead (xs :: [Type]) :: Constraint where
-    AllRead '[] = ()
-    AllRead (x ': xs) = (Read x, AllRead xs)
+-- | The follows breaks the constraint sovler
+-- solveWanteds: too many iterations (limit = 4)
+--   Unsolved: WC {wc_simple = [W] $dShow_acLn :: Show g (CDictCan)}
+--   New superclasses found
+--   Set limit with -fconstraint-solver-iterations=n; n=0 for no limit
 
--- | @Show x@ For each x in xs
-type family AllShow (xs :: [Type]) :: Constraint where
-    AllShow '[] = ()
-    AllShow (x ': xs) = (Show x, AllShow xs)
+-- -- | @Read x@ For each x in xs
+-- type family AllRead (xs :: [Type]) :: Constraint where
+--     AllRead '[] = ()
+--     AllRead (x ': xs) = (Read x, AllRead xs)
 
--- | @Eq x@ For each x in xs
-type family AllEq (xs :: [Type]) :: Constraint where
-    AllEq '[] = ()
-    AllEq (x ': xs) = (Eq x, AllEq xs)
+-- -- | @Show x@ For each x in xs
+-- type family AllShow (xs :: [Type]) :: Constraint where
+--     AllShow '[] = ()
+--     AllShow (x ': xs) = (Show x, AllShow xs)
 
--- | @Eq x@ For each x in xs
-type family AllOrd (xs :: [Type]) :: Constraint where
-    AllOrd '[] = ()
-    AllOrd (x ': xs) = (Ord x, AllOrd xs)
+-- -- | @Eq x@ For each x in xs
+-- type family AllEq (xs :: [Type]) :: Constraint where
+--     AllEq '[] = ()
+--     AllEq (x ': xs) = (Eq x, AllEq xs)
+
+-- -- | @Eq x@ For each x in xs
+-- type family AllOrd (xs :: [Type]) :: Constraint where
+--     AllOrd '[] = ()
+--     AllOrd (x ': xs) = (Ord x, AllOrd xs)

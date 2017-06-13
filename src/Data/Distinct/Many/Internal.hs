@@ -120,17 +120,11 @@ trialEither' (Many n v) = if n == 0
 
 -- | A Many has a prism to an the inner type.
 -- That is, a value can be 'pick'ed into a Many or mabye 'trial'ed out of a Many.
--- | Use TypeApplication to specify the smaller type of the prism.
--- Example: @facet \@[Int, Bool]@
-class Facet leaf branch where
-    -- Example: @facet \@Int@
-    facet :: Prism' branch leaf
-
--- | UndecidableInstance due to xs appearing more often in the constraint.
--- Safe because xs will not expand to @Many xs@ or bigger.
-instance (Distinct xs, Member a xs) => Facet a (Many xs) where
-    facet = prism' pick trial
-    {-# INLINE facet #-}
+-- Use TypeApplication to specify the inner type of the of the prism.
+-- Example: @facet \@Int@
+facet :: forall x xs. (Distinct xs, Member x xs) => Prism' (Many xs) x
+facet = prism' pick trial
+{-# INLINE facet #-}
 
 ------------------------------------------------------------------
 
@@ -191,23 +185,28 @@ reinterpretEither v = case reinterpret v of
 
 -- | Injection.
 -- A Many can be 'diversify'ed to contain more types or 'reinterpret'ed into possibly another Many type.
--- This typeclass looks like 'Facet' but is used for different purposes. Also it has the type params reversed,
--- so that TypeApplications can be used to specify the larger Many type.
--- Use TypeApplication to specify the larger type of the prism.
+-- This typeclass looks like 'Facet' but is used for different purposes.
+-- Use TypeApplication to specify the containing 'diversified' type of the prism.
 -- Example: @inject \@[Int, Bool]@
-class Inject tree branch where
-    -- | Enlarge number of or change order of types in the variant.
-    -- Use TypeApplication to specify the destination type.
-    -- Example: @inject \@(Many '[Int, String])@
-    inject :: Prism' tree branch
+inject
+    :: forall tree branch.
+       ( (Switch branch (CaseDiversify tree) (Many tree))
+       , (Switch tree (CaseReinterpret branch) (Maybe (Many branch)))
+       )
+    => Prism' (Many tree) (Many branch)
+inject = prism' diversify reinterpret
+{-# INLINE inject #-}
 
-instance ( (Switch branch (CaseDiversify tree) (Many tree))
-         , (Switch tree (CaseReinterpret branch) (Maybe (Many branch)))
-         ) =>
-         Inject (Many tree) (Many branch) where
-    inject = prism' diversify reinterpret
-    {-# INLINE inject #-}
-
+-- | A variation of inject with the type parameters reorderd,
+-- so that TypeApplications can be used to specify the contained 'reinterpreted' type of the prism
+injected
+    :: forall branch tree.
+       ( (Switch branch (CaseDiversify tree) (Many tree))
+       , (Switch tree (CaseReinterpret branch) (Maybe (Many branch)))
+       )
+    => Prism' (Many tree) (Many branch)
+injected = inject
+{-# INLINE injected #-}
 
 ------------------------------------------------------------------
 
@@ -288,7 +287,7 @@ instance Typeable (Head xs) => Case CaseTypeable xs r where
 
 -----------------------------------------------------------------
 
-instance (AllEq xs, Switch xs CaseEqMany Bool) => Eq (Many xs) where
+instance (Switch xs CaseEqMany Bool) => Eq (Many xs) where
     l@(Many i _) == (Many j u) =
         if i /= j
             then False
@@ -300,14 +299,14 @@ instance (AllEq xs, Switch xs CaseEqMany Bool) => Eq (Many xs) where
 newtype CaseEqMany (xs :: [Type]) r = CaseEqMany Any
 
 instance (Eq (Head xs)) => Case CaseEqMany xs Bool where
-    remaining (CaseEqMany r) = (CaseEqMany r)
+    remaining (CaseEqMany r) = CaseEqMany r
     {-# INLINE remaining #-}
-    delegate (CaseEqMany r) l = l == (unsafeCoerce r)
+    delegate (CaseEqMany r) l = l == unsafeCoerce r
     {-# INLINE delegate #-}
 
 -----------------------------------------------------------------
 
-instance (AllEq xs, AllOrd xs, Switch xs CaseEqMany Bool, Switch xs CaseOrdMany Ordering) => Ord (Many xs) where
+instance (Switch xs CaseEqMany Bool, Switch xs CaseOrdMany Ordering) => Ord (Many xs) where
     compare l@(Many i _) (Many j u) =
         if i /= j
             then compare i j
@@ -319,7 +318,7 @@ instance (AllEq xs, AllOrd xs, Switch xs CaseEqMany Bool, Switch xs CaseOrdMany 
 newtype CaseOrdMany (xs :: [Type]) r = CaseOrdMany Any
 
 instance (Ord (Head xs)) => Case CaseOrdMany xs Ordering where
-    remaining (CaseOrdMany r) = (CaseOrdMany r)
+    remaining (CaseOrdMany r) = CaseOrdMany r
     {-# INLINE remaining #-}
     delegate (CaseOrdMany r) l = compare l (unsafeCoerce r)
     {-# INLINE delegate #-}
@@ -333,7 +332,7 @@ instance (Switch xs ShowManyCase ShowS) => Show (Many xs) where
 data ShowManyCase (xs :: [Type]) r = ShowManyCase Int
 
 instance Show (Head xs) => Case ShowManyCase xs ShowS where
-    remaining (ShowManyCase d) = (ShowManyCase d)
+    remaining (ShowManyCase d) = ShowManyCase d
     {-# INLINE remaining #-}
     delegate (ShowManyCase d) = showsPrec d
     {-# INLINE delegate #-}

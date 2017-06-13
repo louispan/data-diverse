@@ -8,11 +8,12 @@ module Data.Distinct.Many
     , trial'
     , trialEither
     , trialEither'
-    , Facet(..)
+    , facet
     , diversify
     , reinterpret
     , reinterpretEither
-    , Inject(..)
+    , inject
+    , injected
     , Switch(..)
     , Case(..)
     , foldMany
