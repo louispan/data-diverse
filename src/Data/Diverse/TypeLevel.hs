@@ -6,9 +6,9 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Data.Distinct.TypeLevel where
+module Data.Diverse.TypeLevel where
 
-import Data.Distinct.TypeLevel.Internal
+import Data.Diverse.TypeLevel.Internal
 import Data.Kind
 import GHC.TypeLits
 
@@ -128,6 +128,10 @@ type SameLength (xs :: [Type]) (ys :: [Type]) = SameLengthImpl xs ys xs ys
 type family Complement (xs :: [Type]) (ys :: [Type]) :: [Type] where
     Complement xs '[] = xs
     Complement xs (y ': ys)  = Complement (Without y xs) ys
+
+type family Concat (xs :: [Type]) (ys :: [Type]) :: [Type] where
+    Concat '[] ys = ys
+    Concat (x ': xs) ys = x ': Concat xs ys
 
 -- | The follows breaks the constraint sovler
 -- solveWanteds: too many iterations (limit = 4)

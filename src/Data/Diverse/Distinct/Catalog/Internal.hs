@@ -11,10 +11,10 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Data.Distinct.Catalog.Internal where
+module Data.Diverse.Distinct.Catalog.Internal where
 
 import Control.Lens
-import Data.Distinct.TypeLevel
+import Data.Diverse.TypeLevel
 import Data.Ix
 import Data.Kind
 import qualified GHC.Generics as G

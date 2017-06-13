@@ -14,12 +14,12 @@
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Data.Distinct.Many.Internal where
+module Data.Diverse.Distinct.Many.Internal where
 
 import Control.Applicative
 import Control.Lens
-import Data.Distinct.Catalog
-import Data.Distinct.TypeLevel
+import Data.Diverse.Distinct.Catalog
+import Data.Diverse.TypeLevel
 import Data.Kind
 import Data.Proxy
 import Data.Typeable

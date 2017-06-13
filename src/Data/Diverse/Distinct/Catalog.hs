@@ -1,5 +1,5 @@
 -- | Re-export Catalog without the constructor
-module Data.Distinct.Catalog
+module Data.Diverse.Distinct.Catalog
     ( Catalog -- ^ Hide constructor
     , Cataloged(..)
     , catalog
@@ -14,4 +14,4 @@ module Data.Distinct.Catalog
     , amend
     ) where
 
-import Data.Distinct.Catalog.Internal
+import Data.Diverse.Distinct.Catalog.Internal

@@ -9,7 +9,8 @@
 {-# LANGUAGE TypeOperators #-}
 
 import Control.Lens
-import Data.Distinct
+import Data.Diverse.Distinct
+import Data.Diverse.TypeLevel
 import Data.Typeable
 import Test.Hspec
 
