@@ -277,7 +277,7 @@ cases = Cases . catalog
 -------------------------------------------
 
 -- | This handler stores a polymorphic function for all Typeables.
-data CaseTypeable (xs :: [Type]) r = CaseTypeable (forall x. Typeable x => x -> r)
+newtype CaseTypeable (xs :: [Type]) r = CaseTypeable (forall x. Typeable x => x -> r)
 
 instance Typeable (Head xs) => Case CaseTypeable xs r where
     remaining (CaseTypeable f) = CaseTypeable f
@@ -329,7 +329,7 @@ instance (Switch xs CaseShowMany ShowS) => Show (Many xs) where
     showsPrec d v = showParen (d >= 11) ((showString "Many ") . (foldMany (CaseShowMany 11) v))
     {-# INLINE showsPrec #-}
 
-data CaseShowMany (xs :: [Type]) r = CaseShowMany Int
+newtype CaseShowMany (xs :: [Type]) r = CaseShowMany Int
 
 instance Show (Head xs) => Case CaseShowMany xs ShowS where
     remaining (CaseShowMany d) = CaseShowMany d
@@ -339,6 +339,7 @@ instance Show (Head xs) => Case CaseShowMany xs ShowS where
 
 ------------------------------------------------------------------
 
+-- | FIXME: Reuse Generator from Catalog2?
 class ReadMany (xs :: [Type]) where
     readMany :: Proxy xs -> Word -> ReadPrec (Word, Any) -> ReadPrec (Word, Any)
 

@@ -1,12 +1,14 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
@@ -16,6 +18,7 @@ import Data.Diverse.TypeLevel
 import Data.Kind
 import qualified Data.Map.Strict as M
 import Data.Proxy
+import Data.Semigroup hiding (Any)
 import GHC.Prim (Any)
 import GHC.TypeLits
 import Unsafe.Coerce
@@ -34,7 +37,6 @@ import Unsafe.Coerce
 -- Key = Index of type in typelist + Offset
 -- The constructor will guarantee the correct number and types of the elements.
 newtype Key = Key Int deriving (Eq, Ord, Show)
-
 newtype LeftOffset = LeftOffset Int
 newtype LeftSize = LeftSize Int
 newtype RightOffset = RightOffset Int
@@ -83,9 +85,6 @@ null = Catalog 0 M.empty
 
 singleton :: x -> Catalog '[x]
 singleton v = Catalog 0 (M.singleton (Key 0) (unsafeCoerce v))
-
-internalFromList :: Distinct xs => [(Key, Any)] -> Catalog xs
-internalFromList xs = Catalog 0 (M.fromList xs)
 
 -- | Add an element to the left of the typelist
 cons :: Distinct (x ': xs) => x -> Catalog xs -> Catalog (x ': xs)
@@ -141,6 +140,44 @@ replace :: forall x xs. Member x xs => x -> Catalog xs -> Catalog xs
 replace v (Catalog o m) = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromIntegral (natVal @(IndexOf x xs) Proxy)
 
+internalFromList :: Distinct xs => [(Key, Any)] -> Catalog xs
+internalFromList xs = Catalog 0 (M.fromList xs)
+
 narrow :: forall ys xs. (MembersOf xs xs, MembersOf ys xs) => Catalog xs -> Catalog ys
 narrow = undefined
+-- for each y in ys
+-- produce a (Key, Any)
 
+class Generate g (xs :: [Type]) r where
+    generate :: g xs r -> r
+
+class Step g (xs :: [Type]) r where
+    step :: g xs r -> r
+
+class Next g (xs :: [Type]) r where
+    next :: g xs r -> g (Tail xs) r
+
+instance (Step g '[] r) => Generate g '[] r where
+    generate g = step g
+
+newtype Generator g (xs :: [Type]) r = Generator (g (xs :: [Type]) r)
+
+instance (Semigroup r, Step g (x ': xs) r, Step g xs r, Next g (x ': xs) r, Generate (Generator g) xs r) =>
+         Generate (Generator g) (x ': xs) r where
+    generate (Generator g) = step g <> generate (Generator (next g))
+
+-- | Avoids: Illegal type synonym family application in instance: Any
+newtype WrappedAny = WrappedAny Any
+
+newtype GenerateNarrowed (ys :: [Type]) (xs :: [Type]) r = GenerateNarrowed (Key, Catalog ys)
+
+instance Step (GenerateNarrowed ys) '[] [(Key, WrappedAny)] where
+    step _ = []
+
+instance Member x ys => Step (GenerateNarrowed ys) (x ': xs) [(Key, WrappedAny)] where
+    step (GenerateNarrowed (k, Catalog o m)) = [(k, WrappedAny (m M.! (Key (o + i))))]
+      where i = fromIntegral (natVal @(IndexOf x ys) Proxy)
+
+-- | Don't create an instance for (xs :: '[])
+instance Next (GenerateNarrowed ys) (x ': xs) r where
+    next (GenerateNarrowed (Key k, c)) = GenerateNarrowed (Key (k + 1), c)
