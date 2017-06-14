@@ -133,6 +133,8 @@ type family Concat (xs :: [Type]) (ys :: [Type]) :: [Type] where
     Concat '[] ys = ys
     Concat (x ': xs) ys = x ': Concat xs ys
 
+type Init (xs :: [Type]) = InitImpl '[] xs
+
 -- | The follows breaks the constraint sovler
 -- solveWanteds: too many iterations (limit = 4)
 --   Unsolved: WC {wc_simple = [W] $dShow_acLn :: Show g (CDictCan)}

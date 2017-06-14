@@ -211,16 +211,14 @@ injected = inject
 ------------------------------------------------------------------
 
 -- | A switch/case statement for Many.
--- There is only one instance of this class which visits through the possibilities in Many,
--- delegating work to 'CaseMany', ensuring termination when Many only contains one type.
--- Uses 'Case' instances like 'Cases' to apply a 'Catalog' of functions to a variant of values.
+-- Use 'Case' instances like 'Cases' to apply a 'Catalog' of functions to a variant of values.
 -- Or 'TypeableCase' to apply a polymorphic function that work on all 'Typeables'.
 -- Or you may use your own custom instance of 'Case'.
 class Switch (xs :: [Type]) handler r where
     switch :: Many xs -> handler xs r -> r
 
 -- | This class allows storing polymorphic functions with extra constraints that is used on each iteration of 'Switch'.
--- An instance of this knows how to construct a handler of the first type in the 'xs' typelist, or
+-- An instance of this knows how to construct a handler for the first type in the 'xs' typelist, or
 -- how to construct the remaining 'Case's for the rest of the types in the type list.
 class Case c (xs :: [Type]) r where
     -- | The remaining cases without the type x.
@@ -228,7 +226,9 @@ class Case c (xs :: [Type]) r where
     -- | Return the handler/continuation when x is observed.
     delegate :: c xs r -> (Head xs -> r)
 
--- | 'trial' each type in a Many, and either delegate the handling of the value discovered, or loop
+-- | This instance of 'Switch' for which visits through the possibilities in Many,
+-- delegating work to 'Case', ensuring termination when Many only contains one type.
+-- 'trial' each type in a Many, and either delegate the handling of the value discovered, or loop
 -- trying the next type in the type list.
 -- This code will be efficiently compiled into a single case statement in GHC 8.2.1
 -- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
@@ -247,7 +247,7 @@ instance (Case c '[x] r) => Switch '[x] c r where
             a -> delegate c a
     {-# INLINE switch #-}
 
--- | Catamorphism for many. This is @flip switch@. See 'Switch'
+-- | Catamorphism for many. This is @flip switch@. See also 'Switch'
 foldMany :: Switch xs handler r => handler xs r -> Many xs -> r
 foldMany = flip switch
 {-# INLINE foldMany #-}
@@ -325,16 +325,16 @@ instance (Ord (Head xs)) => Case CaseOrdMany xs Ordering where
 
 ------------------------------------------------------------------
 
-instance (Switch xs ShowManyCase ShowS) => Show (Many xs) where
-    showsPrec d v = showParen (d >= 11) ((showString "Many ") . (foldMany (ShowManyCase 11) v))
+instance (Switch xs CaseShowMany ShowS) => Show (Many xs) where
+    showsPrec d v = showParen (d >= 11) ((showString "Many ") . (foldMany (CaseShowMany 11) v))
     {-# INLINE showsPrec #-}
 
-data ShowManyCase (xs :: [Type]) r = ShowManyCase Int
+data CaseShowMany (xs :: [Type]) r = CaseShowMany Int
 
-instance Show (Head xs) => Case ShowManyCase xs ShowS where
-    remaining (ShowManyCase d) = ShowManyCase d
+instance Show (Head xs) => Case CaseShowMany xs ShowS where
+    remaining (CaseShowMany d) = CaseShowMany d
     {-# INLINE remaining #-}
-    delegate (ShowManyCase d) = showsPrec d
+    delegate (CaseShowMany d) = showsPrec d
     {-# INLINE delegate #-}
 
 ------------------------------------------------------------------

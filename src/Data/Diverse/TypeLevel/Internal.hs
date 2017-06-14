@@ -84,3 +84,7 @@ type family SameLengthImpl (ctx :: [Type]) (cty :: [Type]) (xs :: [Type]) (yx ::
                                             ':<>: 'Text "‘"
                                             ':<>: 'ShowType bs
                                             ':<>: 'Text "’")
+type family InitImpl (ret :: [Type]) (xs :: [Type]) :: [Type] where
+    InitImpl ret '[]  = TypeError ('Text "Cannot Init an empty type list")
+    InitImpl ret '[x] = ReverseImpl '[] ret
+    InitImpl ret (x ': xs) = InitImpl (x ': ret) xs
