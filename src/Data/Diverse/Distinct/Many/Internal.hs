@@ -24,6 +24,7 @@ import Data.Diverse.Class.Emit
 import Data.Diverse.Class.Reduce
 import Data.Diverse.Class.Reiterate
 import Data.Diverse.Data.Assemble
+import Data.Diverse.Data.CaseTypeable
 import Data.Diverse.Data.WrappedAny
 import Data.Diverse.Distinct.Catalog
 import Data.Diverse.Type
@@ -50,7 +51,7 @@ import Unsafe.Coerce
 -- but with a different api.
 -- See https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Many.hs
 -- and https://hackage.haskell.org/package/HList-0.4.1.0/docs/src/Data-HList-Many.html
-data Many (xs :: [Type]) = Many {-# UNPACK #-} !Word Any
+data Many (xs :: [Type]) = Many {-# UNPACK #-} !Int Any
 
 -- | Just like Haskus and HList versions, inferred type is phamtom which is wrong
 type role Many representational
@@ -58,7 +59,7 @@ type role Many representational
 -- Not using GADTs with the Distinct constraint as it gets in the way when I know something is Distinct,
 -- but I don't know how to prove it to GHC. Eg a subset of something Distinct is also Distinct...
 -- data Many (xs :: [Type]) where
---     Many :: (Distinct xs) => {-# UNPACK #-} !Word -> Any -> Many xs
+--     Many :: (Distinct xs) => {-# UNPACK #-} !Int -> Any -> Many xs
 
 -- NB. nominal is required for GADTs with constraints
 -- type role Many nominal
@@ -68,7 +69,7 @@ type role Many representational
 -- | Lift a value into a Many of possibly other types.
 -- NB. forall used to specify xs first, so TypeApplications can be used to specify xs.
 pick :: forall xs x. (Distinct xs, Member x xs) => x -> Many xs
-pick = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+pick = Many (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | A variation of 'pick' into a Many of a single type
 pick' :: x -> Many '[x]
@@ -79,7 +80,7 @@ pick' = pick
 -- to prove it to GHC.
 -- Eg. a subset of something Distinct is also Distinct.
 -- unsafeToMany :: forall x xs. (Member x xs) => x -> Many xs
--- unsafeToMany = Many (fromIntegral (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+-- unsafeToMany = Many (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | Retrieving the value out of a 'Many' of one type is always successful.
 -- Mnemonic: A 'Many' with one type is 'notMany' at all.
@@ -88,7 +89,7 @@ notMany (Many _ v) = unsafeCoerce v
 
 -- | For a specified or inferred type, deconstruct a Many into a Maybe value of that type.
 trial :: forall x xs. (Member x xs) => Many xs -> Maybe x
-trial (Many n v) = if n == fromIntegral (natVal @(IndexOf x xs) Proxy)
+trial (Many n v) = if n == fromInteger (natVal @(IndexOf x xs) Proxy)
             then Just (unsafeCoerce v)
             else Nothing
 
@@ -103,7 +104,7 @@ trialEither
     :: forall x xs.
        (Member x xs)
     => Many xs -> Either (Many (Without x xs)) x
-trialEither (Many n v) = let i = fromIntegral (natVal @(IndexOf x xs) Proxy)
+trialEither (Many n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
                   in if n == i
                      then Right (unsafeCoerce v)
                      else if n > i
@@ -160,7 +161,7 @@ instance Reiterate (CaseReinterpret ys) xs where
     reiterate CaseReinterpret = CaseReinterpret
 
 instance (MaybeMember (Head xs) ys, Distinct ys) => Case (CaseReinterpret ys) xs (Maybe (Many ys)) where
-    then' CaseReinterpret a = case fromIntegral (natVal @(PositionOf (Head xs) ys) Proxy) of
+    then' CaseReinterpret a = case fromInteger (natVal @(PositionOf (Head xs) ys) Proxy) of
                                      0 -> Nothing
                                      i -> Just $ Many (i - 1) (unsafeCoerce a)
 
@@ -224,7 +225,7 @@ instance (Case c (x ': x' ': xs) r, Reduce Many (Switch c) (x' ': xs) r, Reitera
             Left v' -> reduce (Switch (reiterate c)) v'
     {-# INLINE reduce #-}
 
--- | Terminating case of the loop, ensuring that a instance of @Switch '[]@
+-- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
 instance (Case c '[x] r) => Reduce Many (Switch c) '[x] r where
     reduce (Switch c) v = case notMany v of
@@ -264,16 +265,9 @@ instance (Item (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
 cases :: (SameLength fs xs, OutcomeOf fs ~ r, Cataloged fs, fs ~ TypesOf (TupleOf fs)) => TupleOf fs -> Switch (Cases fs) xs r
 cases = Switch . Cases . catalog
 
--------------------------------------------
-
--- | This handler stores a polymorphic function for all Typeables.
-newtype CaseTypeable (xs :: [Type]) r = CaseTypeable (forall x. Typeable x => x -> r)
-
-instance Reiterate CaseTypeable xs where
-    reiterate (CaseTypeable f) = CaseTypeable f
-
-instance Typeable (Head xs) => Case CaseTypeable xs r where
-    then' (CaseTypeable f) = f
+-- | Create Case for handling 'switch' from a polymorphic function for all 'Typeable's.
+caseTypeable :: (forall x. Typeable x => x -> r) -> Switch CaseTypeable xs r
+caseTypeable f = Switch (CaseTypeable f)
 
 -----------------------------------------------------------------
 
@@ -326,23 +320,23 @@ instance Show (Head xs) => Case CaseShowMany xs ShowS where
 
 ------------------------------------------------------------------
 
-newtype EmitReadMany (xs :: [Type]) r = EmitReadMany Word
+newtype EmitReadMany (xs :: [Type]) r = EmitReadMany Int
 
 instance Reiterate EmitReadMany (x ': xs) where
     reiterate (EmitReadMany i) = EmitReadMany (i + 1)
 
-instance Read x => Emit EmitReadMany (x ': xs) (ReadPrec (Word, WrappedAny)) where
+instance Read x => Emit EmitReadMany (x ': xs) (ReadPrec (Int, WrappedAny)) where
     emit (EmitReadMany i) = (\a -> (i, WrappedAny (unsafeCoerce a))) <$> readPrec @x
 
 readMany
     :: forall xs.
-       AFoldable (Assemble EmitReadMany xs) (ReadPrec (Word, WrappedAny))
-    => Proxy (xs :: [Type]) -> ReadPrec (Word, WrappedAny)
+       AFoldable (Assemble EmitReadMany xs) (ReadPrec (Int, WrappedAny))
+    => Proxy (xs :: [Type]) -> ReadPrec (Int, WrappedAny)
 readMany _ = afoldr (<|>) empty (Assemble (EmitReadMany @xs 0))
 
 -- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
 instance ( Distinct xs
-         , AFoldable (Assemble EmitReadMany xs) (ReadPrec (Word, WrappedAny))
+         , AFoldable (Assemble EmitReadMany xs) (ReadPrec (Int, WrappedAny))
          ) =>
          Read (Many xs) where
     readPrec =

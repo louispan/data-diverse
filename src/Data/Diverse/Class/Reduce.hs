@@ -6,6 +6,6 @@ module Data.Diverse.Class.Reduce where
 
 import Data.Kind
 
--- | Catamorphism for @t xs@
+-- | Reduce a @t xs@ into @r@ using handlers.
 class Reduce t handler (xs :: [Type]) r where
     reduce :: handler xs r -> t xs -> r

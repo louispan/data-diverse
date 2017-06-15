@@ -19,7 +19,9 @@ module Data.Diverse.Distinct.Catalog2 where
 
 import Control.Applicative
 import Data.Diverse.Class.AFoldable
+import Data.Diverse.Class.Case
 import Data.Diverse.Class.Emit
+import Data.Diverse.Class.Reduce
 import Data.Diverse.Class.Reiterate
 import Data.Diverse.Data.Assemble
 import Data.Diverse.Data.WrappedAny
@@ -27,7 +29,7 @@ import Data.Diverse.Type
 import Data.Kind
 import qualified Data.Map.Strict as M
 import Data.Proxy
-import GHC.Prim (Any)
+import GHC.Prim (coerce, Any)
 import GHC.TypeLits
 import Prelude hiding (null)
 import Unsafe.Coerce
@@ -168,17 +170,34 @@ init (Catalog o m) = Catalog o (M.delete (Key (o + M.size m - 1)) m)
 
 lookup :: forall x xs. Member x xs => Catalog xs -> x
 lookup (Catalog o m) = unsafeCoerce (m M.! (Key (o + i)))
-  where i = fromIntegral (natVal @(IndexOf x xs) Proxy)
+  where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
 replace :: forall x xs. Member x xs => x -> Catalog xs -> Catalog xs
 replace v (Catalog o m) = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
-  where i = fromIntegral (natVal @(IndexOf x xs) Proxy)
+  where i = fromInteger (natVal @(IndexOf x xs) Proxy)
+
+
+-- | Wraps a 'Case' into an instance of 'Emit', so that the results from 'Case' can be folded with 'AFoldable'
+-- Internally, this holds the r to use in the empty '[] case
+-- Also holds incrementing index of x in the original Catalog typelist.
+-- as well as the left-over [(k, v)] from the original Catalog with the remaining typelist xs.
+-- That is the first v in the (k, v) is of type x, and the length of the list is equal to the length of xs.
+newtype Iterate h (xs :: [Type]) r = Iterate (h xs r, [(Key, Any)])
+
+instance Reiterate c (x ': xs) => Reiterate (Iterate c) (x ': xs) where
+    -- use of tail here is safe as we are guaranteed the length from the typelist
+    reiterate (Iterate (c, zs)) = Iterate (reiterate c, Prelude.tail zs)
+
+instance (Case c xs r) => Emit (Iterate c) xs r where
+    emit (Iterate (c, zs)) = then' c (unsafeCoerce v)
+      where
+       -- use of head here is safe as we are guaranteed the length from the typelist
+       (_, v) = Prelude.head zs
+
 
 -- | Internal function for construction - do not expose!
 fromList' :: Ord k => [(k, WrappedAny)] -> M.Map k Any
-fromList' xs = M.fromList xs'
-  where
-    xs' = fmap unwrappedAny <$> xs
+fromList' xs = M.fromList (coerce xs)
 
 narrow
     :: forall xs ys.
@@ -199,16 +218,17 @@ instance Reiterate (EmitNarrowed ys) (x ': xs) where
 instance Member x ys => Emit (EmitNarrowed ys) (x ': xs) (Key, WrappedAny) where
     emit (EmitNarrowed (idx, Catalog o m)) = (idx, WrappedAny v)
       where
-        i = fromIntegral (natVal @(IndexOf x ys) Proxy)
+        i = fromInteger (natVal @(IndexOf x ys) Proxy)
         v = m M.! Key (o + i)
 
 amend
-    :: forall zs ys.
-       AFoldable (Assemble (EmitAmended zs ys) zs) (Key, WrappedAny)
-    => Catalog zs -> Catalog ys -> Catalog ys
-amend zs ys@(Catalog ro rm) = Catalog ro (fromList' xs `M.union` rm)
+    :: forall smaller larger.
+       AFoldable (Assemble (EmitAmended smaller larger) smaller) (Key, WrappedAny)
+    => Catalog smaller -> Catalog larger -> Catalog larger
+amend smaller larger@(Catalog ro rm) = Catalog ro (fromList' xs `M.union` rm)
   where
-    xs = afoldr (:) [] (Assemble (EmitAmended @zs @ys @zs (Key 0, zs, ys)))
+    xs = afoldr (:) [] (Assemble (EmitAmended @smaller @larger @smaller (Key 0, smaller, larger)))
+
 
 newtype EmitAmended (zs :: [Type]) (ys :: [Type]) (xs :: [Type]) r = EmitAmended (Key, Catalog zs, Catalog ys)
 
@@ -219,7 +239,7 @@ instance Reiterate (EmitAmended zs ys) (x ': xs) where
 instance Member x ys => Emit (EmitAmended zs ys) (x ': xs) (Key, WrappedAny) where
     emit (EmitAmended (Key idx, Catalog lo lm, Catalog ro _)) = (Key (ro + i), WrappedAny v)
       where
-        i = fromIntegral (natVal @(IndexOf x ys) Proxy)
+        i = fromInteger (natVal @(IndexOf x ys) Proxy)
         v = lm M.! Key (lo + idx)
 
 newtype EmitReadCatalog (xs :: [Type]) r = EmitReadCatalog Key
