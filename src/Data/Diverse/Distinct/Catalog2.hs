@@ -1,6 +1,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RoleAnnotations #-}
@@ -9,13 +12,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE InstanceSigs #-}
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Data.Diverse.Distinct.Catalog2 where
 
+import Control.Applicative
 import Data.Diverse.Class.AFoldable
 import Data.Diverse.Class.Emit
 import Data.Diverse.Class.Reiterate
@@ -27,8 +29,11 @@ import qualified Data.Map.Strict as M
 import Data.Proxy
 import GHC.Prim (Any)
 import GHC.TypeLits
-import Unsafe.Coerce
 import Prelude hiding (null)
+import Unsafe.Coerce
+import Text.ParserCombinators.ReadPrec
+import Text.Read
+import qualified Text.Read.Lex as L
 
 -- TODO: Implement Data.Indistinct.Tuplex with getByIndex only semantics
 -- TODO: Implement Data.Indistinct.Variant with getByIndex only semantics
@@ -43,7 +48,7 @@ import Prelude hiding (null)
 -- The offset is used to allow efficient cons.
 -- Key = Index of type in typelist + Offset
 -- The constructor will guarantee the correct number and types of the elements.
-newtype Key = Key Int deriving (Eq, Ord, Show)
+newtype Key = Key Int deriving (Eq, Ord, Show, Num)
 newtype LeftOffset = LeftOffset Int
 newtype LeftSize = LeftSize Int
 newtype RightOffset = RightOffset Int
@@ -169,16 +174,21 @@ replace :: forall x xs. Member x xs => x -> Catalog xs -> Catalog xs
 replace v (Catalog o m) = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromIntegral (natVal @(IndexOf x xs) Proxy)
 
+-- | Internal function for construction - do not expose!
+fromList' :: Ord k => [(k, WrappedAny)] -> M.Map k Any
+fromList' xs = M.fromList xs'
+  where
+    xs' = fmap unwrappedAny <$> xs
+
 narrow
     :: forall xs ys.
        ( AFoldable (Assemble (EmitNarrowed ys) xs) (Key, WrappedAny)
        , Distinct xs
        )
     => Catalog ys -> Catalog xs
-narrow c = Catalog 0 (M.fromList xs')
+narrow c = Catalog 0 (fromList' xs)
   where
     xs = afoldr (:) [] (Assemble (EmitNarrowed @ys @xs (Key 0, c)))
-    xs' = (\(k, WrappedAny v) -> (k, v)) <$> xs
 
 newtype EmitNarrowed (ys :: [Type]) (xs :: [Type]) r = EmitNarrowed (Key, Catalog ys)
 
@@ -196,10 +206,9 @@ amend
     :: forall zs ys.
        AFoldable (Assemble (EmitAmended zs ys) zs) (Key, WrappedAny)
     => Catalog zs -> Catalog ys -> Catalog ys
-amend zs ys@(Catalog ro rm) = Catalog ro (M.fromList xs' `M.union` rm)
+amend zs ys@(Catalog ro rm) = Catalog ro (fromList' xs `M.union` rm)
   where
     xs = afoldr (:) [] (Assemble (EmitAmended @zs @ys @zs (Key 0, zs, ys)))
-    xs' = (\(k, WrappedAny v) -> (k, v)) <$> xs
 
 newtype EmitAmended (zs :: [Type]) (ys :: [Type]) (xs :: [Type]) r = EmitAmended (Key, Catalog zs, Catalog ys)
 
@@ -213,6 +222,43 @@ instance Member x ys => Emit (EmitAmended zs ys) (x ': xs) (Key, WrappedAny) whe
         i = fromIntegral (natVal @(IndexOf x ys) Proxy)
         v = lm M.! Key (lo + idx)
 
+newtype EmitReadCatalog (xs :: [Type]) r = EmitReadCatalog Key
+
+instance Reiterate EmitReadCatalog (x ': xs) where
+    reiterate (EmitReadCatalog i) = EmitReadCatalog (i + 1)
+
+instance Emit EmitReadCatalog '[] (ReadPrec [(Key, WrappedAny)]) where
+    emit (EmitReadCatalog _) = do
+        lift $ L.expect (Symbol ".|")
+        pure []
+
+instance Read x => Emit EmitReadCatalog '[x] (ReadPrec [(Key, WrappedAny)]) where
+    emit (EmitReadCatalog i) = do
+        a <- readPrec @x
+        -- don't read the ".|", save that for Emit '[]
+        pure [(i, WrappedAny (unsafeCoerce a))]
+
+instance Read x => Emit EmitReadCatalog (x ': x' ': xs) (ReadPrec [(Key, WrappedAny)]) where
+    emit (EmitReadCatalog i) = do
+        a <- readPrec @x
+        lift $ L.expect (Symbol "./")
+        pure [(i, WrappedAny (unsafeCoerce a))]
+
+readCatalog
+    :: forall xs.
+       AFoldable (Assemble0 EmitReadCatalog xs) (ReadPrec [(Key, WrappedAny)])
+    => Proxy (xs :: [Type]) -> ReadPrec [(Key, WrappedAny)]
+readCatalog _ = afoldr (liftA2 (++)) (pure []) (Assemble0 (EmitReadCatalog @xs (Key 0)))
+
+instance ( Distinct xs
+         , AFoldable (Assemble0 EmitReadCatalog xs) (ReadPrec [(Key, WrappedAny)])
+         ) =>
+         Read (Catalog xs) where
+    readPrec =
+        parens $
+        prec 10 $ do
+            xs <- readCatalog @xs Proxy
+            pure (Catalog 0 (fromList' xs))
 
 -- FIXME: Add Read, Show, Eq, Ord
 -- FIXME: Add tuple conversion functions?
