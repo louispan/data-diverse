@@ -19,13 +19,14 @@ library
   exposed-modules:     Data.Diverse.Class.AFoldable
                        Data.Diverse.Class.Emit
                        Data.Diverse.Class.Reiterate
+                       Data.Diverse.Data.Assemble
+                       Data.Diverse.Data.WrappedAny
                        Data.Diverse.Distinct
                        Data.Diverse.Distinct.Catalog
                        Data.Diverse.Distinct.Catalog.Internal
                        Data.Diverse.Distinct.Catalog2
                        Data.Diverse.Distinct.Many
                        Data.Diverse.Distinct.Many.Internal
-                       Data.Diverse.Instance.Assemble
                        -- Data.Diverse.Switch
                        -- Data.Diverse.Case
                        -- Data.Diverse.Generate

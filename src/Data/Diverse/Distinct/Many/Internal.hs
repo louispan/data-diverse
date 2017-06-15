@@ -18,8 +18,12 @@ module Data.Diverse.Distinct.Many.Internal where
 
 import Control.Applicative
 import Control.Lens
-import Data.Diverse.Distinct.Catalog
+import Data.Diverse.Class.AFoldable
+import Data.Diverse.Class.Emit
 import Data.Diverse.Class.Reiterate
+import Data.Diverse.Data.Assemble
+import Data.Diverse.Data.WrappedAny
+import Data.Diverse.Distinct.Catalog
 import Data.Diverse.Type
 import Data.Kind
 import Data.Proxy
@@ -325,20 +329,28 @@ instance Show (Head xs) => Case CaseShowMany xs ShowS where
 
 ------------------------------------------------------------------
 
--- | FIXME: Reuse RFoldable and Reiterate from Catalog2?
-class ReadMany (xs :: [Type]) where
-    readMany :: Proxy xs -> Word -> ReadPrec (Word, Any) -> ReadPrec (Word, Any)
+newtype EmitReadMany (xs :: [Type]) r = EmitReadMany Word
 
--- | Terminating case of the loop, ensuring that a instance of with an empty typelist is not required.
-instance Read x => ReadMany '[x] where
-    readMany _ n r = r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x)))
+instance Reiterate EmitReadMany (x ': xs) where
+    reiterate (EmitReadMany i) = EmitReadMany (i + 1)
 
-instance (ReadMany (x' ': xs), Read x) => ReadMany (x ': x' ': xs) where
-    readMany _ n r = readMany @(x' ': xs) Proxy (n + 1) (r <|> ((\a -> (n, a)) <$> (unsafeCoerce (readPrec @x))))
+instance Read x => Emit EmitReadMany (x ': xs) (ReadPrec (Word, WrappedAny)) where
+    emit (EmitReadMany i) = (\a -> (i, WrappedAny (unsafeCoerce a))) <$> readPrec @x
+
+readMany
+    :: forall xs.
+       AFoldable (Assemble EmitReadMany xs) (ReadPrec (Word, WrappedAny))
+    => Proxy (xs :: [Type]) -> ReadPrec (Word, WrappedAny)
+readMany _ = afoldr (<|>) empty (Assemble (EmitReadMany @xs 0))
 
 -- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
-instance (Distinct xs, ReadMany xs) => Read (Many xs) where
-    readPrec = parens $ prec 10 $ do
-        lift $ L.expect (Ident "Many")
-        (n, v) <- step (readMany @xs Proxy 0 empty)
-        pure (Many n v)
+instance ( Distinct xs
+         , AFoldable (Assemble EmitReadMany xs) (ReadPrec (Word, WrappedAny))
+         ) =>
+         Read (Many xs) where
+    readPrec =
+        parens $
+        prec 10 $ do
+            lift $ L.expect (Ident "Many")
+            (n, WrappedAny v) <- step (readMany @xs Proxy)
+            pure (Many n v)

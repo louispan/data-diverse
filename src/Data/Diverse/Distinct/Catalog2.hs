@@ -19,7 +19,8 @@ module Data.Diverse.Distinct.Catalog2 where
 import Data.Diverse.Class.AFoldable
 import Data.Diverse.Class.Emit
 import Data.Diverse.Class.Reiterate
-import Data.Diverse.Instance.Assemble
+import Data.Diverse.Data.Assemble
+import Data.Diverse.Data.WrappedAny
 import Data.Diverse.Type
 import Data.Kind
 import qualified Data.Map.Strict as M
@@ -27,6 +28,7 @@ import Data.Proxy
 import GHC.Prim (Any)
 import GHC.TypeLits
 import Unsafe.Coerce
+import Prelude hiding (null)
 
 -- TODO: Implement Data.Indistinct.Tuplex with getByIndex only semantics
 -- TODO: Implement Data.Indistinct.Variant with getByIndex only semantics
@@ -87,6 +89,11 @@ leftKeyForCons (LeftOffset lo) (NewRightOffset ro) (Key lk) = Key (lk - lo + ro)
 
 null :: Catalog '[]
 null = Catalog 0 M.empty
+infixr 5 `null` -- to be the same as cons
+
+-- | 'null' memonic. .| stops
+(.|) :: Catalog '[]
+(.|) = null
 
 singleton :: x -> Catalog '[x]
 singleton v = Catalog 0 (M.singleton (Key 0) (unsafeCoerce v))
@@ -100,6 +107,12 @@ cons x (Catalog ro rm) = Catalog (unNewRightOffset nro)
         rm)
   where
     nro = rightOffsetForCons (LeftSize 1) (RightOffset ro)
+infixr 5 `cons`
+
+-- | 'cons' mnemonic. Element is smaller than ./ bigger Catalog
+(./) :: Distinct (x ': xs) => x -> Catalog xs -> Catalog (x ': xs)
+(./) = cons
+infixr 5 ./ -- like Data.List (:)
 
 -- | Add an element to the right of the typelist
 snoc :: Distinct (Concat xs '[y]) => Catalog xs -> y -> Catalog (Concat xs '[y])
@@ -107,6 +120,16 @@ snoc (Catalog lo lm) y = Catalog lo
     (M.insert (rightKeyForSnoc (LeftOffset lo) (LeftSize (M.size lm)) (RightOffset 0) (Key 0))
         (unsafeCoerce y)
         lm)
+infixl 5 `snoc`
+
+-- | 'snoc' mnemonic. Catalog is bigger \. than smaller element
+(\.) :: Distinct (Concat xs '[y]) => Catalog xs -> y -> Catalog (Concat xs '[y])
+(\.) = snoc
+infixl 5 \.
+
+(//) :: Distinct (Concat xs ys) => Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
+(//) = append
+infixl 5 //
 
 append :: Distinct (Concat xs ys) => Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
 append (Catalog lo lm) (Catalog ro rm) = if ld >= rd
@@ -120,6 +143,7 @@ append (Catalog lo lm) (Catalog ro rm) = if ld >= rd
     ld = M.size lm
     rd = M.size rm
     nro = rightOffsetForCons (LeftSize ld) (RightOffset ro)
+infixr 5 `append` -- like Data.List (++)
 
 -- | Extract the first element of a Catalog, which must be non-empty.
 head :: Catalog (x ': xs) -> x
@@ -156,10 +180,6 @@ narrow c = Catalog 0 (M.fromList xs')
     xs = afoldr (:) [] (Assemble (EmitNarrowed @ys @xs (Key 0, c)))
     xs' = (\(k, WrappedAny v) -> (k, v)) <$> xs
 
--- | 'WrappedAny' avoids the following:
--- Illegal type synonym family application in instance: Any
-newtype WrappedAny = WrappedAny Any
-
 newtype EmitNarrowed (ys :: [Type]) (xs :: [Type]) r = EmitNarrowed (Key, Catalog ys)
 
 instance Reiterate (EmitNarrowed ys) (x ': xs) where
@@ -192,3 +212,7 @@ instance Member x ys => Emit (EmitAmended zs ys) (x ': xs) (Key, WrappedAny) whe
       where
         i = fromIntegral (natVal @(IndexOf x ys) Proxy)
         v = lm M.! Key (lo + idx)
+
+
+-- FIXME: Add Read, Show, Eq, Ord
+-- FIXME: Add tuple conversion functions?

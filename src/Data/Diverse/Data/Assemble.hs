@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Data.Diverse.Instance.Assemble where
+module Data.Diverse.Data.Assemble where
 
 import Data.Diverse.Class.AFoldable
 import Data.Diverse.Class.Emit
