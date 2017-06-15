@@ -16,14 +16,21 @@ tested-with:         GHC == 8.0.1
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Data.Diverse.Distinct
+  exposed-modules:     Data.Diverse.Class.AFoldable
+                       Data.Diverse.Class.Emit
+                       Data.Diverse.Class.Reiterate
+                       Data.Diverse.Distinct
                        Data.Diverse.Distinct.Catalog
                        Data.Diverse.Distinct.Catalog.Internal
                        Data.Diverse.Distinct.Catalog2
                        Data.Diverse.Distinct.Many
                        Data.Diverse.Distinct.Many.Internal
-                       Data.Diverse.TypeLevel
-                       Data.Diverse.TypeLevel.Internal
+                       Data.Diverse.Instance.Assemble
+                       -- Data.Diverse.Switch
+                       -- Data.Diverse.Case
+                       -- Data.Diverse.Generate
+                       Data.Diverse.Type
+                       Data.Diverse.Type.Internal
   build-depends:       base >= 4.7 && < 5
                      , containers >= 0.5 && < 0.6
                      , ghc-prim >= 0.5 && < 1

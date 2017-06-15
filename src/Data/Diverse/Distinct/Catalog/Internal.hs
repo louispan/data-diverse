@@ -14,7 +14,7 @@
 module Data.Diverse.Distinct.Catalog.Internal where
 
 import Control.Lens
-import Data.Diverse.TypeLevel
+import Data.Diverse.Type
 import Data.Ix
 import Data.Kind
 import qualified GHC.Generics as G
@@ -105,7 +105,7 @@ amend = set project
 -- | This is 'project' with the type parameters reversed
 -- so TypeApplications can be used to specify @from@ instead of @to@.
 -- Example: @projected \@(Catalog '[Int, String])@
-projected :: forall from to. Project to from =>Lens' from to
+projected :: forall from to. Project to from => Lens' from to
 projected = project
 {-# INLINE projected #-}
 

@@ -9,16 +9,21 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE InstanceSigs #-}
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
 module Data.Diverse.Distinct.Catalog2 where
 
-import Data.Diverse.TypeLevel
+import Data.Diverse.Class.AFoldable
+import Data.Diverse.Class.Emit
+import Data.Diverse.Class.Reiterate
+import Data.Diverse.Instance.Assemble
+import Data.Diverse.Type
 import Data.Kind
 import qualified Data.Map.Strict as M
 import Data.Proxy
-import Data.Semigroup hiding (Any)
 import GHC.Prim (Any)
 import GHC.TypeLits
 import Unsafe.Coerce
@@ -103,7 +108,7 @@ snoc (Catalog lo lm) y = Catalog lo
         (unsafeCoerce y)
         lm)
 
-append :: Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
+append :: Distinct (Concat xs ys) => Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
 append (Catalog lo lm) (Catalog ro rm) = if ld >= rd
     then Catalog
          lo
@@ -140,44 +145,50 @@ replace :: forall x xs. Member x xs => x -> Catalog xs -> Catalog xs
 replace v (Catalog o m) = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromIntegral (natVal @(IndexOf x xs) Proxy)
 
-internalFromList :: Distinct xs => [(Key, Any)] -> Catalog xs
-internalFromList xs = Catalog 0 (M.fromList xs)
+narrow
+    :: forall xs ys.
+       ( AFoldable (Assemble (EmitNarrowed ys) xs) (Key, WrappedAny)
+       , Distinct xs
+       )
+    => Catalog ys -> Catalog xs
+narrow c = Catalog 0 (M.fromList xs')
+  where
+    xs = afoldr (:) [] (Assemble (EmitNarrowed @ys @xs (Key 0, c)))
+    xs' = (\(k, WrappedAny v) -> (k, v)) <$> xs
 
-narrow :: forall ys xs. (MembersOf xs xs, MembersOf ys xs) => Catalog xs -> Catalog ys
-narrow = undefined
--- for each y in ys
--- produce a (Key, Any)
-
-class Generate g (xs :: [Type]) r where
-    generate :: g xs r -> r
-
-class Step g (xs :: [Type]) r where
-    step :: g xs r -> r
-
-class Next g (xs :: [Type]) r where
-    next :: g xs r -> g (Tail xs) r
-
-instance (Step g '[] r) => Generate g '[] r where
-    generate g = step g
-
-newtype Generator g (xs :: [Type]) r = Generator (g (xs :: [Type]) r)
-
-instance (Semigroup r, Step g (x ': xs) r, Step g xs r, Next g (x ': xs) r, Generate (Generator g) xs r) =>
-         Generate (Generator g) (x ': xs) r where
-    generate (Generator g) = step g <> generate (Generator (next g))
-
--- | Avoids: Illegal type synonym family application in instance: Any
+-- | 'WrappedAny' avoids the following:
+-- Illegal type synonym family application in instance: Any
 newtype WrappedAny = WrappedAny Any
 
-newtype GenerateNarrowed (ys :: [Type]) (xs :: [Type]) r = GenerateNarrowed (Key, Catalog ys)
+newtype EmitNarrowed (ys :: [Type]) (xs :: [Type]) r = EmitNarrowed (Key, Catalog ys)
 
-instance Step (GenerateNarrowed ys) '[] [(Key, WrappedAny)] where
-    step _ = []
+instance Reiterate (EmitNarrowed ys) (x ': xs) where
+    reiterate (EmitNarrowed (Key idx, c)) = EmitNarrowed (Key (idx + 1), c)
 
-instance Member x ys => Step (GenerateNarrowed ys) (x ': xs) [(Key, WrappedAny)] where
-    step (GenerateNarrowed (k, Catalog o m)) = [(k, WrappedAny (m M.! (Key (o + i))))]
-      where i = fromIntegral (natVal @(IndexOf x ys) Proxy)
+-- | For each x in xs, find the x in ys, and create an (incrementing key, value)
+instance Member x ys => Emit (EmitNarrowed ys) (x ': xs) (Key, WrappedAny) where
+    emit (EmitNarrowed (idx, Catalog o m)) = (idx, WrappedAny v)
+      where
+        i = fromIntegral (natVal @(IndexOf x ys) Proxy)
+        v = m M.! Key (o + i)
 
--- | Don't create an instance for (xs :: '[])
-instance Next (GenerateNarrowed ys) (x ': xs) r where
-    next (GenerateNarrowed (Key k, c)) = GenerateNarrowed (Key (k + 1), c)
+amend
+    :: forall zs ys.
+       AFoldable (Assemble (EmitAmended zs ys) zs) (Key, WrappedAny)
+    => Catalog zs -> Catalog ys -> Catalog ys
+amend zs ys@(Catalog ro rm) = Catalog ro (M.fromList xs' `M.union` rm)
+  where
+    xs = afoldr (:) [] (Assemble (EmitAmended @zs @ys @zs (Key 0, zs, ys)))
+    xs' = (\(k, WrappedAny v) -> (k, v)) <$> xs
+
+newtype EmitAmended (zs :: [Type]) (ys :: [Type]) (xs :: [Type]) r = EmitAmended (Key, Catalog zs, Catalog ys)
+
+instance Reiterate (EmitAmended zs ys) (x ': xs) where
+    reiterate (EmitAmended (Key idx, zs, ys)) = EmitAmended (Key (idx + 1), zs, ys)
+
+-- | for each x in Catalog zs, convert it to a (k, v) to insert into the x in Catalog ys
+instance Member x ys => Emit (EmitAmended zs ys) (x ': xs) (Key, WrappedAny) where
+    emit (EmitAmended (Key idx, Catalog lo lm, Catalog ro _)) = (Key (ro + i), WrappedAny v)
+      where
+        i = fromIntegral (natVal @(IndexOf x ys) Proxy)
+        v = lm M.! Key (lo + idx)

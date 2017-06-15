@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Data.Diverse.TypeLevel.Internal where
+module Data.Diverse.Type.Internal where
 
 import Data.Kind
 import GHC.TypeLits

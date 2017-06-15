@@ -10,7 +10,7 @@
 
 import Control.Lens
 import Data.Diverse.Distinct
-import Data.Diverse.TypeLevel
+import Data.Diverse.Type
 import Data.Typeable
 import Test.Hspec
 
