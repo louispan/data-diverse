@@ -8,6 +8,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -21,14 +22,15 @@ import Control.Applicative
 import Data.Diverse.Class.AFoldable
 import Data.Diverse.Class.Case
 import Data.Diverse.Class.Emit
-import Data.Diverse.Class.Reduce
 import Data.Diverse.Class.Reiterate
 import Data.Diverse.Data.Assemble
+import Data.Diverse.Data.CaseTypeable
 import Data.Diverse.Data.WrappedAny
 import Data.Diverse.Type
 import Data.Kind
 import qualified Data.Map.Strict as M
 import Data.Proxy
+import Data.Typeable
 import GHC.Prim (coerce, Any)
 import GHC.TypeLits
 import Prelude hiding (null)
@@ -176,13 +178,16 @@ replace :: forall x xs. Member x xs => x -> Catalog xs -> Catalog xs
 replace v (Catalog o m) = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
-
 -- | Wraps a 'Case' into an instance of 'Emit', so that the results from 'Case' can be folded with 'AFoldable'
 -- Internally, this holds the r to use in the empty '[] case
 -- Also holds incrementing index of x in the original Catalog typelist.
 -- as well as the left-over [(k, v)] from the original Catalog with the remaining typelist xs.
 -- That is the first v in the (k, v) is of type x, and the length of the list is equal to the length of xs.
 newtype Iterate h (xs :: [Type]) r = Iterate (h xs r, [(Key, Any)])
+
+-- | Creates an 'Iterate' safely
+iterate :: forall xs h r. h xs r -> Catalog xs -> Iterate h xs r
+iterate h (Catalog _ m) = Iterate (h, M.toList m)
 
 instance Reiterate c (x ': xs) => Reiterate (Iterate c) (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
@@ -194,6 +199,19 @@ instance (Case c xs r) => Emit (Iterate c) xs r where
        -- use of head here is safe as we are guaranteed the length from the typelist
        (_, v) = Prelude.head zs
 
+-- FIXME: naming
+foldTypeable
+    :: forall xs b r. AFoldable (Assemble (Iterate CaseTypeable) xs) r
+    => (forall x. Typeable x =>
+                      x -> r)
+    -> (r -> b -> b)
+    -> b
+    -> Catalog xs
+    -> b
+foldTypeable g f z c = afoldr f z (Assemble (Data.Diverse.Distinct.Catalog2.iterate (CaseTypeable g) c))
+
+-- TODO: fmap-like for Catalog
+-- TODO: if given a catalog to map to the same thing, and a fold, get the result.
 
 -- | Internal function for construction - do not expose!
 fromList' :: Ord k => [(k, WrappedAny)] -> M.Map k Any
