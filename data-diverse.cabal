@@ -17,6 +17,7 @@ tested-with:         GHC == 8.0.1
 library
   hs-source-dirs:      src
   exposed-modules:     Data.Diverse.Class.AFoldable
+                       Data.Diverse.Class.Case
                        Data.Diverse.Class.Emit
                        Data.Diverse.Class.Reiterate
                        Data.Diverse.Data.Assemble

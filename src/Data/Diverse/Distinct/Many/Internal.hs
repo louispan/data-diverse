@@ -19,6 +19,7 @@ module Data.Diverse.Distinct.Many.Internal where
 import Control.Applicative
 import Control.Lens
 import Data.Diverse.Class.AFoldable
+import Data.Diverse.Class.Case
 import Data.Diverse.Class.Emit
 import Data.Diverse.Class.Reiterate
 import Data.Diverse.Data.Assemble
@@ -211,13 +212,6 @@ injected = inject
 -- Or you may use your own custom instance of 'Case'.
 class Switch handler (xs :: [Type]) r where
     switch :: Many xs -> handler xs r -> r
-
--- | This class allows storing polymorphic functions with extra constraints that is used on each iteration of 'Switch'.
--- An instance of this knows how to construct a handler for the first type in the 'xs' typelist, or
--- how to construct the remaining 'Case's for the rest of the types in the type list.
-class Case c (xs :: [Type]) r where
-    -- | Return the handler/continuation when x is observed.
-    then' :: c xs r -> (Head xs -> r)
 
 -- | This instance of 'Switch' for which visits through the possibilities in Many,
 -- delegating work to 'Case', ensuring termination when Many only contains one type.

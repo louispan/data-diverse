@@ -195,7 +195,7 @@ newtype EmitNarrowed (ys :: [Type]) (xs :: [Type]) r = EmitNarrowed (Key, Catalo
 instance Reiterate (EmitNarrowed ys) (x ': xs) where
     reiterate (EmitNarrowed (Key idx, c)) = EmitNarrowed (Key (idx + 1), c)
 
--- | For each x in xs, find the x in ys, and create an (incrementing key, value)
+-- | For each type x in xs, find the x in ys, and create an (incrementing key, value)
 instance Member x ys => Emit (EmitNarrowed ys) (x ': xs) (Key, WrappedAny) where
     emit (EmitNarrowed (idx, Catalog o m)) = (idx, WrappedAny v)
       where
@@ -260,5 +260,5 @@ instance ( Distinct xs
             xs <- readCatalog @xs Proxy
             pure (Catalog 0 (fromList' xs))
 
--- FIXME: Add Read, Show, Eq, Ord
+-- FIXME: Add Show, Eq, Ord
 -- FIXME: Add tuple conversion functions?
