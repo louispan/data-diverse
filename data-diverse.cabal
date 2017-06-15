@@ -20,6 +20,7 @@ library
                        Data.Diverse.Class.Case
                        Data.Diverse.Class.Emit
                        Data.Diverse.Class.Reiterate
+                       Data.Diverse.Class.Reduce
                        Data.Diverse.Data.Assemble
                        Data.Diverse.Data.WrappedAny
                        Data.Diverse.Distinct
