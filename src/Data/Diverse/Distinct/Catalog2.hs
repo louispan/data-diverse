@@ -188,7 +188,7 @@ replace v (Catalog o m) = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 newtype Via c (xs :: [Type]) r = Via (c xs r, [(Key, Any)])
 
 -- | Creates an 'Via' safely, so that the invariant of \"typelist to the value list type and size\" holds.
-via :: forall xs c r. Case c xs r => c xs r -> Catalog xs -> Via c xs r
+via :: forall xs c r. c xs r -> Catalog xs -> Via c xs r
 via c (Catalog _ m) = Via (c, M.toAscList m)
 
 instance Reiterate c (x ': xs) => Reiterate (Via c) (x ': xs) where
@@ -201,10 +201,10 @@ instance (Case c xs r) => Emit (Via c) xs r where
        -- use of head here is safe as we are guaranteed the length from the typelist
        (_, v) = Prelude.head zs
 
-forCatalog :: Case c xs r => c xs r -> Catalog xs -> Collector (Via c) xs r
+forCatalog :: c xs r -> Catalog xs -> Collector (Via c) xs r
 forCatalog c x = Collector (via c x)
 
-collect :: Case c xs r => Catalog xs -> c xs r -> Collector (Via c) xs r
+collect :: Catalog xs -> c xs r -> Collector (Via c) xs r
 collect = flip forCatalog
 
 -----------------------------------------------------------------------
@@ -226,57 +226,52 @@ fromList' xs = M.fromList (coerce xs)
 
 narrow
     :: forall smaller bigger.
-       ( AFoldable (Collector (EmitNarrowed smaller) smaller) [(Key, WrappedAny)]
+       ( AFoldable (Collector (Via (CaseNarrow smaller)) bigger) [(Key, WrappedAny)]
        , Distinct smaller
        )
     => Catalog bigger -> Catalog smaller
-narrow (Catalog _ m) = Catalog 0 (fromList' xs)
+narrow xs = Catalog 0 (fromList' xs')
   where
-    xs = afoldr (++) [] (Collector (EmitNarrowed @smaller @smaller (M.toAscList m)))
+    xs' = afoldr (++) [] (forCatalog (CaseNarrow @smaller @bigger) xs)
 
 -- | For each type x in @bigger@, generate the (k, v) in @smaller@ (if it exists)
 -- This stores the bigger catalog map in a list form.
 -- Like 'Via', the list is guaranteed to be the same size and type as @xs@.
 -- xs is originally the same as bigger
-newtype EmitNarrowed (smaller :: [Type]) (xs :: [Type]) r = EmitNarrowed [(Key, Any)]
+data CaseNarrow (smaller :: [Type]) (xs :: [Type]) r = CaseNarrow
 
-instance Reiterate (EmitNarrowed smaller) (x ': xs) where
-    reiterate (EmitNarrowed xs) = EmitNarrowed (Prelude.tail xs)
+instance Reiterate (CaseNarrow smaller) (x ': xs) where
+    reiterate CaseNarrow = CaseNarrow
 
 -- | For each type x in bigger, find the index in ys, and create an (incrementing key, value)
-instance forall smaller x xs. MaybeMember x smaller => Emit (EmitNarrowed smaller) (x ': xs) [(Key, WrappedAny)] where
-    emit (EmitNarrowed xs) = case i of
-                                  0 -> []
-                                  i' -> [(Key (i' - 1), WrappedAny v)]
+-- instance forall smaller x xs. MaybeMember x smaller => Emit (EmitNarrowed smaller) (x ': xs) [(Key, WrappedAny)] where
+instance forall smaller x xs. MaybeMember x smaller => Case (CaseNarrow smaller) (x ': xs) [(Key, WrappedAny)] where
+    then' _ v = case i of
+                    0 -> []
+                    i' -> [(Key (i' - 1), WrappedAny (unsafeCoerce v))]
       where
         i = fromInteger (natVal @(PositionOf x smaller) Proxy)
-        -- use of head here is safe as we are guaranteed the length from the typelist
-        (_, v) = Prelude.head xs
 
 -----------------------------------------------------------------------
 
 amend
     :: forall smaller larger.
-       AFoldable (Collector (EmitAmended smaller larger) smaller) (Key, WrappedAny)
+       AFoldable (Collector (Via (CaseAmend smaller larger)) smaller) (Key, WrappedAny)
     => Catalog smaller -> Catalog larger -> Catalog larger
-amend (Catalog _ lm) (Catalog ro rm) = Catalog ro (fromList' xs `M.union` rm)
+amend xs (Catalog ro rm) = Catalog ro (fromList' xs' `M.union` rm)
   where
-    xs = afoldr (:) [] (Collector (EmitAmended @smaller @larger @smaller (M.toAscList lm, ro)))
+    xs' = afoldr (:) [] (forCatalog (CaseAmend @smaller @larger @smaller ro) xs)
 
+newtype CaseAmend (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) r = CaseAmend Int
 
-newtype EmitAmended (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) r = EmitAmended ([(Key, Any)], Int)
-
-instance Reiterate (EmitAmended smaller larger) (x ': xs) where
-    -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (EmitAmended (xs, larger)) = EmitAmended (Prelude.tail xs, larger)
+instance Reiterate (CaseAmend smaller larger) (x ': xs) where
+    reiterate (CaseAmend ro) = CaseAmend ro
 
 -- | for each x in @Catalog smaller@, convert it to a (k, v) to insert into the x in @Catalog larger@
-instance Member x larger => Emit (EmitAmended smaller larger) (x ': xs) (Key, WrappedAny) where
-    emit (EmitAmended (xs, ro)) = (Key (ro + i), WrappedAny v)
+instance Member x larger => Case (CaseAmend smaller larger) (x ': xs) (Key, WrappedAny) where
+    then' (CaseAmend ro) v = (Key (ro + i), WrappedAny (unsafeCoerce v))
       where
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
-        -- use of head here is safe as we are guaranteed the length from the typelist
-        (_, v) = Prelude.head xs
 
 -----------------------------------------------------------------------
 

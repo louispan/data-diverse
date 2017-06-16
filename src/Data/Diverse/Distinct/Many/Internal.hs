@@ -280,10 +280,10 @@ instance (Reduce Many (Switch CaseEqMany) xs Bool) => Eq (Many xs) where
 -- Stores the right Any to be compared when the correct type is discovered
 newtype CaseEqMany (xs :: [Type]) r = CaseEqMany Any
 
-instance Reiterate CaseEqMany xs where
+instance Reiterate CaseEqMany (x ': xs) where
     reiterate (CaseEqMany r) = CaseEqMany r
 
-instance (Eq (Head xs)) => Case CaseEqMany xs Bool where
+instance (Eq x) => Case CaseEqMany (x ': xs) Bool where
     then' (CaseEqMany r) l = l == unsafeCoerce r
 
 -----------------------------------------------------------------
@@ -298,10 +298,10 @@ instance (Reduce Many (Switch CaseEqMany) xs Bool, Reduce Many (Switch CaseOrdMa
 -- Stores the right Any to be compared when the correct type is discovered
 newtype CaseOrdMany (xs :: [Type]) r = CaseOrdMany Any
 
-instance Reiterate CaseOrdMany xs where
+instance Reiterate CaseOrdMany (x ': xs) where
     reiterate (CaseOrdMany r) = CaseOrdMany r
 
-instance (Ord (Head xs)) => Case CaseOrdMany xs Ordering where
+instance (Ord x) => Case CaseOrdMany (x ': xs) Ordering where
     then' (CaseOrdMany r) l = compare l (unsafeCoerce r)
 
 ------------------------------------------------------------------
@@ -311,10 +311,10 @@ instance (Reduce Many (Switch CaseShowMany) xs ShowS) => Show (Many xs) where
 
 newtype CaseShowMany (xs :: [Type]) r = CaseShowMany Int
 
-instance Reiterate CaseShowMany xs where
+instance Reiterate CaseShowMany (x ': xs) where
     reiterate (CaseShowMany d) = CaseShowMany d
 
-instance Show (Head xs) => Case CaseShowMany xs ShowS where
+instance Show x => Case CaseShowMany (x ': xs) ShowS where
     then' (CaseShowMany d) = showsPrec d
 
 ------------------------------------------------------------------
