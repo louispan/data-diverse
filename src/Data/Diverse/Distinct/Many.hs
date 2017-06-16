@@ -19,7 +19,6 @@ module Data.Diverse.Distinct.Many
     , switch
     , Cases(..)
     , cases
-    , caseTypeable
     ) where
 
 import Data.Diverse.Distinct.Many.Internal

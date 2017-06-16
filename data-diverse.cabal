@@ -28,6 +28,7 @@ library
                        Data.Diverse.Distinct.Catalog
                        Data.Diverse.Distinct.Catalog.Internal
                        Data.Diverse.Distinct.Catalog2
+                       Data.Diverse.Distinct.Catalog2.Internal
                        Data.Diverse.Distinct.Many
                        Data.Diverse.Distinct.Many.Internal
                        -- Data.Diverse.Switch

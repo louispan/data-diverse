@@ -24,13 +24,11 @@ import Data.Diverse.Class.Emit
 import Data.Diverse.Class.Reduce
 import Data.Diverse.Class.Reiterate
 import Data.Diverse.Data.Collector
-import Data.Diverse.Data.CaseTypeable
 import Data.Diverse.Data.WrappedAny
 import Data.Diverse.Distinct.Catalog
 import Data.Diverse.Type
 import Data.Kind
 import Data.Proxy
-import Data.Typeable
 import GHC.Prim (Any)
 import GHC.TypeLits
 import Text.ParserCombinators.ReadPrec
@@ -135,6 +133,7 @@ facet = prism' pick trial
 -- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
 -- The Switch constraint is fulfilled with
 -- (Distinct ys, forall x (in xs). Member x xs)
+-- FIXME: Is there a way to simplify this type signature? With a Diversify typeclass?
 diversify :: forall ys xs. Reduce Many (Switch (CaseDiversify ys)) xs (Many ys) => Many xs -> Many ys
 diversify = forMany (CaseDiversify @ys)
 
@@ -262,11 +261,6 @@ instance (Item (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
 -- Example: @switch a $ cases (f, g, h)@
 cases :: (SameLength fs xs, OutcomeOf fs ~ r, Cataloged fs, fs ~ TypesOf (TupleOf fs)) => TupleOf fs -> (Cases fs) xs r
 cases = Cases . catalog
-
--- | Create Case for handling 'switch' from a polymorphic function for all 'Typeable's.
--- FIXME: No need for this anymore, just use CaseTypeable
-caseTypeable :: (forall x. Typeable x => x -> r) -> CaseTypeable xs r
-caseTypeable f = CaseTypeable f
 
 -----------------------------------------------------------------
 
