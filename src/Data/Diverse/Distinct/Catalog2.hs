@@ -185,21 +185,21 @@ replace v (Catalog o m) = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 -- | Wraps a 'Case' into an instance of 'Emit', feeding 'Case' with the value from the Catalog and 'emit'ting the results.
 -- Internally, this holds the left-over [(k, v)] from the original Catalog with the remaining typelist xs.
 -- That is the first v in the (k, v) is of type x, and the length of the list is equal to the length of xs.
-newtype Via c (xs :: [Type]) r = Via (c xs r, [(Key, Any)])
+newtype Via c (xs :: [Type]) r = Via (c xs r, [Any])
 
 -- | Creates an 'Via' safely, so that the invariant of \"typelist to the value list type and size\" holds.
 via :: forall xs c r. c xs r -> Catalog xs -> Via c xs r
-via c (Catalog _ m) = Via (c, M.toAscList m)
+via c (Catalog _ m) = Via (c, snd <$> M.toAscList m)
 
 instance Reiterate c (x ': xs) => Reiterate (Via c) (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (Via (c, zs)) = Via (reiterate c, Prelude.tail zs)
+    reiterate (Via (c, xxs)) = Via (reiterate c, Prelude.tail xxs)
 
-instance (Case c xs r) => Emit (Via c) xs r where
-    emit (Via (c, zs)) = then' c (unsafeCoerce v)
+instance (Case c (x ': xs) r) => Emit (Via c) (x ': xs) r where
+    emit (Via (c, xxs)) = then' c (unsafeCoerce v)
       where
        -- use of head here is safe as we are guaranteed the length from the typelist
-       (_, v) = Prelude.head zs
+       v = Prelude.head xxs
 
 forCatalog :: c xs r -> Catalog xs -> Collector (Via c) xs r
 forCatalog c x = Collector (via c x)
@@ -272,6 +272,44 @@ instance Member x larger => Case (CaseAmend smaller larger) (x ': xs) (Key, Wrap
     then' (CaseAmend ro) v = (Key (ro + i), WrappedAny (unsafeCoerce v))
       where
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
+
+-----------------------------------------------------------------------
+
+-- | Need to be like Via, except also handle the empty type list.
+newtype EmitShowCatalog (xs :: [Type]) r = EmitShowCatalog [Any]
+
+instance Reiterate EmitShowCatalog (x ': xs) where
+    -- use of tail here is safe as we are guaranteed the length from the typelist
+    reiterate (EmitShowCatalog xxs) = EmitShowCatalog (Prelude.tail xxs)
+
+-- | for each x in @Catalog orig@, Show it
+instance Emit EmitShowCatalog '[] ShowS where
+    emit _ = showString ".\\"
+
+instance Show x => Emit EmitShowCatalog '[x] ShowS where
+    emit (EmitShowCatalog xs) = showsPrec (cons_prec + 1) v
+      where
+        -- use of head here is safe as we are guaranteed the length from the typelist
+        v = unsafeCoerce (Prelude.head xs) :: x
+        cons_prec = 5 -- infixr 5 cons
+
+instance Show x => Emit EmitShowCatalog (x ': x' ': xs) ShowS where
+    emit (EmitShowCatalog xxs) = showsPrec (cons_prec + 1) v . showString "./"
+      where
+        -- use of head here is safe as we are guaranteed the length from the typelist
+        v = unsafeCoerce (Prelude.head xxs) :: x
+        cons_prec = 5 -- infixr 5 cons
+
+showCatalog
+    :: forall xs.
+       AFoldable (Collector EmitShowCatalog xs) ShowS
+    => Catalog xs -> ShowS
+showCatalog (Catalog _ m) = afoldr (.) id (Collector (EmitShowCatalog @xs (snd <$> M.toList m)))
+
+instance AFoldable (Collector EmitShowCatalog xs) ShowS => Show (Catalog xs) where
+    showsPrec d t = showParen (d > cons_prec) $ showCatalog t
+      where
+        cons_prec = 5 -- infixr 5 cons
 
 -----------------------------------------------------------------------
 

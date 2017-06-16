@@ -307,15 +307,17 @@ instance (Ord x) => Case CaseOrdMany (x ': xs) Ordering where
 ------------------------------------------------------------------
 
 instance (Reduce Many (Switch CaseShowMany) xs ShowS) => Show (Many xs) where
-    showsPrec d v = showParen (d >= 11) ((showString "Many ") . (forMany (CaseShowMany 11) v))
+    showsPrec d v = showParen (d > app_prec) ((showString "Many ") . (forMany CaseShowMany v))
+      where app_prec = 10
 
-newtype CaseShowMany (xs :: [Type]) r = CaseShowMany Int
+data CaseShowMany (xs :: [Type]) r = CaseShowMany
 
 instance Reiterate CaseShowMany (x ': xs) where
-    reiterate (CaseShowMany d) = CaseShowMany d
+    reiterate CaseShowMany = CaseShowMany
 
 instance Show x => Case CaseShowMany (x ': xs) ShowS where
-    then' (CaseShowMany d) = showsPrec d
+    then' _ = showsPrec (app_prec + 1)
+      where app_prec = 10
 
 ------------------------------------------------------------------
 
