@@ -264,7 +264,7 @@ cases :: (SameLength fs xs, OutcomeOf fs ~ r, Cataloged fs, fs ~ TypesOf (TupleO
 cases = Cases . catalog
 
 -- | Create Case for handling 'switch' from a polymorphic function for all 'Typeable's.
--- FIXME: No need for this anymore!
+-- FIXME: No need for this anymore, just use CaseTypeable
 caseTypeable :: (forall x. Typeable x => x -> r) -> CaseTypeable xs r
 caseTypeable f = CaseTypeable f
 

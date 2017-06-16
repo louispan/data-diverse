@@ -6,9 +6,9 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -19,25 +19,24 @@
 module Data.Diverse.Distinct.Catalog2 where
 
 import Control.Applicative
+import Data.Bool
 import Data.Diverse.Class.AFoldable
 import Data.Diverse.Class.Case
 import Data.Diverse.Class.Emit
 import Data.Diverse.Class.Reiterate
 import Data.Diverse.Data.Collector
-import Data.Diverse.Data.CaseTypeable
 import Data.Diverse.Data.WrappedAny
 import Data.Diverse.Type
 import Data.Kind
 import qualified Data.Map.Strict as M
 import Data.Proxy
-import Data.Typeable
-import GHC.Prim (coerce, Any)
+import GHC.Prim (Any, coerce)
 import GHC.TypeLits
-import Prelude hiding (null, lookup)
-import Unsafe.Coerce
+import Prelude hiding (lookup, null)
 import Text.ParserCombinators.ReadPrec
 import Text.Read
 import qualified Text.Read.Lex as L
+import Unsafe.Coerce
 
 -- TODO: Implement Data.Indistinct.Tuplex or NAry with getByIndex only semantics
 -- TODO: Implement Data.Indistinct.Variant with getByIndex only semantics
@@ -275,16 +274,71 @@ instance Member x larger => Case (CaseAmend smaller larger) (x ': xs) (Key, Wrap
 
 -----------------------------------------------------------------------
 
--- | Need to be like Via, except also handle the empty type list.
+-- | Stores the left & right Catalog and a list of Any which must be the same length and types in xs typelist.
+newtype EmitEqCatalog (xs :: [Type]) r = EmitEqCatalog ([Any], [Any])
+
+instance Reiterate EmitEqCatalog (x ': xs) where
+    -- use of tail here is safe as we are guaranteed the length from the typelist
+    reiterate (EmitEqCatalog (ls, rs)) = EmitEqCatalog (Prelude.tail ls, Prelude.tail rs)
+
+instance Eq x => Emit EmitEqCatalog (x ': xs) Bool where
+    emit (EmitEqCatalog (ls, rs)) = l == r
+      where
+        -- use of head here is safe as we are guaranteed the length from the typelist
+        l = unsafeCoerce (Prelude.head ls) :: x
+        r = unsafeCoerce (Prelude.head rs) :: x
+
+eqCatalog
+    :: forall xs.
+       AFoldable (Collector EmitEqCatalog xs) Bool
+    => Catalog xs -> Catalog xs -> [Bool]
+eqCatalog (Catalog _ lm) (Catalog _ rm) = afoldr (:) [] (Collector (EmitEqCatalog @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
+
+instance AFoldable (Collector EmitEqCatalog xs) Bool => Eq (Catalog xs) where
+    lt == rt = foldr (\e z -> bool False z e) True eqs
+      where
+        eqs = eqCatalog lt rt
+
+-----------------------------------------------------------------------
+
+-- | Stores the left & right Catalog and a list of Any which must be the same length and types in xs typelist.
+newtype EmitOrdCatalog (xs :: [Type]) r = EmitOrdCatalog ([Any], [Any])
+
+instance Reiterate EmitOrdCatalog (x ': xs) where
+    -- use of tail here is safe as we are guaranteed the length from the typelist
+    reiterate (EmitOrdCatalog (ls, rs)) = EmitOrdCatalog (Prelude.tail ls, Prelude.tail rs)
+
+instance Ord x => Emit EmitOrdCatalog (x ': xs) Ordering where
+    emit (EmitOrdCatalog (ls, rs)) = compare l r
+      where
+        -- use of head here is safe as we are guaranteed the length from the typelist
+        l = unsafeCoerce (Prelude.head ls) :: x
+        r = unsafeCoerce (Prelude.head rs) :: x
+
+ordCatalog
+    :: forall xs.
+       AFoldable (Collector EmitOrdCatalog xs) Ordering
+    => Catalog xs -> Catalog xs -> [Ordering]
+ordCatalog (Catalog _ lm) (Catalog _ rm) = afoldr (:) [] (Collector (EmitOrdCatalog @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
+
+instance (Eq (Catalog xs), AFoldable (Collector EmitOrdCatalog xs) Ordering) => Ord (Catalog xs) where
+    compare lt rt = foldr (\o z -> case o of
+                                       EQ -> z
+                                       o' -> o') EQ ords
+      where
+        ords = ordCatalog lt rt
+
+-----------------------------------------------------------------------
+
+-- | Internally uses [Any] like Via, except also handle the empty type list.
 newtype EmitShowCatalog (xs :: [Type]) r = EmitShowCatalog [Any]
 
 instance Reiterate EmitShowCatalog (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
     reiterate (EmitShowCatalog xxs) = EmitShowCatalog (Prelude.tail xxs)
 
--- | for each x in @Catalog orig@, Show it
 instance Emit EmitShowCatalog '[] ShowS where
-    emit _ = showString ".\\"
+    emit _ = showString ".|"
 
 instance Show x => Emit EmitShowCatalog '[x] ShowS where
     emit (EmitShowCatalog xs) = showsPrec (cons_prec + 1) v
@@ -304,7 +358,7 @@ showCatalog
     :: forall xs.
        AFoldable (Collector EmitShowCatalog xs) ShowS
     => Catalog xs -> ShowS
-showCatalog (Catalog _ m) = afoldr (.) id (Collector (EmitShowCatalog @xs (snd <$> M.toList m)))
+showCatalog (Catalog _ m) = afoldr (.) id (Collector (EmitShowCatalog @xs (snd <$> M.toAscList m)))
 
 instance AFoldable (Collector EmitShowCatalog xs) ShowS => Show (Catalog xs) where
     showsPrec d t = showParen (d > cons_prec) $ showCatalog t
@@ -351,5 +405,4 @@ instance ( Distinct xs
             xs <- readCatalog @xs Proxy
             pure (Catalog 0 (fromList' xs))
 
--- FIXME: Add Show, Eq, Ord
 -- FIXME: Add tuple conversion functions?
