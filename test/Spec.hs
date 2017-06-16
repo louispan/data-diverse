@@ -11,6 +11,7 @@
 import Control.Lens
 import Data.Diverse.Distinct
 import Data.Diverse.Type
+import Data.Diverse.Data.CaseTypeable
 import Data.Typeable
 import Test.Hspec
 

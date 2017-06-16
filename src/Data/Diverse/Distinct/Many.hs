@@ -14,7 +14,7 @@ module Data.Diverse.Distinct.Many
     , reinterpretEither
     , inject
     , injected
-    , _many
+    , forMany
     , Switch
     , switch
     , Cases(..)

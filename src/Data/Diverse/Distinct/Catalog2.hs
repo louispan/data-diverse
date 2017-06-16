@@ -23,7 +23,7 @@ import Data.Diverse.Class.AFoldable
 import Data.Diverse.Class.Case
 import Data.Diverse.Class.Emit
 import Data.Diverse.Class.Reiterate
-import Data.Diverse.Data.Assemble
+import Data.Diverse.Data.Collector
 import Data.Diverse.Data.CaseTypeable
 import Data.Diverse.Data.WrappedAny
 import Data.Diverse.Type
@@ -33,13 +33,13 @@ import Data.Proxy
 import Data.Typeable
 import GHC.Prim (coerce, Any)
 import GHC.TypeLits
-import Prelude hiding (null)
+import Prelude hiding (null, lookup)
 import Unsafe.Coerce
 import Text.ParserCombinators.ReadPrec
 import Text.Read
 import qualified Text.Read.Lex as L
 
--- TODO: Implement Data.Indistinct.Tuplex with getByIndex only semantics
+-- TODO: Implement Data.Indistinct.Tuplex or NAry with getByIndex only semantics
 -- TODO: Implement Data.Indistinct.Variant with getByIndex only semantics
 -- TODO: Implement Data.Labelled.Record with getByLabel only semantics, where fields may only contain tagged values called :=
 -- TODO: Implement Data.Labelled.Corecord with getByLabel only semantics, where fields may only contain tagged values called :=
@@ -52,7 +52,7 @@ import qualified Text.Read.Lex as L
 -- The offset is used to allow efficient cons.
 -- Key = Index of type in typelist + Offset
 -- The constructor will guarantee the correct number and types of the elements.
-newtype Key = Key Int deriving (Eq, Ord, Show, Num)
+newtype Key = Key Int deriving (Eq, Ord, Show)
 newtype LeftOffset = LeftOffset Int
 newtype LeftSize = LeftSize Int
 newtype RightOffset = RightOffset Int
@@ -136,9 +136,9 @@ infixl 5 `snoc`
 (\.) = snoc
 infixl 5 \.
 
-(//) :: Distinct (Concat xs ys) => Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
-(//) = append
-infixl 5 //
+(/./) :: Distinct (Concat xs ys) => Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
+(/./) = append
+infixl 5 /./
 
 append :: Distinct (Concat xs ys) => Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
 append (Catalog lo lm) (Catalog ro rm) = if ld >= rd
@@ -170,100 +170,120 @@ tail (Catalog o m) = Catalog (o + 1) (M.delete (Key o) m)
 init :: Catalog xs -> Catalog (Init xs)
 init (Catalog o m) = Catalog o (M.delete (Key (o + M.size m - 1)) m)
 
+-- | getter
 lookup :: forall x xs. Member x xs => Catalog xs -> x
 lookup (Catalog o m) = unsafeCoerce (m M.! (Key (o + i)))
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
+-- | setter
 replace :: forall x xs. Member x xs => x -> Catalog xs -> Catalog xs
 replace v (Catalog o m) = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
--- | Wraps a 'Case' into an instance of 'Emit', so that the results from 'Case' can be folded with 'AFoldable'
--- Internally, this holds the r to use in the empty '[] case
--- Also holds incrementing index of x in the original Catalog typelist.
--- as well as the left-over [(k, v)] from the original Catalog with the remaining typelist xs.
+-----------------------------------------------------------------------
+
+-- | Wraps a 'Case' into an instance of 'Emit', feeding 'Case' with the value from the Catalog and 'emit'ting the results.
+-- Internally, this holds the left-over [(k, v)] from the original Catalog with the remaining typelist xs.
 -- That is the first v in the (k, v) is of type x, and the length of the list is equal to the length of xs.
-newtype Iterate h (xs :: [Type]) r = Iterate (h xs r, [(Key, Any)])
+newtype Via c (xs :: [Type]) r = Via (c xs r, [(Key, Any)])
 
--- | Creates an 'Iterate' safely
-iterate :: forall xs h r. h xs r -> Catalog xs -> Iterate h xs r
-iterate h (Catalog _ m) = Iterate (h, M.toList m)
+-- | Creates an 'Via' safely, so that the invariant of \"typelist to the value list type and size\" holds.
+via :: forall xs c r. Case c xs r => c xs r -> Catalog xs -> Via c xs r
+via c (Catalog _ m) = Via (c, M.toAscList m)
 
-instance Reiterate c (x ': xs) => Reiterate (Iterate c) (x ': xs) where
+instance Reiterate c (x ': xs) => Reiterate (Via c) (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (Iterate (c, zs)) = Iterate (reiterate c, Prelude.tail zs)
+    reiterate (Via (c, zs)) = Via (reiterate c, Prelude.tail zs)
 
-instance (Case c xs r) => Emit (Iterate c) xs r where
-    emit (Iterate (c, zs)) = then' c (unsafeCoerce v)
+instance (Case c xs r) => Emit (Via c) xs r where
+    emit (Via (c, zs)) = then' c (unsafeCoerce v)
       where
        -- use of head here is safe as we are guaranteed the length from the typelist
        (_, v) = Prelude.head zs
 
--- FIXME: naming
-foldTypeable
-    :: forall xs b r. AFoldable (Assemble (Iterate CaseTypeable) xs) r
-    => (forall x. Typeable x =>
-                      x -> r)
-    -> (r -> b -> b)
-    -> b
-    -> Catalog xs
-    -> b
-foldTypeable g f z c = afoldr f z (Assemble (Data.Diverse.Distinct.Catalog2.iterate (CaseTypeable g) c))
+forCatalog :: Case c xs r => c xs r -> Catalog xs -> Collector (Via c) xs r
+forCatalog c x = Collector (via c x)
 
--- TODO: fmap-like for Catalog
--- TODO: if given a catalog to map to the same thing, and a fold, get the result.
+collect :: Case c xs r => Catalog xs -> c xs r -> Collector (Via c) xs r
+collect = flip forCatalog
+
+-----------------------------------------------------------------------
+
+-- | Contains a 'Catalog' of handlers/continuations for all the types in the 'xs' typelist.
+newtype Cases (fs :: [Type]) (xs :: [Type]) r = Cases (Catalog fs)
+
+instance Reiterate (Cases fs) xs where
+    reiterate (Cases s) = Cases s
+
+instance (Member (Head xs -> r) fs) => Case (Cases fs) xs r where
+    then' (Cases s) = lookup @(Head xs -> r) s
 
 -- | Internal function for construction - do not expose!
 fromList' :: Ord k => [(k, WrappedAny)] -> M.Map k Any
 fromList' xs = M.fromList (coerce xs)
 
+-----------------------------------------------------------------------
+
 narrow
-    :: forall xs ys.
-       ( AFoldable (Assemble (EmitNarrowed ys) xs) (Key, WrappedAny)
-       , Distinct xs
+    :: forall smaller bigger.
+       ( AFoldable (Collector (EmitNarrowed smaller) smaller) [(Key, WrappedAny)]
+       , Distinct smaller
        )
-    => Catalog ys -> Catalog xs
-narrow c = Catalog 0 (fromList' xs)
+    => Catalog bigger -> Catalog smaller
+narrow (Catalog _ m) = Catalog 0 (fromList' xs)
   where
-    xs = afoldr (:) [] (Assemble (EmitNarrowed @ys @xs (Key 0, c)))
+    xs = afoldr (++) [] (Collector (EmitNarrowed @smaller @smaller (M.toAscList m)))
 
-newtype EmitNarrowed (ys :: [Type]) (xs :: [Type]) r = EmitNarrowed (Key, Catalog ys)
+-- | For each type x in @bigger@, generate the (k, v) in @smaller@ (if it exists)
+-- This stores the bigger catalog map in a list form.
+-- Like 'Via', the list is guaranteed to be the same size and type as @xs@.
+-- xs is originally the same as bigger
+newtype EmitNarrowed (smaller :: [Type]) (xs :: [Type]) r = EmitNarrowed [(Key, Any)]
 
-instance Reiterate (EmitNarrowed ys) (x ': xs) where
-    reiterate (EmitNarrowed (Key idx, c)) = EmitNarrowed (Key (idx + 1), c)
+instance Reiterate (EmitNarrowed smaller) (x ': xs) where
+    reiterate (EmitNarrowed xs) = EmitNarrowed (Prelude.tail xs)
 
--- | For each type x in xs, find the x in ys, and create an (incrementing key, value)
-instance Member x ys => Emit (EmitNarrowed ys) (x ': xs) (Key, WrappedAny) where
-    emit (EmitNarrowed (idx, Catalog o m)) = (idx, WrappedAny v)
+-- | For each type x in bigger, find the index in ys, and create an (incrementing key, value)
+instance forall smaller x xs. MaybeMember x smaller => Emit (EmitNarrowed smaller) (x ': xs) [(Key, WrappedAny)] where
+    emit (EmitNarrowed xs) = case i of
+                                  0 -> []
+                                  i' -> [(Key (i' - 1), WrappedAny v)]
       where
-        i = fromInteger (natVal @(IndexOf x ys) Proxy)
-        v = m M.! Key (o + i)
+        i = fromInteger (natVal @(PositionOf x smaller) Proxy)
+        -- use of head here is safe as we are guaranteed the length from the typelist
+        (_, v) = Prelude.head xs
+
+-----------------------------------------------------------------------
 
 amend
     :: forall smaller larger.
-       AFoldable (Assemble (EmitAmended smaller larger) smaller) (Key, WrappedAny)
+       AFoldable (Collector (EmitAmended smaller larger) smaller) (Key, WrappedAny)
     => Catalog smaller -> Catalog larger -> Catalog larger
-amend smaller larger@(Catalog ro rm) = Catalog ro (fromList' xs `M.union` rm)
+amend (Catalog _ lm) (Catalog ro rm) = Catalog ro (fromList' xs `M.union` rm)
   where
-    xs = afoldr (:) [] (Assemble (EmitAmended @smaller @larger @smaller (Key 0, smaller, larger)))
+    xs = afoldr (:) [] (Collector (EmitAmended @smaller @larger @smaller (M.toAscList lm, ro)))
 
 
-newtype EmitAmended (zs :: [Type]) (ys :: [Type]) (xs :: [Type]) r = EmitAmended (Key, Catalog zs, Catalog ys)
+newtype EmitAmended (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) r = EmitAmended ([(Key, Any)], Int)
 
-instance Reiterate (EmitAmended zs ys) (x ': xs) where
-    reiterate (EmitAmended (Key idx, zs, ys)) = EmitAmended (Key (idx + 1), zs, ys)
+instance Reiterate (EmitAmended smaller larger) (x ': xs) where
+    -- use of tail here is safe as we are guaranteed the length from the typelist
+    reiterate (EmitAmended (xs, larger)) = EmitAmended (Prelude.tail xs, larger)
 
--- | for each x in Catalog zs, convert it to a (k, v) to insert into the x in Catalog ys
-instance Member x ys => Emit (EmitAmended zs ys) (x ': xs) (Key, WrappedAny) where
-    emit (EmitAmended (Key idx, Catalog lo lm, Catalog ro _)) = (Key (ro + i), WrappedAny v)
+-- | for each x in @Catalog smaller@, convert it to a (k, v) to insert into the x in @Catalog larger@
+instance Member x larger => Emit (EmitAmended smaller larger) (x ': xs) (Key, WrappedAny) where
+    emit (EmitAmended (xs, ro)) = (Key (ro + i), WrappedAny v)
       where
-        i = fromInteger (natVal @(IndexOf x ys) Proxy)
-        v = lm M.! Key (lo + idx)
+        i = fromInteger (natVal @(IndexOf x larger) Proxy)
+        -- use of head here is safe as we are guaranteed the length from the typelist
+        (_, v) = Prelude.head xs
+
+-----------------------------------------------------------------------
 
 newtype EmitReadCatalog (xs :: [Type]) r = EmitReadCatalog Key
 
 instance Reiterate EmitReadCatalog (x ': xs) where
-    reiterate (EmitReadCatalog i) = EmitReadCatalog (i + 1)
+    reiterate (EmitReadCatalog (Key i)) = EmitReadCatalog (Key (i + 1))
 
 instance Emit EmitReadCatalog '[] (ReadPrec [(Key, WrappedAny)]) where
     emit (EmitReadCatalog _) = do
@@ -284,12 +304,12 @@ instance Read x => Emit EmitReadCatalog (x ': x' ': xs) (ReadPrec [(Key, Wrapped
 
 readCatalog
     :: forall xs.
-       AFoldable (Assemble0 EmitReadCatalog xs) (ReadPrec [(Key, WrappedAny)])
+       AFoldable (Collector0 EmitReadCatalog xs) (ReadPrec [(Key, WrappedAny)])
     => Proxy (xs :: [Type]) -> ReadPrec [(Key, WrappedAny)]
-readCatalog _ = afoldr (liftA2 (++)) (pure []) (Assemble0 (EmitReadCatalog @xs (Key 0)))
+readCatalog _ = afoldr (liftA2 (++)) (pure []) (Collector0 (EmitReadCatalog @xs (Key 0)))
 
 instance ( Distinct xs
-         , AFoldable (Assemble0 EmitReadCatalog xs) (ReadPrec [(Key, WrappedAny)])
+         , AFoldable (Collector0 EmitReadCatalog xs) (ReadPrec [(Key, WrappedAny)])
          ) =>
          Read (Catalog xs) where
     readPrec =

@@ -23,7 +23,7 @@ import Data.Diverse.Class.Case
 import Data.Diverse.Class.Emit
 import Data.Diverse.Class.Reduce
 import Data.Diverse.Class.Reiterate
-import Data.Diverse.Data.Assemble
+import Data.Diverse.Data.Collector
 import Data.Diverse.Data.CaseTypeable
 import Data.Diverse.Data.WrappedAny
 import Data.Diverse.Distinct.Catalog
@@ -117,7 +117,7 @@ trialEither' (Many n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Many (n - 1) v)
 
-------------------------------------------------------------------
+-----------------------------------------------------------------
 
 -- | A Many has a prism to an the inner type.
 -- That is, a value can be 'pick'ed into a Many or mabye 'trial'ed out of a Many.
@@ -135,8 +135,8 @@ facet = prism' pick trial
 -- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
 -- The Switch constraint is fulfilled with
 -- (Distinct ys, forall x (in xs). Member x xs)
-diversify :: forall ys xs. Reduce Many (CaseDiversify ys) xs (Many ys) => Many xs -> Many ys
-diversify = _many (CaseDiversify @ys)
+diversify :: forall ys xs. Reduce Many (Switch (CaseDiversify ys)) xs (Many ys) => Many xs -> Many ys
+diversify = forMany (CaseDiversify @ys)
 
 data CaseDiversify (ys :: [Type]) (xs :: [Type]) r = CaseDiversify
 
@@ -152,8 +152,8 @@ instance (Member (Head xs) ys, Distinct ys) => Case (CaseDiversify ys) xs (Many 
 -- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
 -- The Switch constraint is fulfilled with
 -- (Distinct ys, forall x (in xs). (MaybeMember x ys)
-reinterpret :: forall ys xs. Reduce Many (CaseReinterpret ys) xs (Maybe (Many ys)) => Many xs -> Maybe (Many ys)
-reinterpret = _many (CaseReinterpret @ys)
+reinterpret :: forall ys xs. Reduce Many (Switch (CaseReinterpret ys)) xs (Maybe (Many ys)) => Many xs -> Maybe (Many ys)
+reinterpret = forMany (CaseReinterpret @ys)
 
 data CaseReinterpret (ys :: [Type]) (xs :: [Type]) r = CaseReinterpret
 
@@ -171,8 +171,8 @@ instance (MaybeMember (Head xs) ys, Distinct ys) => Case (CaseReinterpret ys) xs
 -- (Distinct ys, forall x (in xs). (MaybeMember x ys, Member x (Complement xs ys)))
 reinterpretEither
     :: forall ys xs.
-       ( Reduce Many (CaseDiversify (Complement xs ys)) xs (Many (Complement xs ys))
-       , Reduce Many (CaseReinterpret ys) xs (Maybe (Many ys))
+       ( Reduce Many (Switch (CaseDiversify (Complement xs ys))) xs (Many (Complement xs ys))
+       , Reduce Many (Switch (CaseReinterpret ys)) xs (Maybe (Many ys))
        )
     => Many xs -> Either (Many (Complement xs ys)) (Many ys)
 reinterpretEither v = case reinterpret v of
@@ -188,8 +188,8 @@ reinterpretEither v = case reinterpret v of
 -- Example: @inject \@[Int, Bool]@
 inject
     :: forall tree branch.
-       ( (Reduce Many (CaseDiversify tree) branch (Many tree))
-       , (Reduce Many (CaseReinterpret branch) tree (Maybe (Many branch)))
+       ( (Reduce Many (Switch (CaseDiversify tree)) branch (Many tree))
+       , (Reduce Many (Switch (CaseReinterpret branch)) tree (Maybe (Many branch)))
        )
     => Prism' (Many tree) (Many branch)
 inject = prism' diversify reinterpret
@@ -199,8 +199,8 @@ inject = prism' diversify reinterpret
 -- so that TypeApplications can be used to specify the contained 'reinterpreted' type of the prism
 injected
     :: forall branch tree.
-       ( (Reduce Many (CaseDiversify tree) branch (Many tree))
-       , (Reduce Many (CaseReinterpret branch) tree (Maybe (Many branch)))
+       ( (Reduce Many (Switch (CaseDiversify tree)) branch (Many tree))
+       , (Reduce Many (Switch (CaseReinterpret branch)) tree (Maybe (Many branch)))
        )
     => Prism' (Many tree) (Many branch)
 injected = inject
@@ -232,17 +232,15 @@ instance (Case c '[x] r) => Reduce Many (Switch c) '[x] r where
             a -> then' c a
 
 -- | Catamorphism for 'Many'. This is equivalent to @flip switch@.
--- Named '_many' to avoid conflict with 'Control.Applicative.many'
-_many :: Reduce Many handler xs r => handler xs r -> Many xs -> r
-_many = reduce
-
+forMany :: Reduce Many (Switch handler) xs r => handler xs r -> Many xs -> r
+forMany = reduce . Switch
 
 -- | A switch/case statement for Many.
 -- Use 'Case' instances like 'Cases' to apply a 'Catalog' of functions to a variant of values.
 -- Or 'TypeableCase' to apply a polymorphic function that work on all 'Typeables'.
 -- Or you may use your own custom instance of 'Case'.
-switch :: Reduce Many handler xs r => Many xs -> handler xs r -> r
-switch = flip reduce
+switch :: Reduce Many (Switch handler) xs r => Many xs -> handler xs r -> r
+switch = flip forMany
 
 -------------------------------------------
 
@@ -262,16 +260,17 @@ instance (Item (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
 -- * SameLength constraints to prevent human confusion with unusable cases.
 -- * OutcomeOf fs ~ r constraints to ensure that the Catalog only continutations that return r.
 -- Example: @switch a $ cases (f, g, h)@
-cases :: (SameLength fs xs, OutcomeOf fs ~ r, Cataloged fs, fs ~ TypesOf (TupleOf fs)) => TupleOf fs -> Switch (Cases fs) xs r
-cases = Switch . Cases . catalog
+cases :: (SameLength fs xs, OutcomeOf fs ~ r, Cataloged fs, fs ~ TypesOf (TupleOf fs)) => TupleOf fs -> (Cases fs) xs r
+cases = Cases . catalog
 
 -- | Create Case for handling 'switch' from a polymorphic function for all 'Typeable's.
-caseTypeable :: (forall x. Typeable x => x -> r) -> Switch CaseTypeable xs r
-caseTypeable f = Switch (CaseTypeable f)
+-- FIXME: No need for this anymore!
+caseTypeable :: (forall x. Typeable x => x -> r) -> CaseTypeable xs r
+caseTypeable f = CaseTypeable f
 
 -----------------------------------------------------------------
 
-instance (Reduce Many CaseEqMany xs Bool) => Eq (Many xs) where
+instance (Reduce Many (Switch CaseEqMany) xs Bool) => Eq (Many xs) where
     l@(Many i _) == (Many j u) =
         if i /= j
             then False
@@ -289,7 +288,7 @@ instance (Eq (Head xs)) => Case CaseEqMany xs Bool where
 
 -----------------------------------------------------------------
 
-instance (Reduce Many CaseEqMany xs Bool, Reduce Many CaseOrdMany xs Ordering) => Ord (Many xs) where
+instance (Reduce Many (Switch CaseEqMany) xs Bool, Reduce Many (Switch CaseOrdMany) xs Ordering) => Ord (Many xs) where
     compare l@(Many i _) (Many j u) =
         if i /= j
             then compare i j
@@ -307,8 +306,8 @@ instance (Ord (Head xs)) => Case CaseOrdMany xs Ordering where
 
 ------------------------------------------------------------------
 
-instance (Reduce Many CaseShowMany xs ShowS) => Show (Many xs) where
-    showsPrec d v = showParen (d >= 11) ((showString "Many ") . (_many (CaseShowMany 11) v))
+instance (Reduce Many (Switch CaseShowMany) xs ShowS) => Show (Many xs) where
+    showsPrec d v = showParen (d >= 11) ((showString "Many ") . (forMany (CaseShowMany 11) v))
 
 newtype CaseShowMany (xs :: [Type]) r = CaseShowMany Int
 
@@ -330,13 +329,13 @@ instance Read x => Emit EmitReadMany (x ': xs) (ReadPrec (Int, WrappedAny)) wher
 
 readMany
     :: forall xs.
-       AFoldable (Assemble EmitReadMany xs) (ReadPrec (Int, WrappedAny))
+       AFoldable (Collector EmitReadMany xs) (ReadPrec (Int, WrappedAny))
     => Proxy (xs :: [Type]) -> ReadPrec (Int, WrappedAny)
-readMany _ = afoldr (<|>) empty (Assemble (EmitReadMany @xs 0))
+readMany _ = afoldr (<|>) empty (Collector (EmitReadMany @xs 0))
 
 -- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
 instance ( Distinct xs
-         , AFoldable (Assemble EmitReadMany xs) (ReadPrec (Int, WrappedAny))
+         , AFoldable (Collector EmitReadMany xs) (ReadPrec (Int, WrappedAny))
          ) =>
          Read (Many xs) where
     readPrec =
