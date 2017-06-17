@@ -24,7 +24,6 @@ module Data.Diverse.Many (
     , reinterpretEither
       -- ** Lens
     , inject
-    , injected
       -- * Catamorphism
     , Switch(..)
     , forMany

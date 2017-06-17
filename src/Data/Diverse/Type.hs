@@ -101,6 +101,9 @@ type Reverse (xs :: [Type]) = ReverseImpl '[] xs
 -- of a type in a typelist.
 type Member x xs = (KnownNat (IndexOf x xs))
 
+-- | Index is within Bounds of the typelist
+type WithinBounds (n :: Nat) (xs :: [Type]) = (KnownNat n, n + 1 <= Length xs, 0 <= n)
+
 -- | KnownNat constraint is proof to GHC that it can instantiate a value of KnownNat
 -- for a particular typelevel Nat for a particular usage of 'natVal'.
 -- MaybeMember required to use 'natVal' for a particular position (starting from 1)

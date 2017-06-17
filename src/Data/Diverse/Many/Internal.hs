@@ -13,8 +13,6 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
 module Data.Diverse.Many.Internal (
       -- * 'Many' type
       Many(..) -- exporting constructor unsafely!
@@ -40,7 +38,6 @@ module Data.Diverse.Many.Internal (
     , reinterpretEither
       -- ** Lens
     , inject
-    , injected
       -- * Catamorphism
     , Switch(..)
     , forMany
@@ -212,8 +209,13 @@ reinterpretEither v = case reinterpret v of
 
 -- | Injection.
 -- A Many can be 'diversify'ed to contain more types or 'reinterpret'ed into possibly another Many type.
--- Use TypeApplication to specify the containing 'diversified' type of the prism.
--- Example: @inject \@[Int, Bool]@
+-- Use TypeApplication to specify the containing @reinterpreted@ type of the prism.
+--
+-- @inject \@[Int, Bool]@
+--
+-- Use @_ to specify the @reinterpreted@ typelist instead.
+--
+-- @inject \@_ \@'[Int, String]@
 inject
     :: forall tree branch.
        ( Diversify tree branch
@@ -222,17 +224,6 @@ inject
     => Prism' (Many tree) (Many branch)
 inject = prism' diversify reinterpret
 {-# INLINE inject #-}
-
--- | A variation of inject with the type parameters reorderd,
--- so that TypeApplications can be used to specify the contained 'reinterpreted' type of the prism
-injected
-    :: forall branch tree.
-       ( Diversify tree branch
-       , Reinterpret branch tree
-       )
-    => Prism' (Many tree) (Many branch)
-injected = inject
-{-# INLINE injected #-}
 
 ------------------------------------------------------------------
 

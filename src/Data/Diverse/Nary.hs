@@ -37,7 +37,6 @@ module Data.Diverse.Nary (
     , (\.~)
     -- ** Lens for multiple fields
     , project
-    , projected
     -- * Catamorphism
     , Via -- no constructor
     , via -- safe construction

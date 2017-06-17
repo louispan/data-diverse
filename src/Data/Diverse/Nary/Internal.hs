@@ -37,6 +37,8 @@ module Data.Diverse.Nary.Internal (
     -- ** Getter for single field
     , fetch
     , (.^.)
+    , fetchN
+    , (#^.)
     -- ** Setter for single field
     , replace
     , (..~)
@@ -53,7 +55,6 @@ module Data.Diverse.Nary.Internal (
     , (\.~)
     -- ** Lens for multiple fields
     , project
-    , projected
     -- * Destruction
     , Via -- no constructor
     , via -- safe construction
@@ -243,24 +244,53 @@ aft (Nary o m) = Nary (o + 1) (M.delete (Key o) m)
 fore :: Nary xs -> Nary (Init xs)
 fore (Nary o m) = Nary o (M.delete (Key (o + M.size m - 1)) m)
 
+--------------------------------------------------
+
 -- | Getter. Use TypeApplication of the type to get
 -- Only available for 'Nary' with 'Distinct' xs.
 fetch :: forall x xs. (Distinct xs, Member x xs) => Nary xs -> x
 fetch (Nary o m) = unsafeCoerce (m M.! (Key (o + i)))
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
--- | infix 'fetch' mnemonic. Like 'Control.Lens.(^.)' but with an extra dot in front.
-(.^.) :: forall x xs. (Distinct xs, Member x xs) => Nary xs -> x
-(.^.) = fetch
+-- | infix version of 'fetch', with a extra proxy to carry the destination type.
+--
+-- @foo .^. (Proxy @Int)@
+--
+-- Mnemonic: Like 'Control.Lens.(^.)' but with an extra @.@ in front.
+(.^.) :: forall x xs proxy. (Distinct xs, Member x xs) => Nary xs -> proxy x -> x
+(.^.) v _ = fetch v
 infixl 8 .^. -- like Control.Lens.(^.)
 
+-- | Getter. Get the value of the field at index type-level Nat @n@
+fetchN :: forall n xs proxy. (WithinBounds n xs) => proxy n -> Nary xs -> TypeAt n xs
+fetchN p (Nary o m) = unsafeCoerce (m M.! (Key (o + i)))
+  where i = fromInteger (natVal p)
+
+-- | infix version of 'fetchN'
+--
+-- @foo #^. (Proxy \@2)@
+--
+-- Mnemonic: Like 'Control.Lens.(^.)' but with an extra @#@ in front.
+(#^.) :: forall n xs proxy. (WithinBounds n xs) => Nary xs -> proxy n -> TypeAt n xs
+(#^.) = flip fetchN
+infixl 8 #^. -- like Control.Lens.(^.)
+
+-- wack :: Nary '[Int, Bool]
+-- wack = undefined
+
+-- wock = wack #^. (Proxy @2)
+
 -- | Setter. Use TypeApplication of the type to set.
--- Only available for 'Nary' with 'Distinct' xs.
 replace :: forall x xs. (Distinct xs, Member x xs) => Nary xs -> x -> Nary xs
 replace (Nary o m) v = Nary o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
--- | infix 'replace' mnemonic. Like 'Control.Lens.(.~)' but with an extra dot in front.
+-- | infix version of 'replace'
+-- Only available for 'Nary' with 'Distinct' xs.
+--
+-- @foo ..~ x@
+--
+-- Mnemonic: Like 'Control.Lens.(.~)' but with an extra @.@ in front.
 (..~) :: forall x xs. (Distinct xs, Member x xs) => Nary xs -> x -> Nary xs
 (..~) = replace
 infixl 1 ..~ -- like Control.Lens.(.~)
@@ -318,9 +348,13 @@ narrow xs = Nary 0 (fromList' xs')
   where
     xs' = afoldr (++) [] (forNary (CaseNarrow @smaller @larger) xs)
 
--- | infix 'narrow' mnemonic. Like 'Control.Lens.(^.)' but with an extra '\' (narrow to the right) in front.
-(\^.) :: forall smaller larger. Narrow smaller larger => Nary larger -> Nary smaller
-(\^.) = narrow
+-- | infix version of 'narrow', with a extra proxy to carry the @smaller@ type.
+--
+-- @foo \^. (Proxy @'[Int, Bool])@
+--
+-- Mnemonic: Like 'Control.Lens.(^.)' but with an extra '\' (narrow to the right) in front.
+(\^.) :: forall smaller larger proxy. Narrow smaller larger => Nary larger -> proxy smaller -> Nary smaller
+(\^.) t _ = narrow t
 infixl 8 \^. -- like Control.Lens.(^.)
 
 -- | For each type x in @larger@, generate the (k, v) in @smaller@ (if it exists)
@@ -374,25 +408,22 @@ instance Member x larger => Case (CaseAmend smaller larger) (x ': xs) (Key, Wrap
 
 -- | Projection.
 -- A Nary can be narrowed or have its order changed by projecting into another Nary type.
+--
 -- @project = lens narrow amend@
+--
 -- Use TypeApplication to specify the @smaller@ typelist of the lens.
--- Example: @project \@'[Int, String]@
+--
+-- @project \@'[Int, String]@
+--
+-- Use @_ to specify the @larger@ typelist instead.
+--
+-- @project \@_ \@'[Int, String]@
 project
     :: forall smaller larger.
        (Narrow smaller larger, Amend smaller larger)
     => Lens' (Nary larger) (Nary smaller)
 project = lens narrow amend
 {-# INLINE project #-}
-
--- | This is 'project' with the type parameters reversed
--- so TypeApplications can be used to specify @larger@ typelist nstead of @smaller@.
--- Example: @projected \@'[Int, String]@
-projected
-    :: forall larger smaller.
-       (Narrow smaller larger, Amend smaller larger)
-    => Lens' (Nary larger) (Nary smaller)
-projected = project
-{-# INLINE projected #-}
 
 -----------------------------------------------------------------------
 
