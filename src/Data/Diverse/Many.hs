@@ -1,5 +1,5 @@
 -- | Re-export Many without the constructor
-module Data.Diverse.Distinct.Many
+module Data.Diverse.Many
     ( Many -- ^ Hide constructor
     , pick
     , pick'
@@ -19,8 +19,6 @@ module Data.Diverse.Distinct.Many
     , forMany
     , Switch(..)
     , switch
-    , Cases(..)
-    , cases
     ) where
 
-import Data.Diverse.Distinct.Many.Internal
+import Data.Diverse.Many.Internal

@@ -6,11 +6,11 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Data.Diverse.Data.Collector where
+module Data.Diverse.Collector where
 
-import Data.Diverse.Class.AFoldable
-import Data.Diverse.Class.Emit
-import Data.Diverse.Class.Reiterate
+import Data.Diverse.AFoldable
+import Data.Diverse.Emit
+import Data.Diverse.Reiterate
 import Data.Kind
 
 -- | Folds output from Emitter while iterating the typelist.

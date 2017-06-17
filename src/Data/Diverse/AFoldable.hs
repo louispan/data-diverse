@@ -1,6 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Data.Diverse.Class.AFoldable where
+module Data.Diverse.AFoldable where
 
 -- | Constrained Foldable for a specified type instead for all types.
 class AFoldable t a where

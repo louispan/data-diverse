@@ -2,7 +2,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Data.Diverse.Class.Reduce where
+module Data.Diverse.Reduce where
 
 import Data.Kind
 

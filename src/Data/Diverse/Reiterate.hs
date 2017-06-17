@@ -2,7 +2,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Data.Diverse.Class.Reiterate where
+module Data.Diverse.Reiterate where
 
 import Data.Diverse.Type
 import Data.Kind

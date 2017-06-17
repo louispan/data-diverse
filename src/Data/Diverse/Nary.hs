@@ -1,6 +1,6 @@
--- | Re-export Catalog without the constructor
-module Data.Diverse.Distinct.Catalog2
-    ( Catalog -- ^ Hide constructor
+-- | Re-export Nary without the constructor
+module Data.Diverse.Nary
+    ( Nary -- ^ Hide constructor
     , blank
     , (.|)
     , singleton
@@ -21,9 +21,8 @@ module Data.Diverse.Distinct.Catalog2
     , item
     , Via -- ^ no constructor
     , via -- ^ safe construction
-    , forCatalog
+    , forNary
     , collect
-    , Cases(..)
     , Narrow
     , narrow
     , (\^.)
@@ -34,4 +33,4 @@ module Data.Diverse.Distinct.Catalog2
     , projected
     ) where
 
-import Data.Diverse.Distinct.Catalog2.Internal
+import Data.Diverse.Nary.Internal

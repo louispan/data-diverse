@@ -5,10 +5,10 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 
-module Data.Diverse.Data.CaseTypeable where
+module Data.Diverse.CaseTypeable where
 
-import Data.Diverse.Class.Case
-import Data.Diverse.Class.Reiterate
+import Data.Diverse.Case
+import Data.Diverse.Reiterate
 import Data.Diverse.Type
 import Data.Kind
 import Data.Typeable

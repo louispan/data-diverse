@@ -3,9 +3,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Data.Diverse.Class.Case where
+module Data.Diverse.Case where
 
-import Data.Diverse.Class.Reiterate
+import Data.Diverse.Reiterate
 import Data.Diverse.Type
 import Data.Kind
 

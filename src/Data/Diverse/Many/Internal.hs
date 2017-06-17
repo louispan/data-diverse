@@ -15,7 +15,7 @@
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Data.Diverse.Distinct.Many.Internal
+module Data.Diverse.Many.Internal
     ( Many(..) -- ^ exporting constructor unsafely!
     , pick
     , pick'
@@ -35,20 +35,16 @@ module Data.Diverse.Distinct.Many.Internal
     , forMany
     , Switch(..)
     , switch
-    , Cases(..)
-    , cases
     ) where
 
 import Control.Applicative
 import Control.Lens
-import Data.Diverse.Class.AFoldable
-import Data.Diverse.Class.Case
-import Data.Diverse.Class.Emit
-import Data.Diverse.Class.Reduce
-import Data.Diverse.Class.Reiterate
-import Data.Diverse.Data.Collector
-import Data.Diverse.Data.WrappedAny
-import Data.Diverse.Distinct.Catalog
+import Data.Diverse.AFoldable
+import Data.Diverse.Case
+import Data.Diverse.Collector
+import Data.Diverse.Emit
+import Data.Diverse.Reduce
+import Data.Diverse.Reiterate
 import Data.Diverse.Type
 import Data.Kind
 import Data.Proxy
@@ -257,32 +253,11 @@ forMany :: Reduce Many (Switch handler) xs r => handler xs r -> Many xs -> r
 forMany = reduce . Switch
 
 -- | A switch/case statement for Many.
--- Use 'Case' instances like 'Cases' to apply a 'Catalog' of functions to a variant of values.
+-- Use 'Case' instances like 'Cases' to apply a 'Nary' of functions to a variant of values.
 -- Or 'TypeableCase' to apply a polymorphic function that work on all 'Typeables'.
 -- Or you may use your own custom instance of 'Case'.
 switch :: Reduce Many (Switch handler) xs r => Many xs -> handler xs r -> r
 switch = flip forMany
-
--------------------------------------------
-
--- | Contains a 'Catalog' of handlers/continuations for all thypes in the 'xs' typelist.
-newtype Cases (fs :: [Type]) (xs :: [Type]) r = Cases (Catalog fs)
-
-instance Reiterate (Cases fs) xs where
-    reiterate (Cases s) = Cases s
-
--- | An instance of 'Case' that can be 'Switch'ed where it contains a 'Catalog' of handlers/continuations
--- for all thypes in the 'xs' typelist.
-instance (Item (Head xs -> r) (Catalog fs)) => Case (Cases fs) xs r where
-    then' (Cases s) = s ^. item
-
--- | Create Cases for handling 'switch' from a tuple.
--- This function imposes additional constraints than using 'Cases' constructor directly:
--- * SameLength constraints to prevent human confusion with unusable cases.
--- * OutcomeOf fs ~ r constraints to ensure that the Catalog only continutations that return r.
--- Example: @switch a $ cases (f, g, h)@
-cases :: (SameLength fs xs, OutcomeOf fs ~ r, Cataloged fs, fs ~ TypesOf (TupleOf fs)) => TupleOf fs -> (Cases fs) xs r
-cases = Cases . catalog
 
 -----------------------------------------------------------------
 
@@ -362,3 +337,7 @@ instance ( Distinct xs
             lift $ L.expect (Ident "Many")
             (n, WrappedAny v) <- step (readMany @xs Proxy)
             pure (Many n v)
+
+-- | 'WrappedAny' avoids the following:
+-- Illegal type synonym family application in instance: Any
+newtype WrappedAny = WrappedAny Any

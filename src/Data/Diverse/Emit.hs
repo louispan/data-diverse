@@ -2,7 +2,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Data.Diverse.Class.Emit where
+module Data.Diverse.Emit where
 
 import Data.Kind
 

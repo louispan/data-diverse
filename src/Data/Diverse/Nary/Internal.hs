@@ -15,10 +15,8 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{-# LANGUAGE NoMonomorphismRestriction #-}
-
-module Data.Diverse.Distinct.Catalog2.Internal
-    ( Catalog(..) -- ^ Exporting constructor unsafely!
+module Data.Diverse.Nary.Internal
+    ( Nary(..) -- ^ Exporting constructor unsafely!
     , blank
     , (.|)
     , singleton
@@ -39,9 +37,8 @@ module Data.Diverse.Distinct.Catalog2.Internal
     , item
     , Via -- ^ no constructor
     , via -- ^ safe construction
-    , forCatalog
+    , forNary
     , collect
-    , Cases(..)
     , Narrow
     , narrow
     , (\^.)
@@ -55,12 +52,11 @@ module Data.Diverse.Distinct.Catalog2.Internal
 import Control.Applicative
 import Control.Lens
 import Data.Bool
-import Data.Diverse.Class.AFoldable
-import Data.Diverse.Class.Case
-import Data.Diverse.Class.Emit
-import Data.Diverse.Class.Reiterate
-import Data.Diverse.Data.Collector
-import Data.Diverse.Data.WrappedAny
+import Data.Diverse.AFoldable
+import Data.Diverse.Case
+import Data.Diverse.Collector
+import Data.Diverse.Emit
+import Data.Diverse.Reiterate
 import Data.Diverse.Type
 import Data.Kind
 import qualified Data.Map.Strict as M
@@ -83,10 +79,10 @@ import Prelude as Partial
 -- TODO: Implement Data.Labelled.Record with getByLabel only semantics, where fields may only contain tagged values called :=
 -- TODO: Implement Data.Labelled.Corecord with getByLabel only semantics, where fields may only contain tagged values called :=
 
--- | A Catalog is an anonymous product type (also know as polymorphic record), that has fields of distinct types.
+-- | A Nary is an anonymous product type (also know as polymorphic record), that has fields of distinct types.
 -- That is, there are no duplicates types in the fields of the record.
 -- This means labels are not required, since the type itself (with type annotations or -XTypeApplications)
--- can be used to get and set fields in the Catalog.
+-- can be used to get and set fields in the Nary.
 -- This encoding stores the fields as Any in a Map, where the key is index + offset of the type in the typelist.
 -- The offset is used to allow efficient cons.
 -- Key = Index of type in typelist + Offset
@@ -97,10 +93,10 @@ newtype LeftSize = LeftSize Int
 newtype RightOffset = RightOffset Int
 newtype NewRightOffset = NewRightOffset { unNewRightOffset :: Int }
 
-data Catalog (xs :: [Type]) = Catalog {-# UNPACK #-} !Int (M.Map Key Any)
+data Nary (xs :: [Type]) = Nary {-# UNPACK #-} !Int (M.Map Key Any)
 
 -- | Inferred role is phantom which is incorrect
-type role Catalog representational
+type role Nary representational
 
 -- | When appending two maps together, get the function to 'M.mapKeys' the RightMap
 -- when adding RightMap into LeftMap.
@@ -134,23 +130,23 @@ rightOffsetForCons (LeftSize ld) (RightOffset ro) = NewRightOffset (ro - ld)
 leftKeyForCons :: LeftOffset -> NewRightOffset -> Key -> Key
 leftKeyForCons (LeftOffset lo) (NewRightOffset ro) (Key lk) = Key (lk - lo + ro)
 
-blank :: Catalog '[]
-blank = Catalog 0 M.empty
+blank :: Nary '[]
+blank = Nary 0 M.empty
 infixr 5 `blank` -- to be the same as cons
 
 -- | 'blank' memonic. .| stops
 -- Analogous to 'M.null'
-(.|) :: Catalog '[]
+(.|) :: Nary '[]
 (.|) = blank
 
--- | Create a Catalog from a single value. Analogous to 'M.singleton'
-singleton :: x -> Catalog '[x]
-singleton v = Catalog 0 (M.singleton (Key 0) (unsafeCoerce v))
+-- | Create a Nary from a single value. Analogous to 'M.singleton'
+singleton :: x -> Nary '[x]
+singleton v = Nary 0 (M.singleton (Key 0) (unsafeCoerce v))
 
--- | Add an element to the left of a Catalog.
+-- | Add an element to the left of a Nary.
 -- Not named 'cons' to avoid conflict with lens
-prefix :: x -> Catalog xs -> Catalog (x ': xs)
-prefix x (Catalog ro rm) = Catalog (unNewRightOffset nro)
+prefix :: x -> Nary xs -> Nary (x ': xs)
+prefix x (Nary ro rm) = Nary (unNewRightOffset nro)
     (M.insert
         (leftKeyForCons (LeftOffset 0) nro (Key 0))
         (unsafeCoerce x)
@@ -159,36 +155,36 @@ prefix x (Catalog ro rm) = Catalog (unNewRightOffset nro)
     nro = rightOffsetForCons (LeftSize 1) (RightOffset ro)
 infixr 5 `prefix`
 
--- | 'cons' mnemonic. Element is smaller than ./ larger Catalog
-(./) :: x -> Catalog xs -> Catalog (x ': xs)
+-- | 'cons' mnemonic. Element is smaller than ./ larger Nary
+(./) :: x -> Nary xs -> Nary (x ': xs)
 (./) = prefix
 infixr 5 ./ -- like Data.List.(:)
 
--- | Add an element to the right of a Catalog
+-- | Add an element to the right of a Nary
 -- Not named 'snoc' to avoid conflict with lens
-postfix :: Catalog xs -> y -> Catalog (Concat xs '[y])
-postfix (Catalog lo lm) y = Catalog lo
+postfix :: Nary xs -> y -> Nary (Concat xs '[y])
+postfix (Nary lo lm) y = Nary lo
     (M.insert (rightKeyForSnoc (LeftOffset lo) (LeftSize (M.size lm)) (RightOffset 0) (Key 0))
         (unsafeCoerce y)
         lm)
 infixl 5 `postfix`
 
--- | 'snoc' mnemonic. Catalog is larger \. than smaller element
-(\.) :: Catalog xs -> y -> Catalog (Concat xs '[y])
+-- | 'snoc' mnemonic. Nary is larger \. than smaller element
+(\.) :: Nary xs -> y -> Nary (Concat xs '[y])
 (\.) = postfix
 infixl 5 \.
 
-(/./) :: Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
+(/./) :: Nary xs -> Nary ys -> Nary (Concat xs ys)
 (/./) = append
 infixl 5 /./
 
--- | Contains two Catalogs together
-append :: Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
-append (Catalog lo lm) (Catalog ro rm) = if ld >= rd
-    then Catalog
+-- | Contains two Narys together
+append :: Nary xs -> Nary ys -> Nary (Concat xs ys)
+append (Nary lo lm) (Nary ro rm) = if ld >= rd
+    then Nary
          lo
          (lm `M.union` (M.mapKeys (rightKeyForSnoc (LeftOffset lo) (LeftSize ld) (RightOffset ro)) rm))
-    else Catalog
+    else Nary
          (unNewRightOffset nro)
          ((M.mapKeys (leftKeyForCons (LeftOffset lo) nro) lm) `M.union` rm)
   where
@@ -197,64 +193,64 @@ append (Catalog lo lm) (Catalog ro rm) = if ld >= rd
     nro = rightOffsetForCons (LeftSize ld) (RightOffset ro)
 infixr 5 `append` -- like Data.List (++)
 
--- | Extract the first element of a Catalog, which guaranteed to be non-empty.
+-- | Extract the first element of a Nary, which guaranteed to be non-empty.
 -- Analogous to 'Partial.head'
-front :: Catalog (x ': xs) -> x
-front (Catalog o m) = unsafeCoerce (m M.! (Key o))
+front :: Nary (x ': xs) -> x
+front (Nary o m) = unsafeCoerce (m M.! (Key o))
 
--- | Extract the 'back' element of a Catalog, which guaranteed to be non-empty.
+-- | Extract the 'back' element of a Nary, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.last'
-back :: Catalog (x ': xs) -> x
-back (Catalog o m) = unsafeCoerce (m M.! (Key (M.size m + o)))
+back :: Nary (x ': xs) -> x
+back (Nary o m) = unsafeCoerce (m M.! (Key (M.size m + o)))
 
--- | Extract the elements after the front of a Catalog, which guaranteed to be non-empty.
+-- | Extract the elements after the front of a Nary, which guaranteed to be non-empty.
 -- Analogous to 'Partial.tail'
-aft :: Catalog (x ': xs) -> Catalog xs
-aft (Catalog o m) = Catalog (o + 1) (M.delete (Key o) m)
+aft :: Nary (x ': xs) -> Nary xs
+aft (Nary o m) = Nary (o + 1) (M.delete (Key o) m)
 
--- | Return all the elements of a Catalog except the 'back' one, which guaranteed to be non-empty.
+-- | Return all the elements of a Nary except the 'back' one, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.init'
-fore :: Catalog xs -> Catalog (Init xs)
-fore (Catalog o m) = Catalog o (M.delete (Key (o + M.size m - 1)) m)
+fore :: Nary xs -> Nary (Init xs)
+fore (Nary o m) = Nary o (M.delete (Key (o + M.size m - 1)) m)
 
 -- | Getter. Use TypeApplication of the type to get
--- Only available for 'Catalog' with 'Distinct' xs.
-fetch :: forall x xs. (Distinct xs, Member x xs) => Catalog xs -> x
-fetch (Catalog o m) = unsafeCoerce (m M.! (Key (o + i)))
+-- Only available for 'Nary' with 'Distinct' xs.
+fetch :: forall x xs. (Distinct xs, Member x xs) => Nary xs -> x
+fetch (Nary o m) = unsafeCoerce (m M.! (Key (o + i)))
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
 -- | infix 'fetch' mnemonic. Like 'Control.Lens.(^.)' but with an extra dot in front.
-(.^.) :: forall x xs. (Distinct xs, Member x xs) => Catalog xs -> x
+(.^.) :: forall x xs. (Distinct xs, Member x xs) => Nary xs -> x
 (.^.) = fetch
 infixl 8 .^. -- like Control.Lens.(^.)
 
 -- | Setter. Use TypeApplication of the type to set.
--- Only available for 'Catalog' with 'Distinct' xs.
-replace :: forall x xs. (Distinct xs, Member x xs) => Catalog xs -> x -> Catalog xs
-replace (Catalog o m) v = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
+-- Only available for 'Nary' with 'Distinct' xs.
+replace :: forall x xs. (Distinct xs, Member x xs) => Nary xs -> x -> Nary xs
+replace (Nary o m) v = Nary o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
 -- | infix 'replace' mnemonic. Like 'Control.Lens.(.~)' but with an extra dot in front.
-(..~) :: forall x xs. (Distinct xs, Member x xs) => Catalog xs -> x -> Catalog xs
+(..~) :: forall x xs. (Distinct xs, Member x xs) => Nary xs -> x -> Nary xs
 (..~) = replace
 infixl 1 ..~ -- like Control.Lens.(.~)
 
 -- | Use TypeApplication to specify the field type of the lens.
 -- Example: @item \@Int@
-item :: forall x xs. (Distinct xs, Member x xs) => Lens' (Catalog xs) x
+item :: forall x xs. (Distinct xs, Member x xs) => Lens' (Nary xs) x
 item = lens fetch replace
 {-# INLINE item #-}
 
 -----------------------------------------------------------------------
 
--- | Wraps a 'Case' into an instance of 'Emit', feeding 'Case' with the value from the Catalog and 'emit'ting the results.
--- Internally, this holds the left-over [(k, v)] from the original Catalog with the remaining typelist xs.
+-- | Wraps a 'Case' into an instance of 'Emit', feeding 'Case' with the value from the Nary and 'emit'ting the results.
+-- Internally, this holds the left-over [(k, v)] from the original Nary with the remaining typelist xs.
 -- That is the first v in the (k, v) is of type x, and the length of the list is equal to the length of xs.
 newtype Via c (xs :: [Type]) r = Via (c xs r, [Any])
 
 -- | Creates an 'Via' safely, so that the invariant of \"typelist to the value list type and size\" holds.
-via :: forall xs c r. c xs r -> Catalog xs -> Via c xs r
-via c (Catalog _ m) = Via (c, snd <$> M.toAscList m)
+via :: forall xs c r. c xs r -> Nary xs -> Via c xs r
+via c (Nary _ m) = Via (c, snd <$> M.toAscList m)
 
 instance Reiterate c (x ': xs) => Reiterate (Via c) (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
@@ -266,22 +262,13 @@ instance (Case c (x ': xs) r) => Emit (Via c) (x ': xs) r where
        -- use of front here is safe as we are guaranteed the length from the typelist
        v = Partial.head xxs
 
-forCatalog :: c xs r -> Catalog xs -> Collector (Via c) xs r
-forCatalog c x = Collector (via c x)
+forNary :: c xs r -> Nary xs -> Collector (Via c) xs r
+forNary c x = Collector (via c x)
 
-collect :: Catalog xs -> c xs r -> Collector (Via c) xs r
-collect = flip forCatalog
+collect :: Nary xs -> c xs r -> Collector (Via c) xs r
+collect = flip forNary
 
 -----------------------------------------------------------------------
-
--- | Contains a 'Catalog' of handlers/continuations for all the types in the 'xs' typelist.
-newtype Cases (fs :: [Type]) (xs :: [Type]) r = Cases (Catalog fs)
-
-instance Reiterate (Cases fs) xs where
-    reiterate (Cases s) = Cases s
-
-instance (Distinct fs, Member (Head xs -> r) fs) => Case (Cases fs) xs r where
-    then' (Cases s) = fetch @(Head xs -> r) s
 
 -- | Internal function for construction - do not expose!
 fromList' :: Ord k => [(k, WrappedAny)] -> M.Map k Any
@@ -291,13 +278,13 @@ fromList' xs = M.fromList (coerce xs)
 
 type Narrow smaller larger = (AFoldable (Collector (Via (CaseNarrow smaller)) larger) [(Key, WrappedAny)], Distinct larger, Distinct smaller)
 
-narrow :: forall smaller larger. Narrow smaller larger => Catalog larger -> Catalog smaller
-narrow xs = Catalog 0 (fromList' xs')
+narrow :: forall smaller larger. Narrow smaller larger => Nary larger -> Nary smaller
+narrow xs = Nary 0 (fromList' xs')
   where
-    xs' = afoldr (++) [] (forCatalog (CaseNarrow @smaller @larger) xs)
+    xs' = afoldr (++) [] (forNary (CaseNarrow @smaller @larger) xs)
 
 -- | infix 'narrow' mnemonic. Like 'Control.Lens.(^.)' but with an extra '\' (narrow to the right) in front.
-(\^.) :: forall smaller larger. Narrow smaller larger => Catalog larger -> Catalog smaller
+(\^.) :: forall smaller larger. Narrow smaller larger => Nary larger -> Nary smaller
 (\^.) = narrow
 infixl 8 \^. -- like Control.Lens.(^.)
 
@@ -324,13 +311,13 @@ type Amend smaller larger = (AFoldable (Collector (Via (CaseAmend smaller larger
        , Distinct larger
        , Distinct smaller)
 
-amend :: forall smaller larger. Amend smaller larger => Catalog larger -> Catalog smaller -> Catalog larger
-amend (Catalog ro rm) xs = Catalog ro (fromList' xs' `M.union` rm)
+amend :: forall smaller larger. Amend smaller larger => Nary larger -> Nary smaller -> Nary larger
+amend (Nary ro rm) xs = Nary ro (fromList' xs' `M.union` rm)
   where
-    xs' = afoldr (:) [] (forCatalog (CaseAmend @smaller @larger @smaller ro) xs)
+    xs' = afoldr (:) [] (forNary (CaseAmend @smaller @larger @smaller ro) xs)
 
 -- | infix 'flip amend' mnemonic. Like 'Control.Lens.(.~)' but with an extra '\' (narrow to the right) in front.
-(\.~) :: forall smaller larger. Amend smaller larger => Catalog larger -> Catalog smaller -> Catalog larger
+(\.~) :: forall smaller larger. Amend smaller larger => Nary larger -> Nary smaller -> Nary larger
 (\.~) = amend
 infixl 1 \.~ -- like Control.Lens.(.~)
 
@@ -339,7 +326,7 @@ newtype CaseAmend (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) r = Case
 instance Reiterate (CaseAmend smaller larger) (x ': xs) where
     reiterate (CaseAmend ro) = CaseAmend ro
 
--- | for each x in @Catalog smaller@, convert it to a (k, v) to insert into the x in @Catalog larger@
+-- | for each x in @Nary smaller@, convert it to a (k, v) to insert into the x in @Nary larger@
 instance Member x larger => Case (CaseAmend smaller larger) (x ': xs) (Key, WrappedAny) where
     then' (CaseAmend ro) v = (Key (ro + i), WrappedAny (unsafeCoerce v))
       where
@@ -348,151 +335,155 @@ instance Member x larger => Case (CaseAmend smaller larger) (x ': xs) (Key, Wrap
 -----------------------------------------------------------------------
 
 -- | Projection.
--- A Catalog can be narrowed or have its order changed by projecting into another Catalog type.
+-- A Nary can be narrowed or have its order changed by projecting into another Nary type.
 -- Use TypeApplication to specify the @smaller@ typelist of the lens.
 -- Example: @project \@'[Int, String]@
-project :: forall smaller larger. (Narrow smaller larger, Amend smaller larger) => Lens' (Catalog larger) (Catalog smaller)
+project :: forall smaller larger. (Narrow smaller larger, Amend smaller larger) => Lens' (Nary larger) (Nary smaller)
 project = lens narrow amend
 {-# INLINE project #-}
 
 -- | This is 'project' with the type parameters reversed
 -- so TypeApplications can be used to specify @larger@ typelist nstead of @smaller@.
 -- Example: @projected \@'[Int, String]@
-projected :: forall larger smaller. (Narrow smaller larger, Amend smaller larger) => Lens' (Catalog larger) (Catalog smaller)
+projected :: forall larger smaller. (Narrow smaller larger, Amend smaller larger) => Lens' (Nary larger) (Nary smaller)
 projected = project
 {-# INLINE projected #-}
 
 -----------------------------------------------------------------------
 
--- | Stores the left & right Catalog and a list of Any which must be the same length and types in xs typelist.
-newtype EmitEqCatalog (xs :: [Type]) r = EmitEqCatalog ([Any], [Any])
+-- | Stores the left & right Nary and a list of Any which must be the same length and types in xs typelist.
+newtype EmitEqNary (xs :: [Type]) r = EmitEqNary ([Any], [Any])
 
-instance Reiterate EmitEqCatalog (x ': xs) where
+instance Reiterate EmitEqNary (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (EmitEqCatalog (ls, rs)) = EmitEqCatalog (Partial.tail ls, Partial.tail rs)
+    reiterate (EmitEqNary (ls, rs)) = EmitEqNary (Partial.tail ls, Partial.tail rs)
 
-instance Eq x => Emit EmitEqCatalog (x ': xs) Bool where
-    emit (EmitEqCatalog (ls, rs)) = l == r
+instance Eq x => Emit EmitEqNary (x ': xs) Bool where
+    emit (EmitEqNary (ls, rs)) = l == r
       where
         -- use of front here is safe as we are guaranteed the length from the typelist
         l = unsafeCoerce (Partial.head ls) :: x
         r = unsafeCoerce (Partial.head rs) :: x
 
-eqCatalog
+eqNary
     :: forall xs.
-       AFoldable (Collector EmitEqCatalog xs) Bool
-    => Catalog xs -> Catalog xs -> [Bool]
-eqCatalog (Catalog _ lm) (Catalog _ rm) = afoldr (:) [] (Collector (EmitEqCatalog @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
+       AFoldable (Collector EmitEqNary xs) Bool
+    => Nary xs -> Nary xs -> [Bool]
+eqNary (Nary _ lm) (Nary _ rm) = afoldr (:) [] (Collector (EmitEqNary @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
 
-instance AFoldable (Collector EmitEqCatalog xs) Bool => Eq (Catalog xs) where
+instance AFoldable (Collector EmitEqNary xs) Bool => Eq (Nary xs) where
     lt == rt = foldr (\e z -> bool False z e) True eqs
       where
-        eqs = eqCatalog lt rt
+        eqs = eqNary lt rt
 
 -----------------------------------------------------------------------
 
--- | Stores the left & right Catalog and a list of Any which must be the same length and types in xs typelist.
-newtype EmitOrdCatalog (xs :: [Type]) r = EmitOrdCatalog ([Any], [Any])
+-- | Stores the left & right Nary and a list of Any which must be the same length and types in xs typelist.
+newtype EmitOrdNary (xs :: [Type]) r = EmitOrdNary ([Any], [Any])
 
-instance Reiterate EmitOrdCatalog (x ': xs) where
+instance Reiterate EmitOrdNary (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (EmitOrdCatalog (ls, rs)) = EmitOrdCatalog (Partial.tail ls, Partial.tail rs)
+    reiterate (EmitOrdNary (ls, rs)) = EmitOrdNary (Partial.tail ls, Partial.tail rs)
 
-instance Ord x => Emit EmitOrdCatalog (x ': xs) Ordering where
-    emit (EmitOrdCatalog (ls, rs)) = compare l r
+instance Ord x => Emit EmitOrdNary (x ': xs) Ordering where
+    emit (EmitOrdNary (ls, rs)) = compare l r
       where
         -- use of front here is safe as we are guaranteed the length from the typelist
         l = unsafeCoerce (Partial.head ls) :: x
         r = unsafeCoerce (Partial.head rs) :: x
 
-ordCatalog
+ordNary
     :: forall xs.
-       AFoldable (Collector EmitOrdCatalog xs) Ordering
-    => Catalog xs -> Catalog xs -> [Ordering]
-ordCatalog (Catalog _ lm) (Catalog _ rm) = afoldr (:) [] (Collector (EmitOrdCatalog @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
+       AFoldable (Collector EmitOrdNary xs) Ordering
+    => Nary xs -> Nary xs -> [Ordering]
+ordNary (Nary _ lm) (Nary _ rm) = afoldr (:) [] (Collector (EmitOrdNary @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
 
-instance (Eq (Catalog xs), AFoldable (Collector EmitOrdCatalog xs) Ordering) => Ord (Catalog xs) where
+instance (Eq (Nary xs), AFoldable (Collector EmitOrdNary xs) Ordering) => Ord (Nary xs) where
     compare lt rt = foldr (\o z -> case o of
                                        EQ -> z
                                        o' -> o') EQ ords
       where
-        ords = ordCatalog lt rt
+        ords = ordNary lt rt
 
 -----------------------------------------------------------------------
 
 -- | Internally uses [Any] like Via, except also handle the empty type list.
-newtype EmitShowCatalog (xs :: [Type]) r = EmitShowCatalog [Any]
+newtype EmitShowNary (xs :: [Type]) r = EmitShowNary [Any]
 
-instance Reiterate EmitShowCatalog (x ': xs) where
+instance Reiterate EmitShowNary (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (EmitShowCatalog xxs) = EmitShowCatalog (Partial.tail xxs)
+    reiterate (EmitShowNary xxs) = EmitShowNary (Partial.tail xxs)
 
-instance Emit EmitShowCatalog '[] ShowS where
+instance Emit EmitShowNary '[] ShowS where
     emit _ = showString ".|"
 
-instance Show x => Emit EmitShowCatalog '[x] ShowS where
-    emit (EmitShowCatalog xs) = showsPrec (cons_prec + 1) v
+instance Show x => Emit EmitShowNary '[x] ShowS where
+    emit (EmitShowNary xs) = showsPrec (cons_prec + 1) v
       where
         -- use of front here is safe as we are guaranteed the length from the typelist
         v = unsafeCoerce (Partial.head xs) :: x
         cons_prec = 5 -- infixr 5 cons
 
-instance Show x => Emit EmitShowCatalog (x ': x' ': xs) ShowS where
-    emit (EmitShowCatalog xxs) = showsPrec (cons_prec + 1) v . showString "./"
+instance Show x => Emit EmitShowNary (x ': x' ': xs) ShowS where
+    emit (EmitShowNary xxs) = showsPrec (cons_prec + 1) v . showString "./"
       where
         -- use of front here is safe as we are guaranteed the length from the typelist
         v = unsafeCoerce (Partial.head xxs) :: x
         cons_prec = 5 -- infixr 5 cons
 
-showCatalog
+showNary
     :: forall xs.
-       AFoldable (Collector EmitShowCatalog xs) ShowS
-    => Catalog xs -> ShowS
-showCatalog (Catalog _ m) = afoldr (.) id (Collector (EmitShowCatalog @xs (snd <$> M.toAscList m)))
+       AFoldable (Collector EmitShowNary xs) ShowS
+    => Nary xs -> ShowS
+showNary (Nary _ m) = afoldr (.) id (Collector (EmitShowNary @xs (snd <$> M.toAscList m)))
 
-instance AFoldable (Collector EmitShowCatalog xs) ShowS => Show (Catalog xs) where
-    showsPrec d t = showParen (d > cons_prec) $ showCatalog t
+instance AFoldable (Collector EmitShowNary xs) ShowS => Show (Nary xs) where
+    showsPrec d t = showParen (d > cons_prec) $ showNary t
       where
         cons_prec = 5 -- infixr 5 cons
 
 -----------------------------------------------------------------------
 
-newtype EmitReadCatalog (xs :: [Type]) r = EmitReadCatalog Key
+newtype EmitReadNary (xs :: [Type]) r = EmitReadNary Key
 
-instance Reiterate EmitReadCatalog (x ': xs) where
-    reiterate (EmitReadCatalog (Key i)) = EmitReadCatalog (Key (i + 1))
+instance Reiterate EmitReadNary (x ': xs) where
+    reiterate (EmitReadNary (Key i)) = EmitReadNary (Key (i + 1))
 
-instance Emit EmitReadCatalog '[] (ReadPrec [(Key, WrappedAny)]) where
-    emit (EmitReadCatalog _) = do
+instance Emit EmitReadNary '[] (ReadPrec [(Key, WrappedAny)]) where
+    emit (EmitReadNary _) = do
         lift $ L.expect (Symbol ".|")
         pure []
 
-instance Read x => Emit EmitReadCatalog '[x] (ReadPrec [(Key, WrappedAny)]) where
-    emit (EmitReadCatalog i) = do
+instance Read x => Emit EmitReadNary '[x] (ReadPrec [(Key, WrappedAny)]) where
+    emit (EmitReadNary i) = do
         a <- readPrec @x
         -- don't read the ".|", save that for Emit '[]
         pure [(i, WrappedAny (unsafeCoerce a))]
 
-instance Read x => Emit EmitReadCatalog (x ': x' ': xs) (ReadPrec [(Key, WrappedAny)]) where
-    emit (EmitReadCatalog i) = do
+instance Read x => Emit EmitReadNary (x ': x' ': xs) (ReadPrec [(Key, WrappedAny)]) where
+    emit (EmitReadNary i) = do
         a <- readPrec @x
         lift $ L.expect (Symbol "./")
         pure [(i, WrappedAny (unsafeCoerce a))]
 
-readCatalog
+readNary
     :: forall xs.
-       AFoldable (Collector0 EmitReadCatalog xs) (ReadPrec [(Key, WrappedAny)])
+       AFoldable (Collector0 EmitReadNary xs) (ReadPrec [(Key, WrappedAny)])
     => Proxy (xs :: [Type]) -> ReadPrec [(Key, WrappedAny)]
-readCatalog _ = afoldr (liftA2 (++)) (pure []) (Collector0 (EmitReadCatalog @xs (Key 0)))
+readNary _ = afoldr (liftA2 (++)) (pure []) (Collector0 (EmitReadNary @xs (Key 0)))
 
 instance ( Distinct xs
-         , AFoldable (Collector0 EmitReadCatalog xs) (ReadPrec [(Key, WrappedAny)])
+         , AFoldable (Collector0 EmitReadNary xs) (ReadPrec [(Key, WrappedAny)])
          ) =>
-         Read (Catalog xs) where
+         Read (Nary xs) where
     readPrec =
         parens $
         prec 10 $ do
-            xs <- readCatalog @xs Proxy
-            pure (Catalog 0 (fromList' xs))
+            xs <- readNary @xs Proxy
+            pure (Nary 0 (fromList' xs))
+
+-- | 'WrappedAny' avoids the following:
+-- Illegal type synonym family application in instance: Any
+newtype WrappedAny = WrappedAny Any
 
 -- FIXME: Add tuple conversion functions?
