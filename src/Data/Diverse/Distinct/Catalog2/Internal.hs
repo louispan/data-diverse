@@ -32,7 +32,6 @@ import qualified Data.Map.Strict as M
 import Data.Proxy
 import GHC.Prim (Any, coerce)
 import GHC.TypeLits
-import Prelude hiding (lookup, null)
 import Text.ParserCombinators.ReadPrec
 import Text.Read
 import qualified Text.Read.Lex as L
@@ -94,19 +93,20 @@ rightOffsetForCons (LeftSize ld) (RightOffset ro) = NewRightOffset (ro - ld)
 leftKeyForCons :: LeftOffset -> NewRightOffset -> Key -> Key
 leftKeyForCons (LeftOffset lo) (NewRightOffset ro) (Key lk) = Key (lk - lo + ro)
 
+blank :: Catalog '[]
+blank = Catalog 0 M.empty
+infixr 5 `blank` -- to be the same as cons
 
-null :: Catalog '[]
-null = Catalog 0 M.empty
-infixr 5 `null` -- to be the same as cons
-
--- | 'null' memonic. .| stops
+-- | 'blank' memonic. .| stops
+-- Analogous to 'M.null'
 (.|) :: Catalog '[]
-(.|) = null
+(.|) = blank
 
+-- | Create a Catalog from a single value. Analogous to 'M.singleton'
 singleton :: x -> Catalog '[x]
 singleton v = Catalog 0 (M.singleton (Key 0) (unsafeCoerce v))
 
--- | Add an element to the left of the typelist
+-- | Add an element to the left of a Catalog.
 cons :: Distinct (x ': xs) => x -> Catalog xs -> Catalog (x ': xs)
 cons x (Catalog ro rm) = Catalog (unNewRightOffset nro)
     (M.insert
@@ -122,7 +122,7 @@ infixr 5 `cons`
 (./) = cons
 infixr 5 ./ -- like Data.List (:)
 
--- | Add an element to the right of the typelist
+-- | Add an element to the right of a Catalog
 snoc :: Distinct (Concat xs '[y]) => Catalog xs -> y -> Catalog (Concat xs '[y])
 snoc (Catalog lo lm) y = Catalog lo
     (M.insert (rightKeyForSnoc (LeftOffset lo) (LeftSize (M.size lm)) (RightOffset 0) (Key 0))
@@ -139,6 +139,7 @@ infixl 5 \.
 (/./) = append
 infixl 5 /./
 
+-- | Contains two Catalogs together
 append :: Distinct (Concat xs ys) => Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
 append (Catalog lo lm) (Catalog ro rm) = if ld >= rd
     then Catalog
@@ -153,25 +154,29 @@ append (Catalog lo lm) (Catalog ro rm) = if ld >= rd
     nro = rightOffsetForCons (LeftSize ld) (RightOffset ro)
 infixr 5 `append` -- like Data.List (++)
 
--- | Extract the first element of a Catalog, which must be non-empty.
-head :: Catalog (x ': xs) -> x
-head (Catalog o m) = unsafeCoerce (m M.! (Key o))
+-- | Extract the first element of a Catalog, which guaranteed to be non-empty.
+-- Analogous to 'Prelude.head'
+front :: Catalog (x ': xs) -> x
+front (Catalog o m) = unsafeCoerce (m M.! (Key o))
 
--- | Extract the last element of a Catalog, which must be finite and non-empty.
-last :: Catalog (x ': xs) -> x
-last (Catalog o m) = unsafeCoerce (m M.! (Key (M.size m + o)))
+-- | Extract the 'back' element of a Catalog, which guaranteed to be non-empty.
+-- Analogous to 'Prelude.last'
+back :: Catalog (x ': xs) -> x
+back (Catalog o m) = unsafeCoerce (m M.! (Key (M.size m + o)))
 
--- | Extract the elements after the head of a Catalog, which must be non-empty.
-tail :: Catalog (x ': xs) -> Catalog xs
-tail (Catalog o m) = Catalog (o + 1) (M.delete (Key o) m)
+-- | Extract the elements after the front of a Catalog, which guaranteed to be non-empty.
+-- Analogous to 'Prelude.tail'
+aft :: Catalog (x ': xs) -> Catalog xs
+aft (Catalog o m) = Catalog (o + 1) (M.delete (Key o) m)
 
--- | Return all the elements of a Catalog except the last one. The Catalog must be non-empty.
-init :: Catalog xs -> Catalog (Init xs)
-init (Catalog o m) = Catalog o (M.delete (Key (o + M.size m - 1)) m)
+-- | Return all the elements of a Catalog except the 'back' one, which guaranteed to be non-empty.
+-- Analogous to 'Prelude.init'
+fore :: Catalog xs -> Catalog (Init xs)
+fore (Catalog o m) = Catalog o (M.delete (Key (o + M.size m - 1)) m)
 
 -- | getter
-lookup :: forall x xs. Member x xs => Catalog xs -> x
-lookup (Catalog o m) = unsafeCoerce (m M.! (Key (o + i)))
+fetch :: forall x xs. Member x xs => Catalog xs -> x
+fetch (Catalog o m) = unsafeCoerce (m M.! (Key (o + i)))
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
 -- | setter
@@ -197,7 +202,7 @@ instance Reiterate c (x ': xs) => Reiterate (Via c) (x ': xs) where
 instance (Case c (x ': xs) r) => Emit (Via c) (x ': xs) r where
     emit (Via (c, xxs)) = then' c (unsafeCoerce v)
       where
-       -- use of head here is safe as we are guaranteed the length from the typelist
+       -- use of front here is safe as we are guaranteed the length from the typelist
        v = Prelude.head xxs
 
 forCatalog :: c xs r -> Catalog xs -> Collector (Via c) xs r
@@ -215,7 +220,7 @@ instance Reiterate (Cases fs) xs where
     reiterate (Cases s) = Cases s
 
 instance (Member (Head xs -> r) fs) => Case (Cases fs) xs r where
-    then' (Cases s) = lookup @(Head xs -> r) s
+    then' (Cases s) = fetch @(Head xs -> r) s
 
 -- | Internal function for construction - do not expose!
 fromList' :: Ord k => [(k, WrappedAny)] -> M.Map k Any
@@ -284,7 +289,7 @@ instance Reiterate EmitEqCatalog (x ': xs) where
 instance Eq x => Emit EmitEqCatalog (x ': xs) Bool where
     emit (EmitEqCatalog (ls, rs)) = l == r
       where
-        -- use of head here is safe as we are guaranteed the length from the typelist
+        -- use of front here is safe as we are guaranteed the length from the typelist
         l = unsafeCoerce (Prelude.head ls) :: x
         r = unsafeCoerce (Prelude.head rs) :: x
 
@@ -311,7 +316,7 @@ instance Reiterate EmitOrdCatalog (x ': xs) where
 instance Ord x => Emit EmitOrdCatalog (x ': xs) Ordering where
     emit (EmitOrdCatalog (ls, rs)) = compare l r
       where
-        -- use of head here is safe as we are guaranteed the length from the typelist
+        -- use of front here is safe as we are guaranteed the length from the typelist
         l = unsafeCoerce (Prelude.head ls) :: x
         r = unsafeCoerce (Prelude.head rs) :: x
 
@@ -343,14 +348,14 @@ instance Emit EmitShowCatalog '[] ShowS where
 instance Show x => Emit EmitShowCatalog '[x] ShowS where
     emit (EmitShowCatalog xs) = showsPrec (cons_prec + 1) v
       where
-        -- use of head here is safe as we are guaranteed the length from the typelist
+        -- use of front here is safe as we are guaranteed the length from the typelist
         v = unsafeCoerce (Prelude.head xs) :: x
         cons_prec = 5 -- infixr 5 cons
 
 instance Show x => Emit EmitShowCatalog (x ': x' ': xs) ShowS where
     emit (EmitShowCatalog xxs) = showsPrec (cons_prec + 1) v . showString "./"
       where
-        -- use of head here is safe as we are guaranteed the length from the typelist
+        -- use of front here is safe as we are guaranteed the length from the typelist
         v = unsafeCoerce (Prelude.head xxs) :: x
         cons_prec = 5 -- infixr 5 cons
 

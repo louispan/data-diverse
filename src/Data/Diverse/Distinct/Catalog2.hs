@@ -1,7 +1,7 @@
 -- | Re-export Catalog without the constructor
 module Data.Diverse.Distinct.Catalog2
     ( Catalog -- ^ Hide constructor
-    , null
+    , blank
     , singleton
     , cons
     , (./)
@@ -9,11 +9,11 @@ module Data.Diverse.Distinct.Catalog2
     , (\.)
     , append
     , (/./)
-    , head
-    , last
-    , tail
-    , init
-    , lookup
+    , front
+    , back
+    , aft
+    , fore
+    , fetch
     , replace
     , Via -- ^ no constructor
     , via -- ^ safe construction
@@ -25,4 +25,4 @@ module Data.Diverse.Distinct.Catalog2
     ) where
 
 import Data.Diverse.Distinct.Catalog2.Internal
-import Prelude hiding (null, head, last, tail, init, lookup)
+import Prelude hiding (tail, init)
