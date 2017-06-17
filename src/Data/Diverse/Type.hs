@@ -12,6 +12,8 @@ import Data.Diverse.Type.Internal
 import Data.Kind
 import GHC.TypeLits
 
+--FIXME: remove unused after Catalog is deprecated
+
 type family TypesOfNotSupported t :: [Type] where
     TypesOfNotSupported t = TypeError ('Text "TypesOf ‘"
                                        ':<>: 'ShowType t

@@ -4,9 +4,9 @@ module Data.Diverse.Distinct.Catalog2
     , blank
     , (.|)
     , singleton
-    , cons
+    , prefix
     , (./)
-    , snoc
+    , postfix
     , (\.)
     , append
     , (/./)

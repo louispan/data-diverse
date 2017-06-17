@@ -31,9 +31,6 @@ library
                        Data.Diverse.Distinct.Catalog2.Internal
                        Data.Diverse.Distinct.Many
                        Data.Diverse.Distinct.Many.Internal
-                       -- Data.Diverse.Switch
-                       -- Data.Diverse.Case
-                       -- Data.Diverse.Generate
                        Data.Diverse.Type
                        Data.Diverse.Type.Internal
   build-depends:       base >= 4.7 && < 5

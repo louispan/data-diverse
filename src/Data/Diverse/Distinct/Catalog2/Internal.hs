@@ -22,9 +22,9 @@ module Data.Diverse.Distinct.Catalog2.Internal
     , blank
     , (.|)
     , singleton
-    , cons
+    , prefix
     , (./)
-    , snoc
+    , postfix
     , (\.)
     , append
     , (/./)
@@ -53,7 +53,7 @@ module Data.Diverse.Distinct.Catalog2.Internal
     ) where
 
 import Control.Applicative
-import Control.Lens hiding (cons, snoc)
+import Control.Lens
 import Data.Bool
 import Data.Diverse.Class.AFoldable
 import Data.Diverse.Class.Case
@@ -148,32 +148,34 @@ singleton :: x -> Catalog '[x]
 singleton v = Catalog 0 (M.singleton (Key 0) (unsafeCoerce v))
 
 -- | Add an element to the left of a Catalog.
-cons :: x -> Catalog xs -> Catalog (x ': xs)
-cons x (Catalog ro rm) = Catalog (unNewRightOffset nro)
+-- Not named 'cons' to avoid conflict with lens
+prefix :: x -> Catalog xs -> Catalog (x ': xs)
+prefix x (Catalog ro rm) = Catalog (unNewRightOffset nro)
     (M.insert
         (leftKeyForCons (LeftOffset 0) nro (Key 0))
         (unsafeCoerce x)
         rm)
   where
     nro = rightOffsetForCons (LeftSize 1) (RightOffset ro)
-infixr 5 `cons`
+infixr 5 `prefix`
 
 -- | 'cons' mnemonic. Element is smaller than ./ larger Catalog
 (./) :: x -> Catalog xs -> Catalog (x ': xs)
-(./) = cons
-infixr 5 ./ -- like Data.List (:)
+(./) = prefix
+infixr 5 ./ -- like Data.List.(:)
 
 -- | Add an element to the right of a Catalog
-snoc :: Catalog xs -> y -> Catalog (Concat xs '[y])
-snoc (Catalog lo lm) y = Catalog lo
+-- Not named 'snoc' to avoid conflict with lens
+postfix :: Catalog xs -> y -> Catalog (Concat xs '[y])
+postfix (Catalog lo lm) y = Catalog lo
     (M.insert (rightKeyForSnoc (LeftOffset lo) (LeftSize (M.size lm)) (RightOffset 0) (Key 0))
         (unsafeCoerce y)
         lm)
-infixl 5 `snoc`
+infixl 5 `postfix`
 
 -- | 'snoc' mnemonic. Catalog is larger \. than smaller element
 (\.) :: Catalog xs -> y -> Catalog (Concat xs '[y])
-(\.) = snoc
+(\.) = postfix
 infixl 5 \.
 
 (/./) :: Catalog xs -> Catalog ys -> Catalog (Concat xs ys)

@@ -8,6 +8,6 @@ import Data.Diverse.Type
 import Data.Kind
 
 -- | Allows iterating over the types in a typelist by
-class Reiterate g (xs :: [Type]) where
+class Reiterate c (xs :: [Type]) where
     -- | Return the next iteration without the type x in (x ': xs)
-    reiterate :: g xs r -> g (Tail xs) r
+    reiterate :: c xs r -> c (Tail xs) r
