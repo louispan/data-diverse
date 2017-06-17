@@ -1,6 +1,6 @@
 -- | Re-export Many without the constructor
-module Data.Diverse.Many
-    ( Many -- ^ Hide constructor
+module Data.Diverse.Many (
+      Many -- Hide constructor
     , pick
     , pick'
     , notMany

@@ -15,8 +15,10 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Data.Diverse.Nary.Internal
-    ( Nary(..) -- ^ Exporting constructor unsafely!
+module Data.Diverse.Nary.Internal (
+    -- * 'Nary' type
+      Nary(..) -- Exporting constructor unsafely!
+    -- * Construction
     , blank
     , (.|)
     , singleton
@@ -26,27 +28,37 @@ module Data.Diverse.Nary.Internal
     , (\.)
     , append
     , (/./)
+    -- * Simple queries
     , front
     , back
     , aft
     , fore
+    -- * Single field
+    -- ** Getter for single field
     , fetch
     , (.^.)
+    -- ** Setter for single field
     , replace
     , (..~)
+    -- ** Lens
     , item
-    , Via -- ^ no constructor
-    , via -- ^ safe construction
-    , forNary
-    , collect
+    -- * Multiple fields
+    -- ** Getter for multiple fields
     , Narrow
     , narrow
     , (\^.)
+    -- ** Setter for multiple fields
     , Amend
     , amend
     , (\.~)
+    -- ** Lens for multiple fields
     , project
     , projected
+    -- * Destruction
+    , Via -- no constructor
+    , via -- safe construction
+    , forNary
+    , collect
     ) where
 
 import Control.Applicative
@@ -68,7 +80,7 @@ import Text.Read
 import qualified Text.Read.Lex as L
 import Unsafe.Coerce
 
--- | This module uses the partial 'head', 'tail' from Prelude.
+-- This module uses the partial 'head', 'tail' from Prelude.
 -- I like to highlight them as partial by using them in the namespace Partial.head
 -- These usages in this are safe due to size guarantees provided by the typelist
 -- as long as the initial of the list matches the typelist.
@@ -79,24 +91,39 @@ import Prelude as Partial
 -- TODO: Implement Data.Labelled.Record with getByLabel only semantics, where fields may only contain tagged values called :=
 -- TODO: Implement Data.Labelled.Corecord with getByLabel only semantics, where fields may only contain tagged values called :=
 
--- | A Nary is an anonymous product type (also know as polymorphic record), that has fields of distinct types.
--- That is, there are no duplicates types in the fields of the record.
--- This means labels are not required, since the type itself (with type annotations or -XTypeApplications)
--- can be used to get and set fields in the Nary.
--- This encoding stores the fields as Any in a Map, where the key is index + offset of the type in the typelist.
--- The offset is used to allow efficient cons.
--- Key = Index of type in typelist + Offset
--- The constructor will guarantee the correct number and types of the elements.
+-- * Nary type
+
 newtype Key = Key Int deriving (Eq, Ord, Show)
 newtype LeftOffset = LeftOffset Int
 newtype LeftSize = LeftSize Int
 newtype RightOffset = RightOffset Int
 newtype NewRightOffset = NewRightOffset { unNewRightOffset :: Int }
 
+-- | A Nary is an anonymous product type (also know as polymorphic record), with the ability to contain
+-- an arbitrary number of fields.
+-- When it has fields of distinct types, extra functions applied via TypeApplications
+-- become available to be used:
+--
+-- * 'fetch' and 'replace' getter/setter functions
+-- * 'narrow' and 'amend' getter/setter of multiple fields
+--
+-- This means labels are not required, since the type itself (with type annotations or -XTypeApplications)
+-- can be used to get and set fields in the Nary.
+-- It is a compile error to use those functions if there are duplicate fields.
+-- For duplicate fields, there are indexed version of the gettter/setter functions.
+--
+-- This encoding stores the fields as Any in a Map, where the key is index + offset of the type in the typelist.
+-- The offset is used to allow efficient cons.
+--
+-- @Key = Index of type in typelist + Offset@
+--
+-- The constructor will guarantee the correct number and types of the elements.
 data Nary (xs :: [Type]) = Nary {-# UNPACK #-} !Int (M.Map Key Any)
 
 -- | Inferred role is phantom which is incorrect
 type role Nary representational
+
+-----------------------------------------------------------------------
 
 -- | When appending two maps together, get the function to 'M.mapKeys' the RightMap
 -- when adding RightMap into LeftMap.
@@ -130,12 +157,12 @@ rightOffsetForCons (LeftSize ld) (RightOffset ro) = NewRightOffset (ro - ld)
 leftKeyForCons :: LeftOffset -> NewRightOffset -> Key -> Key
 leftKeyForCons (LeftOffset lo) (NewRightOffset ro) (Key lk) = Key (lk - lo + ro)
 
+-- | Analogous to 'Prelude.null'. Named 'blank' to avoid conflicting with 'Prelude.null'.
 blank :: Nary '[]
 blank = Nary 0 M.empty
 infixr 5 `blank` -- to be the same as cons
 
--- | 'blank' memonic. .| stops
--- Analogous to 'M.null'
+-- | 'blank' memonic: A blank wall '.|' stops.
 (.|) :: Nary '[]
 (.|) = blank
 
@@ -144,7 +171,7 @@ singleton :: x -> Nary '[x]
 singleton v = Nary 0 (M.singleton (Key 0) (unsafeCoerce v))
 
 -- | Add an element to the left of a Nary.
--- Not named 'cons' to avoid conflict with lens
+-- Not named 'cons' to avoid conflict with lens.
 prefix :: x -> Nary xs -> Nary (x ': xs)
 prefix x (Nary ro rm) = Nary (unNewRightOffset nro)
     (M.insert
@@ -155,7 +182,7 @@ prefix x (Nary ro rm) = Nary (unNewRightOffset nro)
     nro = rightOffsetForCons (LeftSize 1) (RightOffset ro)
 infixr 5 `prefix`
 
--- | 'cons' mnemonic. Element is smaller than ./ larger Nary
+-- | 'prefix' mnemonic: Element is smaller than './' the larger Nary
 (./) :: x -> Nary xs -> Nary (x ': xs)
 (./) = prefix
 infixr 5 ./ -- like Data.List.(:)
@@ -169,11 +196,12 @@ postfix (Nary lo lm) y = Nary lo
         lm)
 infixl 5 `postfix`
 
--- | 'snoc' mnemonic. Nary is larger \. than smaller element
+-- | 'snoc' mnemonic: Nary is larger '\.' than the smaller element
 (\.) :: Nary xs -> y -> Nary (Concat xs '[y])
 (\.) = postfix
 infixl 5 \.
 
+-- | 'append' mnemonic: 'cons' './' with an extra slash (meaning 'Nary') in front.
 (/./) :: Nary xs -> Nary ys -> Nary (Concat xs ys)
 (/./) = append
 infixl 5 /./
@@ -192,6 +220,8 @@ append (Nary lo lm) (Nary ro rm) = if ld >= rd
     rd = M.size rm
     nro = rightOffsetForCons (LeftSize ld) (RightOffset ro)
 infixr 5 `append` -- like Data.List (++)
+
+-----------------------------------------------------------------------
 
 -- | Extract the first element of a Nary, which guaranteed to be non-empty.
 -- Analogous to 'Partial.head'
@@ -236,12 +266,17 @@ replace (Nary o m) v = Nary o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 infixl 1 ..~ -- like Control.Lens.(.~)
 
 -- | Use TypeApplication to specify the field type of the lens.
+-- @item = lens fetch replace@
 -- Example: @item \@Int@
 item :: forall x xs. (Distinct xs, Member x xs) => Lens' (Nary xs) x
 item = lens fetch replace
 {-# INLINE item #-}
 
 -----------------------------------------------------------------------
+
+-- | Internal function for construction - do not expose!
+fromList' :: Ord k => [(k, WrappedAny)] -> M.Map k Any
+fromList' xs = M.fromList (coerce xs)
 
 -- | Wraps a 'Case' into an instance of 'Emit', feeding 'Case' with the value from the Nary and 'emit'ting the results.
 -- Internally, this holds the left-over [(k, v)] from the original Nary with the remaining typelist xs.
@@ -262,22 +297,22 @@ instance (Case c (x ': xs) r) => Emit (Via c) (x ': xs) r where
        -- use of front here is safe as we are guaranteed the length from the typelist
        v = Partial.head xxs
 
+-- | Destruction for 'Nary'. Given a handler for the fields in 'Nary', create a 'Collector'
+-- of the results of running the handler over the 'Nary'.
+-- The 'Collector' is 'AFoldable' to get the results.
 forNary :: c xs r -> Nary xs -> Collector (Via c) xs r
 forNary c x = Collector (via c x)
 
+-- | This is @flip forNary@
 collect :: Nary xs -> c xs r -> Collector (Via c) xs r
 collect = flip forNary
 
 -----------------------------------------------------------------------
 
--- | Internal function for construction - do not expose!
-fromList' :: Ord k => [(k, WrappedAny)] -> M.Map k Any
-fromList' xs = M.fromList (coerce xs)
-
------------------------------------------------------------------------
-
 type Narrow smaller larger = (AFoldable (Collector (Via (CaseNarrow smaller)) larger) [(Key, WrappedAny)], Distinct larger, Distinct smaller)
 
+-- | Construct a 'Nary' with a smaller number of fields than the original
+-- Analogous to 'fetch' getter but for multiple fields
 narrow :: forall smaller larger. Narrow smaller larger => Nary larger -> Nary smaller
 narrow xs = Nary 0 (fromList' xs')
   where
@@ -298,11 +333,12 @@ instance Reiterate (CaseNarrow smaller) (x ': xs) where
     reiterate CaseNarrow = CaseNarrow
 
 -- | For each type x in larger, find the index in ys, and create an (incrementing key, value)
--- instance forall smaller x xs. MaybeMember x smaller => Emit (EmitNarrowed smaller) (x ': xs) [(Key, WrappedAny)] where
-instance forall smaller x xs. MaybeMember x smaller => Case (CaseNarrow smaller) (x ': xs) [(Key, WrappedAny)] where
-    then' _ v = case i of
-                    0 -> []
-                    i' -> [(Key (i' - 1), WrappedAny (unsafeCoerce v))]
+instance forall smaller x xs. MaybeMember x smaller =>
+         Case (CaseNarrow smaller) (x ': xs) [(Key, WrappedAny)] where
+    then' _ v =
+        case i of
+            0 -> []
+            i' -> [(Key (i' - 1), WrappedAny (unsafeCoerce v))]
       where
         i = fromInteger (natVal @(PositionOf x smaller) Proxy)
 
@@ -311,6 +347,8 @@ type Amend smaller larger = (AFoldable (Collector (Via (CaseAmend smaller larger
        , Distinct larger
        , Distinct smaller)
 
+-- | Sets the subset of  'Nary' in the larger 'Nary'
+-- Analogous to 'replace' setter but for multiple fields.
 amend :: forall smaller larger. Amend smaller larger => Nary larger -> Nary smaller -> Nary larger
 amend (Nary ro rm) xs = Nary ro (fromList' xs' `M.union` rm)
   where
@@ -336,16 +374,23 @@ instance Member x larger => Case (CaseAmend smaller larger) (x ': xs) (Key, Wrap
 
 -- | Projection.
 -- A Nary can be narrowed or have its order changed by projecting into another Nary type.
+-- @project = lens narrow amend@
 -- Use TypeApplication to specify the @smaller@ typelist of the lens.
 -- Example: @project \@'[Int, String]@
-project :: forall smaller larger. (Narrow smaller larger, Amend smaller larger) => Lens' (Nary larger) (Nary smaller)
+project
+    :: forall smaller larger.
+       (Narrow smaller larger, Amend smaller larger)
+    => Lens' (Nary larger) (Nary smaller)
 project = lens narrow amend
 {-# INLINE project #-}
 
 -- | This is 'project' with the type parameters reversed
 -- so TypeApplications can be used to specify @larger@ typelist nstead of @smaller@.
 -- Example: @projected \@'[Int, String]@
-projected :: forall larger smaller. (Narrow smaller larger, Amend smaller larger) => Lens' (Nary larger) (Nary smaller)
+projected
+    :: forall larger smaller.
+       (Narrow smaller larger, Amend smaller larger)
+    => Lens' (Nary larger) (Nary smaller)
 projected = project
 {-# INLINE projected #-}
 
@@ -369,7 +414,8 @@ eqNary
     :: forall xs.
        AFoldable (Collector EmitEqNary xs) Bool
     => Nary xs -> Nary xs -> [Bool]
-eqNary (Nary _ lm) (Nary _ rm) = afoldr (:) [] (Collector (EmitEqNary @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
+eqNary (Nary _ lm) (Nary _ rm) = afoldr (:) []
+    (Collector (EmitEqNary @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
 
 instance AFoldable (Collector EmitEqNary xs) Bool => Eq (Nary xs) where
     lt == rt = foldr (\e z -> bool False z e) True eqs
@@ -396,7 +442,8 @@ ordNary
     :: forall xs.
        AFoldable (Collector EmitOrdNary xs) Ordering
     => Nary xs -> Nary xs -> [Ordering]
-ordNary (Nary _ lm) (Nary _ rm) = afoldr (:) [] (Collector (EmitOrdNary @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
+ordNary (Nary _ lm) (Nary _ rm) = afoldr (:) []
+    (Collector (EmitOrdNary @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
 
 instance (Eq (Nary xs), AFoldable (Collector EmitOrdNary xs) Ordering) => Ord (Nary xs) where
     compare lt rt = foldr (\o z -> case o of

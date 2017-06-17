@@ -117,7 +117,7 @@ type family Length (xs :: [Type]) :: Nat where
     Length (x ': xs) = 1 + Length xs
 
 type family Tail (xs :: [Type]) :: [Type] where
-    Tail '[] = TypeError ('Text "Cannot Head an empty type list")
+    Tail '[] = TypeError ('Text "Cannot Tail an empty type list")
     Tail (x ': xs) = xs
 
 type family Head (xs :: [Type]) :: Type where

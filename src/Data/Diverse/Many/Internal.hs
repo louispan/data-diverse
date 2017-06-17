@@ -15,25 +15,35 @@
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Data.Diverse.Many.Internal
-    ( Many(..) -- ^ exporting constructor unsafely!
+module Data.Diverse.Many.Internal (
+      -- * 'Many' type
+      Many(..) -- exporting constructor unsafely!
+      -- * Single type
+      -- ** Construction
     , pick
     , pick'
+      -- ** Destruction
     , notMany
     , trial
     , trial'
     , trialEither
     , trialEither'
+      -- ** Lens
     , facet
+      -- * Multiple types
+      -- ** Injection
     , Diversify
     , diversify
     , Reinterpret
+      -- ** Inverse Injection
     , reinterpret
     , reinterpretEither
+      -- ** Lens
     , inject
     , injected
-    , forMany
+      -- * Catamorphism
     , Switch(..)
+    , forMany
     , switch
     ) where
 
@@ -61,7 +71,8 @@ import Unsafe.Coerce
 -- This means labels are not required, since the type itself (with type annotations or -XTypeApplications)
 -- can be used to try values in the Many.
 -- This is essentially a typed version of 'Data.Dynamic'
--- Mnemonic: It doesn't contain one of Any type, it contains one of of Many types.
+--
+-- Mnemonic: It doesn't contain one of 'Any' type, it contains one of of 'Many' types.
 --
 -- Encoding: The variant contains a value whose type is at the given position in the type list.
 -- This is similar to the encoding as Haskus.Util.Many and HList (which used Int instead of Word)
@@ -70,7 +81,7 @@ import Unsafe.Coerce
 -- and https://hackage.haskell.org/package/HList-0.4.1.0/docs/src/Data-HList-Many.html
 data Many (xs :: [Type]) = Many {-# UNPACK #-} !Int Any
 
--- | Just like Haskus and HList versions, inferred type is phamtom which is wrong
+-- Just like Haskus and HList versions, inferred type is phamtom which is wrong
 type role Many representational
 
 -- Not using GADTs with the Distinct constraint as it gets in the way when I know something is Distinct,
@@ -84,7 +95,7 @@ type role Many representational
 ----------------------------------------------
 
 -- | Lift a value into a Many of possibly other types.
--- NB. forall used to specify xs first, so TypeApplications can be used to specify xs.
+-- NB. forall used to specify @xs@ first, so TypeApplications can be used to specify @xs@.
 pick :: forall xs x. (Distinct xs, Member x xs) => x -> Many xs
 pick = Many (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
@@ -146,15 +157,15 @@ facet = prism' pick trial
 
 ------------------------------------------------------------------
 
--- | A friendllier constraint synonym for 'diversify'. All 'Many' fufill this constraint.
-type Diversify (tree :: [Type]) (branch :: [Type]) = Reduce Many (Switch (CaseDiversify tree)) branch (Many tree)
-
 -- | Convert a Many to another Many that may include other possibilities.
 -- That is, @branch@ is equal or is a subset of @tree@.
 -- This can be used to rearrange the order of the types in the Many.
 -- NB. @tree@ is ordered first, so TypeApplications can be used to specify it.
 diversify :: forall tree branch. Diversify tree branch => Many branch -> Many tree
 diversify = forMany (CaseDiversify @tree)
+
+-- | A friendllier constraint synonym for 'diversify'. All 'Many' fufill this constraint.
+type Diversify (tree :: [Type]) (branch :: [Type]) = Reduce Many (Switch (CaseDiversify tree)) branch (Many tree)
 
 data CaseDiversify (tree :: [Type]) (branch :: [Type]) r = CaseDiversify
 
@@ -166,15 +177,15 @@ instance (Member (Head branch) tree, Distinct tree) => Case (CaseDiversify tree)
 
 ------------------------------------------------------------------
 
--- | A friendllier constraint synonym for 'reinterpret'. All 'Many' fufill this constraint.
-type Reinterpret ys xs = Reduce Many (Switch (CaseReinterpret ys)) xs (Maybe (Many ys))
-
 -- | Convert a Many into possibly another Many with a totally different typelist.
 -- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
 -- The Switch constraint is fulfilled with
 -- (Distinct ys, forall x (in xs). (MaybeMember x ys)
 reinterpret :: forall ys xs. Reinterpret ys xs => Many xs -> Maybe (Many ys)
 reinterpret = forMany (CaseReinterpret @ys)
+
+-- | A friendllier constraint synonym for 'reinterpret'. All 'Many' fufill this constraint.
+type Reinterpret ys xs = Reduce Many (Switch (CaseReinterpret ys)) xs (Maybe (Many ys))
 
 data CaseReinterpret (ys :: [Type]) (xs :: [Type]) r = CaseReinterpret
 
@@ -226,14 +237,14 @@ injected = inject
 
 ------------------------------------------------------------------
 
--- | 'Switch' is anThis instance of 'Reduce' for which visits through the possibilities in Many,
+-- | 'Switch' is an instance of 'Reduce' for which visits through the possibilities in Many,
 -- delegating work to 'Case', ensuring termination when Many only contains one type.
--- 'trial' each type in a Many, and either then' the handling of the value discovered, or loop
+newtype Switch c (xs :: [Type]) r = Switch (c xs r)
+
+-- | 'trial' each type in a Many, and either then' the handling of the value discovered, or loop
 -- trying the next type in the type list.
 -- This code will be efficiently compiled into a single case statement in GHC 8.2.1
 -- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
-newtype Switch c (xs :: [Type]) r = Switch (c xs r)
-
 instance (Case c (x ': x' ': xs) r, Reduce Many (Switch c) (x' ': xs) r, Reiterate c (x : x' : xs)) =>
          Reduce Many (Switch c) (x ': x' ': xs) r where
     reduce (Switch c) v =
@@ -249,14 +260,14 @@ instance (Case c '[x] r) => Reduce Many (Switch c) '[x] r where
             a -> then' c a
 
 -- | Catamorphism for 'Many'. This is equivalent to @flip switch@.
-forMany :: Reduce Many (Switch handler) xs r => handler xs r -> Many xs -> r
+forMany :: Reduce Many (Switch case') xs r => case' xs r -> Many xs -> r
 forMany = reduce . Switch
 
 -- | A switch/case statement for Many.
 -- Use 'Case' instances like 'Cases' to apply a 'Nary' of functions to a variant of values.
 -- Or 'TypeableCase' to apply a polymorphic function that work on all 'Typeables'.
 -- Or you may use your own custom instance of 'Case'.
-switch :: Reduce Many (Switch handler) xs r => Many xs -> handler xs r -> r
+switch :: Reduce Many (Switch case') xs r => Many xs -> case' xs r -> r
 switch = flip forMany
 
 -----------------------------------------------------------------
