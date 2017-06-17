@@ -173,7 +173,7 @@ instance Reiterate (CaseDiversify tree) branch where
     reiterate CaseDiversify = CaseDiversify
 
 instance (Member (Head branch) tree, Distinct tree) => Case (CaseDiversify tree) branch (Many tree) where
-    then' CaseDiversify = pick
+    case' CaseDiversify = pick
 
 ------------------------------------------------------------------
 
@@ -193,7 +193,7 @@ instance Reiterate (CaseReinterpret ys) xs where
     reiterate CaseReinterpret = CaseReinterpret
 
 instance (MaybeMember (Head xs) ys, Distinct ys) => Case (CaseReinterpret ys) xs (Maybe (Many ys)) where
-    then' CaseReinterpret a = case fromInteger (natVal @(PositionOf (Head xs) ys) Proxy) of
+    case' CaseReinterpret a = case fromInteger (natVal @(PositionOf (Head xs) ys) Proxy) of
                                      0 -> Nothing
                                      i -> Just $ Many (i - 1) (unsafeCoerce a)
 
@@ -212,13 +212,12 @@ reinterpretEither v = case reinterpret v of
 
 -- | Injection.
 -- A Many can be 'diversify'ed to contain more types or 'reinterpret'ed into possibly another Many type.
--- This typeclass looks like 'Facet' but is used for different purposes.
 -- Use TypeApplication to specify the containing 'diversified' type of the prism.
 -- Example: @inject \@[Int, Bool]@
 inject
     :: forall tree branch.
-       ( (Reduce Many (Switch (CaseDiversify tree)) branch (Many tree))
-       , (Reduce Many (Switch (CaseReinterpret branch)) tree (Maybe (Many branch)))
+       ( Diversify tree branch
+       , Reinterpret branch tree
        )
     => Prism' (Many tree) (Many branch)
 inject = prism' diversify reinterpret
@@ -228,8 +227,8 @@ inject = prism' diversify reinterpret
 -- so that TypeApplications can be used to specify the contained 'reinterpreted' type of the prism
 injected
     :: forall branch tree.
-       ( (Reduce Many (Switch (CaseDiversify tree)) branch (Many tree))
-       , (Reduce Many (Switch (CaseReinterpret branch)) tree (Maybe (Many branch)))
+       ( Diversify tree branch
+       , Reinterpret branch tree
        )
     => Prism' (Many tree) (Many branch)
 injected = inject
@@ -241,7 +240,7 @@ injected = inject
 -- delegating work to 'Case', ensuring termination when Many only contains one type.
 newtype Switch c (xs :: [Type]) r = Switch (c xs r)
 
--- | 'trial' each type in a Many, and either then' the handling of the value discovered, or loop
+-- | 'trial' each type in a Many, and either case' the handling of the value discovered, or loop
 -- trying the next type in the type list.
 -- This code will be efficiently compiled into a single case statement in GHC 8.2.1
 -- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
@@ -249,7 +248,7 @@ instance (Case c (x ': x' ': xs) r, Reduce Many (Switch c) (x' ': xs) r, Reitera
          Reduce Many (Switch c) (x ': x' ': xs) r where
     reduce (Switch c) v =
         case trialEither' v of
-            Right a -> then' c a
+            Right a -> case' c a
             Left v' -> reduce (Switch (reiterate c)) v'
     {-# INLINE reduce #-}
 
@@ -257,15 +256,15 @@ instance (Case c (x ': x' ': xs) r, Reduce Many (Switch c) (x' ': xs) r, Reitera
 -- with an empty typelist is not required.
 instance (Case c '[x] r) => Reduce Many (Switch c) '[x] r where
     reduce (Switch c) v = case notMany v of
-            a -> then' c a
+            a -> case' c a
 
 -- | Catamorphism for 'Many'. This is equivalent to @flip switch@.
 forMany :: Reduce Many (Switch case') xs r => case' xs r -> Many xs -> r
 forMany = reduce . Switch
 
 -- | A switch/case statement for Many.
--- Use 'Case' instances like 'Cases' to apply a 'Nary' of functions to a variant of values.
--- Or 'TypeableCase' to apply a polymorphic function that work on all 'Typeables'.
+-- Use 'Case' instances like 'Data.Diverse.Cases.Cases' to apply a 'Nary' of functions to a variant of values.
+-- Or 'Data.Diverse.CaseTypeable.CaseTypeable' to apply a polymorphic function that work on all 'Typeables'.
 -- Or you may use your own custom instance of 'Case'.
 switch :: Reduce Many (Switch case') xs r => Many xs -> case' xs r -> r
 switch = flip forMany
@@ -286,7 +285,7 @@ instance Reiterate CaseEqMany (x ': xs) where
     reiterate (CaseEqMany r) = CaseEqMany r
 
 instance (Eq x) => Case CaseEqMany (x ': xs) Bool where
-    then' (CaseEqMany r) l = l == unsafeCoerce r
+    case' (CaseEqMany r) l = l == unsafeCoerce r
 
 -----------------------------------------------------------------
 
@@ -304,7 +303,7 @@ instance Reiterate CaseOrdMany (x ': xs) where
     reiterate (CaseOrdMany r) = CaseOrdMany r
 
 instance (Ord x) => Case CaseOrdMany (x ': xs) Ordering where
-    then' (CaseOrdMany r) l = compare l (unsafeCoerce r)
+    case' (CaseOrdMany r) l = compare l (unsafeCoerce r)
 
 ------------------------------------------------------------------
 
@@ -318,7 +317,7 @@ instance Reiterate CaseShowMany (x ': xs) where
     reiterate CaseShowMany = CaseShowMany
 
 instance Show x => Case CaseShowMany (x ': xs) ShowS where
-    then' _ = showsPrec (app_prec + 1)
+    case' _ = showsPrec (app_prec + 1)
       where app_prec = 10
 
 ------------------------------------------------------------------

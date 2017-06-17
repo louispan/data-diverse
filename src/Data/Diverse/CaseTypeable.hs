@@ -20,4 +20,4 @@ instance Reiterate CaseTypeable xs where
     reiterate (CaseTypeable f) = CaseTypeable f
 
 instance Typeable (Head xs) => Case CaseTypeable xs r where
-    then' (CaseTypeable f) = f
+    case' (CaseTypeable f) = f

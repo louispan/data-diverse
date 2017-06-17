@@ -25,12 +25,15 @@ instance Reiterate (Cases fs) xs where
 
 -- | UndecidableIstnaces because fs appers more often.
 instance (Distinct fs, Member (Head xs -> r) fs) => Case (Cases fs) xs r where
-    then' (Cases s) = fetch @(Head xs -> r) s
+    case' (Cases s) = fetch @(Head xs -> r) s
 
--- | Create Cases for handling 'switch' from a tuple.
--- This function imposes additional constraints than using 'Cases' constructor directly:
--- * SameLength constraints to prevent human confusion with unusable cases.
--- * OutcomeOf fs ~ r constraints to ensure that the Nary only continutations that return r.
+-- | Create and instance of 'Case' for handling 'switch' from a 'Nary'.
+--
 -- Example: @switch a $ cases (f, g, h)@
+--
+-- This function imposes additional constraints than using 'Cases' constructor directly:
+--
+-- * @SameLength@ constraints to prevent human confusion with unused/unusable cases.
+-- * @OutcomeOf fs ~ r@ constraints to ensure that the 'Nary' only continutations that return r.
 cases :: (SameLength fs xs, OutcomeOf fs ~ r) => Nary fs -> (Cases fs) xs r
 cases = Cases

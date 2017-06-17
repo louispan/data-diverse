@@ -14,4 +14,4 @@ import Data.Kind
 -- how to construct the remaining 'Case's for the rest of the types in the type list.
 class Reiterate c xs => Case c (xs :: [Type]) r where
     -- | Return the handler/continuation when x is observed.
-    then' :: c xs r -> (Head xs -> r)
+    case' :: c xs r -> (Head xs -> r)

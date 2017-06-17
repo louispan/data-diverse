@@ -292,7 +292,7 @@ instance Reiterate c (x ': xs) => Reiterate (Via c) (x ': xs) where
     reiterate (Via (c, xxs)) = Via (reiterate c, Partial.tail xxs)
 
 instance (Case c (x ': xs) r) => Emit (Via c) (x ': xs) r where
-    emit (Via (c, xxs)) = then' c (unsafeCoerce v)
+    emit (Via (c, xxs)) = case' c (unsafeCoerce v)
       where
        -- use of front here is safe as we are guaranteed the length from the typelist
        v = Partial.head xxs
@@ -335,7 +335,7 @@ instance Reiterate (CaseNarrow smaller) (x ': xs) where
 -- | For each type x in larger, find the index in ys, and create an (incrementing key, value)
 instance forall smaller x xs. MaybeMember x smaller =>
          Case (CaseNarrow smaller) (x ': xs) [(Key, WrappedAny)] where
-    then' _ v =
+    case' _ v =
         case i of
             0 -> []
             i' -> [(Key (i' - 1), WrappedAny (unsafeCoerce v))]
@@ -366,7 +366,7 @@ instance Reiterate (CaseAmend smaller larger) (x ': xs) where
 
 -- | for each x in @Nary smaller@, convert it to a (k, v) to insert into the x in @Nary larger@
 instance Member x larger => Case (CaseAmend smaller larger) (x ': xs) (Key, WrappedAny) where
-    then' (CaseAmend ro) v = (Key (ro + i), WrappedAny (unsafeCoerce v))
+    case' (CaseAmend ro) v = (Key (ro + i), WrappedAny (unsafeCoerce v))
       where
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
 
