@@ -9,13 +9,15 @@ module Data.Diverse.Distinct.Many
     , trialEither
     , trialEither'
     , facet
+    , Diversify
     , diversify
+    , Reinterpret
     , reinterpret
     , reinterpretEither
     , inject
     , injected
     , forMany
-    , Switch
+    , Switch(..)
     , switch
     , Cases(..)
     , cases

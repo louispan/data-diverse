@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -16,13 +17,46 @@
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Data.Diverse.Distinct.Catalog2.Internal where
+module Data.Diverse.Distinct.Catalog2.Internal
+    ( Catalog(..) -- ^ Exporting constructor unsafely!
+    , blank
+    , (.|)
+    , singleton
+    , cons
+    , (./)
+    , snoc
+    , (\.)
+    , append
+    , (/./)
+    , front
+    , back
+    , aft
+    , fore
+    , fetch
+    , (.^.)
+    , replace
+    , (..~)
+    , Via -- ^ no constructor
+    , via -- ^ safe construction
+    , forCatalog
+    , collect
+    , Cases(..)
+    , Narrow
+    , narrow
+    , (\^.)
+    , Amend
+    , amend
+    , (\.~)
+    ) where
 
 import Control.Applicative
+import Control.Lens hiding (cons, snoc)
 import Data.Bool
 import Data.Diverse.Class.AFoldable
 import Data.Diverse.Class.Case
 import Data.Diverse.Class.Emit
+import Data.Diverse.Class.Item
+import Data.Diverse.Class.Project
 import Data.Diverse.Class.Reiterate
 import Data.Diverse.Data.Collector
 import Data.Diverse.Data.WrappedAny
@@ -36,6 +70,12 @@ import Text.ParserCombinators.ReadPrec
 import Text.Read
 import qualified Text.Read.Lex as L
 import Unsafe.Coerce
+
+-- | This module uses the partial 'head', 'tail' from Prelude.
+-- I like to highlight them as partial by using them in the namespace Partial.head
+-- These usages in this are safe due to size guarantees provided by the typelist
+-- as long as the initial of the list matches the typelist.
+import Prelude as Partial
 
 -- TODO: Implement Data.Indistinct.Tuplex or NAry with getByIndex only semantics
 -- TODO: Implement Data.Indistinct.Variant with getByIndex only semantics
@@ -107,7 +147,7 @@ singleton :: x -> Catalog '[x]
 singleton v = Catalog 0 (M.singleton (Key 0) (unsafeCoerce v))
 
 -- | Add an element to the left of a Catalog.
-cons :: Distinct (x ': xs) => x -> Catalog xs -> Catalog (x ': xs)
+cons :: x -> Catalog xs -> Catalog (x ': xs)
 cons x (Catalog ro rm) = Catalog (unNewRightOffset nro)
     (M.insert
         (leftKeyForCons (LeftOffset 0) nro (Key 0))
@@ -117,30 +157,30 @@ cons x (Catalog ro rm) = Catalog (unNewRightOffset nro)
     nro = rightOffsetForCons (LeftSize 1) (RightOffset ro)
 infixr 5 `cons`
 
--- | 'cons' mnemonic. Element is smaller than ./ bigger Catalog
-(./) :: Distinct (x ': xs) => x -> Catalog xs -> Catalog (x ': xs)
+-- | 'cons' mnemonic. Element is smaller than ./ larger Catalog
+(./) :: x -> Catalog xs -> Catalog (x ': xs)
 (./) = cons
 infixr 5 ./ -- like Data.List (:)
 
 -- | Add an element to the right of a Catalog
-snoc :: Distinct (Concat xs '[y]) => Catalog xs -> y -> Catalog (Concat xs '[y])
+snoc :: Catalog xs -> y -> Catalog (Concat xs '[y])
 snoc (Catalog lo lm) y = Catalog lo
     (M.insert (rightKeyForSnoc (LeftOffset lo) (LeftSize (M.size lm)) (RightOffset 0) (Key 0))
         (unsafeCoerce y)
         lm)
 infixl 5 `snoc`
 
--- | 'snoc' mnemonic. Catalog is bigger \. than smaller element
-(\.) :: Distinct (Concat xs '[y]) => Catalog xs -> y -> Catalog (Concat xs '[y])
+-- | 'snoc' mnemonic. Catalog is larger \. than smaller element
+(\.) :: Catalog xs -> y -> Catalog (Concat xs '[y])
 (\.) = snoc
 infixl 5 \.
 
-(/./) :: Distinct (Concat xs ys) => Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
+(/./) :: Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
 (/./) = append
 infixl 5 /./
 
 -- | Contains two Catalogs together
-append :: Distinct (Concat xs ys) => Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
+append :: Catalog xs -> Catalog ys -> Catalog (Concat xs ys)
 append (Catalog lo lm) (Catalog ro rm) = if ld >= rd
     then Catalog
          lo
@@ -155,7 +195,7 @@ append (Catalog lo lm) (Catalog ro rm) = if ld >= rd
 infixr 5 `append` -- like Data.List (++)
 
 -- | Extract the first element of a Catalog, which guaranteed to be non-empty.
--- Analogous to 'Prelude.head'
+-- Analogous to 'Partial.head'
 front :: Catalog (x ': xs) -> x
 front (Catalog o m) = unsafeCoerce (m M.! (Key o))
 
@@ -165,7 +205,7 @@ back :: Catalog (x ': xs) -> x
 back (Catalog o m) = unsafeCoerce (m M.! (Key (M.size m + o)))
 
 -- | Extract the elements after the front of a Catalog, which guaranteed to be non-empty.
--- Analogous to 'Prelude.tail'
+-- Analogous to 'Partial.tail'
 aft :: Catalog (x ': xs) -> Catalog xs
 aft (Catalog o m) = Catalog (o + 1) (M.delete (Key o) m)
 
@@ -174,15 +214,30 @@ aft (Catalog o m) = Catalog (o + 1) (M.delete (Key o) m)
 fore :: Catalog xs -> Catalog (Init xs)
 fore (Catalog o m) = Catalog o (M.delete (Key (o + M.size m - 1)) m)
 
--- | getter
-fetch :: forall x xs. Member x xs => Catalog xs -> x
+-- | Getter. Use TypeApplication of the type to get
+-- Only available for 'Catalog' with 'Distinct' xs.
+fetch :: forall x xs. (Distinct xs, Member x xs) => Catalog xs -> x
 fetch (Catalog o m) = unsafeCoerce (m M.! (Key (o + i)))
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
--- | setter
-replace :: forall x xs. Member x xs => x -> Catalog xs -> Catalog xs
-replace v (Catalog o m) = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
+-- | infix 'fetch' mnemonic. Like 'Control.Lens.(^.)' but with an extra dot in front.
+(.^.) :: forall x xs. (Distinct xs, Member x xs) => Catalog xs -> x
+(.^.) = fetch
+infixl 8 .^. -- like Control.Lens.(^.)
+
+-- | Setter. Use TypeApplication of the type to set.
+-- Only available for 'Catalog' with 'Distinct' xs.
+replace :: forall x xs. (Distinct xs, Member x xs) => Catalog xs -> x -> Catalog xs
+replace (Catalog o m) v = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
+
+-- | infix 'replace' mnemonic. Like 'Control.Lens.(.~)' but with an extra dot in front.
+(..~) :: forall x xs. (Distinct xs, Member x xs) => Catalog xs -> x -> Catalog xs
+(..~) = replace
+infixl 1 ..~ -- like Control.Lens.(.~)
+
+instance (Distinct xs, Member x xs) => Item x (Catalog xs) where
+    item = lens fetch replace
 
 -----------------------------------------------------------------------
 
@@ -197,13 +252,13 @@ via c (Catalog _ m) = Via (c, snd <$> M.toAscList m)
 
 instance Reiterate c (x ': xs) => Reiterate (Via c) (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (Via (c, xxs)) = Via (reiterate c, Prelude.tail xxs)
+    reiterate (Via (c, xxs)) = Via (reiterate c, Partial.tail xxs)
 
 instance (Case c (x ': xs) r) => Emit (Via c) (x ': xs) r where
     emit (Via (c, xxs)) = then' c (unsafeCoerce v)
       where
        -- use of front here is safe as we are guaranteed the length from the typelist
-       v = Prelude.head xxs
+       v = Partial.head xxs
 
 forCatalog :: c xs r -> Catalog xs -> Collector (Via c) xs r
 forCatalog c x = Collector (via c x)
@@ -219,7 +274,7 @@ newtype Cases (fs :: [Type]) (xs :: [Type]) r = Cases (Catalog fs)
 instance Reiterate (Cases fs) xs where
     reiterate (Cases s) = Cases s
 
-instance (Member (Head xs -> r) fs) => Case (Cases fs) xs r where
+instance (Distinct fs, Member (Head xs -> r) fs) => Case (Cases fs) xs r where
     then' (Cases s) = fetch @(Head xs -> r) s
 
 -- | Internal function for construction - do not expose!
@@ -228,26 +283,28 @@ fromList' xs = M.fromList (coerce xs)
 
 -----------------------------------------------------------------------
 
-narrow
-    :: forall smaller bigger.
-       ( AFoldable (Collector (Via (CaseNarrow smaller)) bigger) [(Key, WrappedAny)]
-       , Distinct smaller
-       )
-    => Catalog bigger -> Catalog smaller
+type Narrow smaller larger = (AFoldable (Collector (Via (CaseNarrow smaller)) larger) [(Key, WrappedAny)], Distinct larger, Distinct smaller)
+
+narrow :: forall smaller larger. Narrow smaller larger => Catalog larger -> Catalog smaller
 narrow xs = Catalog 0 (fromList' xs')
   where
-    xs' = afoldr (++) [] (forCatalog (CaseNarrow @smaller @bigger) xs)
+    xs' = afoldr (++) [] (forCatalog (CaseNarrow @smaller @larger) xs)
 
--- | For each type x in @bigger@, generate the (k, v) in @smaller@ (if it exists)
--- This stores the bigger catalog map in a list form.
+-- | infix 'narrow' mnemonic. Like 'Control.Lens.(^.)' but with an extra '\' (narrow to the right) in front.
+(\^.) :: forall smaller larger. Narrow smaller larger => Catalog larger -> Catalog smaller
+(\^.) = narrow
+infixl 8 \^. -- like Control.Lens.(^.)
+
+-- | For each type x in @larger@, generate the (k, v) in @smaller@ (if it exists)
+-- This stores the larger catalog map in a list form.
 -- Like 'Via', the list is guaranteed to be the same size and type as @xs@.
--- xs is originally the same as bigger
+-- xs is originally the same as larger
 data CaseNarrow (smaller :: [Type]) (xs :: [Type]) r = CaseNarrow
 
 instance Reiterate (CaseNarrow smaller) (x ': xs) where
     reiterate CaseNarrow = CaseNarrow
 
--- | For each type x in bigger, find the index in ys, and create an (incrementing key, value)
+-- | For each type x in larger, find the index in ys, and create an (incrementing key, value)
 -- instance forall smaller x xs. MaybeMember x smaller => Emit (EmitNarrowed smaller) (x ': xs) [(Key, WrappedAny)] where
 instance forall smaller x xs. MaybeMember x smaller => Case (CaseNarrow smaller) (x ': xs) [(Key, WrappedAny)] where
     then' _ v = case i of
@@ -257,14 +314,19 @@ instance forall smaller x xs. MaybeMember x smaller => Case (CaseNarrow smaller)
         i = fromInteger (natVal @(PositionOf x smaller) Proxy)
 
 -----------------------------------------------------------------------
+type Amend smaller larger = (AFoldable (Collector (Via (CaseAmend smaller larger)) smaller) (Key, WrappedAny)
+       , Distinct larger
+       , Distinct smaller)
 
-amend
-    :: forall smaller larger.
-       AFoldable (Collector (Via (CaseAmend smaller larger)) smaller) (Key, WrappedAny)
-    => Catalog smaller -> Catalog larger -> Catalog larger
-amend xs (Catalog ro rm) = Catalog ro (fromList' xs' `M.union` rm)
+amend :: forall smaller larger. Amend smaller larger => Catalog larger -> Catalog smaller -> Catalog larger
+amend (Catalog ro rm) xs = Catalog ro (fromList' xs' `M.union` rm)
   where
     xs' = afoldr (:) [] (forCatalog (CaseAmend @smaller @larger @smaller ro) xs)
+
+-- | infix 'flip amend' mnemonic. Like 'Control.Lens.(.~)' but with an extra '\' (narrow to the right) in front.
+(\.~) :: forall smaller larger. Amend smaller larger => Catalog larger -> Catalog smaller -> Catalog larger
+(\.~) = amend
+infixl 1 \.~ -- like Control.Lens.(.~)
 
 newtype CaseAmend (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) r = CaseAmend Int
 
@@ -278,20 +340,24 @@ instance Member x larger => Case (CaseAmend smaller larger) (x ': xs) (Key, Wrap
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
 
 -----------------------------------------------------------------------
+instance (Narrow smaller larger, Amend smaller larger) => Project smaller larger Catalog where
+    project = lens narrow amend
+
+-----------------------------------------------------------------------
 
 -- | Stores the left & right Catalog and a list of Any which must be the same length and types in xs typelist.
 newtype EmitEqCatalog (xs :: [Type]) r = EmitEqCatalog ([Any], [Any])
 
 instance Reiterate EmitEqCatalog (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (EmitEqCatalog (ls, rs)) = EmitEqCatalog (Prelude.tail ls, Prelude.tail rs)
+    reiterate (EmitEqCatalog (ls, rs)) = EmitEqCatalog (Partial.tail ls, Partial.tail rs)
 
 instance Eq x => Emit EmitEqCatalog (x ': xs) Bool where
     emit (EmitEqCatalog (ls, rs)) = l == r
       where
         -- use of front here is safe as we are guaranteed the length from the typelist
-        l = unsafeCoerce (Prelude.head ls) :: x
-        r = unsafeCoerce (Prelude.head rs) :: x
+        l = unsafeCoerce (Partial.head ls) :: x
+        r = unsafeCoerce (Partial.head rs) :: x
 
 eqCatalog
     :: forall xs.
@@ -311,14 +377,14 @@ newtype EmitOrdCatalog (xs :: [Type]) r = EmitOrdCatalog ([Any], [Any])
 
 instance Reiterate EmitOrdCatalog (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (EmitOrdCatalog (ls, rs)) = EmitOrdCatalog (Prelude.tail ls, Prelude.tail rs)
+    reiterate (EmitOrdCatalog (ls, rs)) = EmitOrdCatalog (Partial.tail ls, Partial.tail rs)
 
 instance Ord x => Emit EmitOrdCatalog (x ': xs) Ordering where
     emit (EmitOrdCatalog (ls, rs)) = compare l r
       where
         -- use of front here is safe as we are guaranteed the length from the typelist
-        l = unsafeCoerce (Prelude.head ls) :: x
-        r = unsafeCoerce (Prelude.head rs) :: x
+        l = unsafeCoerce (Partial.head ls) :: x
+        r = unsafeCoerce (Partial.head rs) :: x
 
 ordCatalog
     :: forall xs.
@@ -340,7 +406,7 @@ newtype EmitShowCatalog (xs :: [Type]) r = EmitShowCatalog [Any]
 
 instance Reiterate EmitShowCatalog (x ': xs) where
     -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (EmitShowCatalog xxs) = EmitShowCatalog (Prelude.tail xxs)
+    reiterate (EmitShowCatalog xxs) = EmitShowCatalog (Partial.tail xxs)
 
 instance Emit EmitShowCatalog '[] ShowS where
     emit _ = showString ".|"
@@ -349,14 +415,14 @@ instance Show x => Emit EmitShowCatalog '[x] ShowS where
     emit (EmitShowCatalog xs) = showsPrec (cons_prec + 1) v
       where
         -- use of front here is safe as we are guaranteed the length from the typelist
-        v = unsafeCoerce (Prelude.head xs) :: x
+        v = unsafeCoerce (Partial.head xs) :: x
         cons_prec = 5 -- infixr 5 cons
 
 instance Show x => Emit EmitShowCatalog (x ': x' ': xs) ShowS where
     emit (EmitShowCatalog xxs) = showsPrec (cons_prec + 1) v . showString "./"
       where
         -- use of front here is safe as we are guaranteed the length from the typelist
-        v = unsafeCoerce (Prelude.head xxs) :: x
+        v = unsafeCoerce (Partial.head xxs) :: x
         cons_prec = 5 -- infixr 5 cons
 
 showCatalog

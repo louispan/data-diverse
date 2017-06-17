@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -14,7 +15,29 @@
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Data.Diverse.Distinct.Many.Internal where
+module Data.Diverse.Distinct.Many.Internal
+    ( Many(..) -- ^ exporting constructor unsafely!
+    , pick
+    , pick'
+    , notMany
+    , trial
+    , trial'
+    , trialEither
+    , trialEither'
+    , facet
+    , Diversify
+    , diversify
+    , Reinterpret
+    , reinterpret
+    , reinterpretEither
+    , inject
+    , injected
+    , forMany
+    , Switch(..)
+    , switch
+    , Cases(..)
+    , cases
+    ) where
 
 import Control.Applicative
 import Control.Lens
@@ -127,31 +150,34 @@ facet = prism' pick trial
 
 ------------------------------------------------------------------
 
+-- | A friendllier constraint synonym for 'diversify'. All 'Many' fufill this constraint.
+type Diversify (tree :: [Type]) (branch :: [Type]) = Reduce Many (Switch (CaseDiversify tree)) branch (Many tree)
+
 -- | Convert a Many to another Many that may include other possibilities.
--- That is, xs is equal or is a subset of ys.
--- Can be used to rearrange the order of the types in the Many.
--- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
--- The Switch constraint is fulfilled with
--- (Distinct ys, forall x (in xs). Member x xs)
--- FIXME: Is there a way to simplify this type signature? With a Diversify typeclass?
-diversify :: forall ys xs. Reduce Many (Switch (CaseDiversify ys)) xs (Many ys) => Many xs -> Many ys
-diversify = forMany (CaseDiversify @ys)
+-- That is, @branch@ is equal or is a subset of @tree@.
+-- This can be used to rearrange the order of the types in the Many.
+-- NB. @tree@ is ordered first, so TypeApplications can be used to specify it.
+diversify :: forall tree branch. Diversify tree branch => Many branch -> Many tree
+diversify = forMany (CaseDiversify @tree)
 
-data CaseDiversify (ys :: [Type]) (xs :: [Type]) r = CaseDiversify
+data CaseDiversify (tree :: [Type]) (branch :: [Type]) r = CaseDiversify
 
-instance Reiterate (CaseDiversify ys) xs where
+instance Reiterate (CaseDiversify tree) branch where
     reiterate CaseDiversify = CaseDiversify
 
-instance (Member (Head xs) ys, Distinct ys) => Case (CaseDiversify ys) xs (Many ys) where
+instance (Member (Head branch) tree, Distinct tree) => Case (CaseDiversify tree) branch (Many tree) where
     then' CaseDiversify = pick
 
 ------------------------------------------------------------------
+
+-- | A friendllier constraint synonym for 'reinterpret'. All 'Many' fufill this constraint.
+type Reinterpret ys xs = Reduce Many (Switch (CaseReinterpret ys)) xs (Maybe (Many ys))
 
 -- | Convert a Many into possibly another Many with a totally different typelist.
 -- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
 -- The Switch constraint is fulfilled with
 -- (Distinct ys, forall x (in xs). (MaybeMember x ys)
-reinterpret :: forall ys xs. Reduce Many (Switch (CaseReinterpret ys)) xs (Maybe (Many ys)) => Many xs -> Maybe (Many ys)
+reinterpret :: forall ys xs. Reinterpret ys xs => Many xs -> Maybe (Many ys)
 reinterpret = forMany (CaseReinterpret @ys)
 
 data CaseReinterpret (ys :: [Type]) (xs :: [Type]) r = CaseReinterpret
@@ -164,14 +190,11 @@ instance (MaybeMember (Head xs) ys, Distinct ys) => Case (CaseReinterpret ys) xs
                                      0 -> Nothing
                                      i -> Just $ Many (i - 1) (unsafeCoerce a)
 
-
--- | Like reinterpret, but return the Complement (the parts of xs not in ys) in the case of failure.
--- The Switch constraints is fulfilled with
--- (Distinct ys, forall x (in xs). (MaybeMember x ys, Member x (Complement xs ys)))
+-- | Like reinterpret, but return the complement (the parts of @xs@ not in @ys@) in the case of failure.
 reinterpretEither
     :: forall ys xs.
-       ( Reduce Many (Switch (CaseDiversify (Complement xs ys))) xs (Many (Complement xs ys))
-       , Reduce Many (Switch (CaseReinterpret ys)) xs (Maybe (Many ys))
+       ( Diversify (Complement xs ys) xs
+       , Reinterpret ys xs
        )
     => Many xs -> Either (Many (Complement xs ys)) (Many ys)
 reinterpretEither v = case reinterpret v of
@@ -207,13 +230,12 @@ injected = inject
 
 ------------------------------------------------------------------
 
--- | This instance of 'Switch' for which visits through the possibilities in Many,
+-- | 'Switch' is anThis instance of 'Reduce' for which visits through the possibilities in Many,
 -- delegating work to 'Case', ensuring termination when Many only contains one type.
 -- 'trial' each type in a Many, and either then' the handling of the value discovered, or loop
 -- trying the next type in the type list.
 -- This code will be efficiently compiled into a single case statement in GHC 8.2.1
 -- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
-
 newtype Switch c (xs :: [Type]) r = Switch (c xs r)
 
 instance (Case c (x ': x' ': xs) r, Reduce Many (Switch c) (x' ': xs) r, Reiterate c (x : x' : xs)) =>
