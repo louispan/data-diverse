@@ -18,6 +18,7 @@ module Data.Diverse.Distinct.Catalog2
     , (.^.)
     , replace
     , (..~)
+    , item
     , Via -- ^ no constructor
     , via -- ^ safe construction
     , forCatalog
@@ -29,7 +30,8 @@ module Data.Diverse.Distinct.Catalog2
     , Amend
     , amend
     , (\.~)
+    , project
+    , projected
     ) where
 
 import Data.Diverse.Distinct.Catalog2.Internal
-import Prelude hiding (tail, init)

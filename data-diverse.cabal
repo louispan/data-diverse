@@ -19,8 +19,6 @@ library
   exposed-modules:     Data.Diverse.Class.AFoldable
                        Data.Diverse.Class.Case
                        Data.Diverse.Class.Emit
-                       Data.Diverse.Class.Item
-                       Data.Diverse.Class.Project
                        Data.Diverse.Class.Reiterate
                        Data.Diverse.Class.Reduce
                        Data.Diverse.Data.CaseTypeable

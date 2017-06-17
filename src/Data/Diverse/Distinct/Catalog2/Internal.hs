@@ -36,6 +36,7 @@ module Data.Diverse.Distinct.Catalog2.Internal
     , (.^.)
     , replace
     , (..~)
+    , item
     , Via -- ^ no constructor
     , via -- ^ safe construction
     , forCatalog
@@ -47,6 +48,8 @@ module Data.Diverse.Distinct.Catalog2.Internal
     , Amend
     , amend
     , (\.~)
+    , project
+    , projected
     ) where
 
 import Control.Applicative
@@ -55,8 +58,6 @@ import Data.Bool
 import Data.Diverse.Class.AFoldable
 import Data.Diverse.Class.Case
 import Data.Diverse.Class.Emit
-import Data.Diverse.Class.Item
-import Data.Diverse.Class.Project
 import Data.Diverse.Class.Reiterate
 import Data.Diverse.Data.Collector
 import Data.Diverse.Data.WrappedAny
@@ -236,8 +237,11 @@ replace (Catalog o m) v = Catalog o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 (..~) = replace
 infixl 1 ..~ -- like Control.Lens.(.~)
 
-instance (Distinct xs, Member x xs) => Item x (Catalog xs) where
-    item = lens fetch replace
+-- | Use TypeApplication to specify the field type of the lens.
+-- Example: @item \@Int@
+item :: forall x xs. (Distinct xs, Member x xs) => Lens' (Catalog xs) x
+item = lens fetch replace
+{-# INLINE item #-}
 
 -----------------------------------------------------------------------
 
@@ -340,8 +344,21 @@ instance Member x larger => Case (CaseAmend smaller larger) (x ': xs) (Key, Wrap
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
 
 -----------------------------------------------------------------------
-instance (Narrow smaller larger, Amend smaller larger) => Project smaller larger Catalog where
-    project = lens narrow amend
+
+-- | Projection.
+-- A Catalog can be narrowed or have its order changed by projecting into another Catalog type.
+-- Use TypeApplication to specify the @smaller@ typelist of the lens.
+-- Example: @project \@'[Int, String]@
+project :: forall smaller larger. (Narrow smaller larger, Amend smaller larger) => Lens' (Catalog larger) (Catalog smaller)
+project = lens narrow amend
+{-# INLINE project #-}
+
+-- | This is 'project' with the type parameters reversed
+-- so TypeApplications can be used to specify @larger@ typelist nstead of @smaller@.
+-- Example: @projected \@'[Int, String]@
+projected :: forall larger smaller. (Narrow smaller larger, Amend smaller larger) => Lens' (Catalog larger) (Catalog smaller)
+projected = project
+{-# INLINE projected #-}
 
 -----------------------------------------------------------------------
 
