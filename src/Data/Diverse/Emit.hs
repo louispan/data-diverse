@@ -1,10 +1,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds #-}
 
 module Data.Diverse.Emit where
 
-import Data.Kind
-
-class Emit g (xs :: [Type]) r where
+class Emit g (xs :: [k]) r where
     emit :: g xs r -> r

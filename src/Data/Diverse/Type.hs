@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeInType #-}
 
 module Data.Diverse.Type where
 
@@ -58,17 +59,17 @@ type family TupleOf (xs :: [Type]) :: Type where
 
 -- | Add a type to a typelist, disallowing duplicates.
 -- NB. xs are not checked.
-type Insert (y :: Type) (xs :: [Type]) = InsertImpl xs y xs
+type Insert (y :: k) (xs :: [k]) = InsertImpl xs y xs
 
 -- | Combine two type lists together, assuming disallowing duplicates from ys
 -- NB. xs are not checked.
-type family Union (xs :: [Type]) (ys :: [Type]) :: [Type] where
+type family Union (xs :: [k]) (ys :: [k]) :: [k] where
     Union '[] '[] = '[]
     Union xs '[] = xs
     Union xs (y ': ys) = Union (Insert y xs) ys
 
 -- | A constraint ensuring that the type list contain unique types
-type Distinct (xs :: [Type]) = Union '[] xs ~ xs
+type Distinct (xs :: [k]) = Union '[] xs ~ xs
 
 -- | Gets the result type from an list of handlers/continuations of different types.
 type family OutcomeOf (xs :: [Type]) :: Type where
@@ -81,19 +82,19 @@ type family OutcomeOf (xs :: [Type]) :: Type where
 
 -- | Get the first index of a type (Indexed by 0)
 -- Will result in type error if x doesn't exist in xs.
-type IndexOf x (xs :: [Type]) = IndexOfImpl xs x xs
+type IndexOf x (xs :: [k]) = IndexOfImpl xs x xs
 
 -- | Get the first index of a type (Indexed by 1)
 -- Will return 0 if x doesn't exists in xs.
-type PositionOf x (xs :: [Type]) = PositionOfImpl 0 x xs
+type PositionOf x (xs :: [k]) = PositionOfImpl 0 x xs
 
 -- | Get the type at an index
-type TypeAt (n :: Nat) (xs :: [Type]) = TypeAtImpl n xs n xs
+type TypeAt (n :: Nat) (xs :: [k]) = TypeAtImpl n xs n xs
 
 -- | The typelist xs without x. It is okay for x not to exist in xs
-type Without x (xs :: [Type]) = WithoutImpl x '[] xs
+type Without x (xs :: [k]) = WithoutImpl x '[] xs
 
-type Reverse (xs :: [Type]) = ReverseImpl '[] xs
+type Reverse (xs :: [k]) = ReverseImpl '[] xs
 
 -- | KnownNat constraint is proof to GHC that it can instantiate a value of KnownNat
 -- for a particular typelevel Nat for a particular usage of 'natVal'.
@@ -102,7 +103,7 @@ type Reverse (xs :: [Type]) = ReverseImpl '[] xs
 type Member x xs = (KnownNat (IndexOf x xs))
 
 -- | Index is within Bounds of the typelist
-type WithinBounds (n :: Nat) (xs :: [Type]) = (KnownNat n, n + 1 <= Length xs, 0 <= n)
+type WithinBounds (n :: Nat) (xs :: [k]) = (KnownNat n, n + 1 <= Length xs, 0 <= n)
 
 -- | KnownNat constraint is proof to GHC that it can instantiate a value of KnownNat
 -- for a particular typelevel Nat for a particular usage of 'natVal'.
@@ -111,34 +112,34 @@ type WithinBounds (n :: Nat) (xs :: [Type]) = (KnownNat n, n + 1 <= Length xs, 0
 type MaybeMember x xs = KnownNat (PositionOf x xs)
 
 -- | For all x in xs, provide a proof that there is a KnownNat of x in ys.
-type family MembersOf (ctx :: [Type]) (xs :: [Type]) :: Constraint where
+type family MembersOf (ctx :: [k]) (xs :: [k]) :: Constraint where
     MembersOf ctx '[] = ()
     MembersOf ctx (x ': xs) = (Member x ctx,  MembersOf ctx xs)
 
-type family Length (xs :: [Type]) :: Nat where
+type family Length (xs :: [k]) :: Nat where
     Length '[] = 0
     Length (x ': xs) = 1 + Length xs
 
-type family Tail (xs :: [Type]) :: [Type] where
+type family Tail (xs :: [k]) :: [k] where
     Tail '[] = TypeError ('Text "Cannot Tail an empty type list")
     Tail (x ': xs) = xs
 
-type family Head (xs :: [Type]) :: Type where
+type family Head (xs :: [k]) :: k where
     Head '[] = TypeError ('Text "Cannot Head an empty type list")
     Head (x ': xs) = x
 
-type SameLength (xs :: [Type]) (ys :: [Type]) = SameLengthImpl xs ys xs ys
+type SameLength (xs :: [k]) (ys :: [k]) = SameLengthImpl xs ys xs ys
 
 -- | Set complement. Returns the set of things in xs that are not in ys.
-type family Complement (xs :: [Type]) (ys :: [Type]) :: [Type] where
+type family Complement (xs :: [k]) (ys :: [k]) :: [k] where
     Complement xs '[] = xs
     Complement xs (y ': ys)  = Complement (Without y xs) ys
 
-type family Concat (xs :: [Type]) (ys :: [Type]) :: [Type] where
+type family Concat (xs :: [k]) (ys :: [k]) :: [k] where
     Concat '[] ys = ys
     Concat (x ': xs) ys = x ': Concat xs ys
 
-type Init (xs :: [Type]) = InitImpl '[] xs
+type Init (xs :: [k]) = InitImpl '[] xs
 
 -- | The follows breaks the constraint sovler
 -- solveWanteds: too many iterations (limit = 4)
