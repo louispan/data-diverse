@@ -89,7 +89,12 @@ type IndexOf x (xs :: [k]) = IndexOfImpl xs x xs
 type PositionOf x (xs :: [k]) = PositionOfImpl 0 x xs
 
 -- | Get the type at an index
-type TypeAt (n :: Nat) (xs :: [k]) = TypeAtImpl n xs n xs
+type KindAt (n :: Nat) (xs :: [k]) = KindAtImpl n xs n xs
+
+-- | Get the types at an list of index
+type family KindsAt (ns :: [Nat]) (xs :: [k]) :: [k] where
+    KindsAt '[] xs = '[]
+    KindsAt (n ': ns) xs = KindAt n xs ': KindsAt ns xs
 
 -- | The typelist xs without x. It is okay for x not to exist in xs
 type Without x (xs :: [k]) = WithoutImpl x '[] xs
@@ -100,21 +105,29 @@ type Reverse (xs :: [k]) = ReverseImpl '[] xs
 -- for a particular typelevel Nat for a particular usage of 'natVal'.
 -- 'Member' is required for using 'natVal' for a particular index (starting from 0)
 -- of a type in a typelist.
-type Member x xs = (KnownNat (IndexOf x xs))
+-- type Member x xs = (KnownNat (IndexOf x xs))
 
 -- | Index is within Bounds of the typelist
-type WithinBounds (n :: Nat) (xs :: [k]) = (KnownNat n, n + 1 <= Length xs, 0 <= n)
+type WithinBounds (n :: Nat) (xs :: [k]) = (n + 1 <= Length xs, 0 <= n)
+
+-- | Get the index of type with tag @l@ in the typelist.
+type IndexOfLabel (l :: k) (xs :: [k]) = IndexOfLabelImpl xs l xs
+
+type family LabelsOf (xs :: [k]) :: [k] where
+     LabelsOf '[] = '[]
+     LabelsOf (tagged l v ': xs) = l ': LabelsOf xs
+     LabelsOf (x ': xs) = LabelsOf xs
 
 -- | KnownNat constraint is proof to GHC that it can instantiate a value of KnownNat
 -- for a particular typelevel Nat for a particular usage of 'natVal'.
 -- MaybeMember required to use 'natVal' for a particular position (starting from 1)
 -- of a type in a typelist, or 0 if the type is not found.
-type MaybeMember x xs = KnownNat (PositionOf x xs)
+-- type MaybeMember x xs = KnownNat (PositionOf x xs)
 
 -- | For all x in xs, provide a proof that there is a KnownNat of x in ys.
-type family MembersOf (ctx :: [k]) (xs :: [k]) :: Constraint where
-    MembersOf ctx '[] = ()
-    MembersOf ctx (x ': xs) = (Member x ctx,  MembersOf ctx xs)
+-- type family MembersOf (xs :: [k]) (ctx :: [k]) :: Constraint where
+--     MembersOf '[] ctx = ()
+--     MembersOf (x ': xs) ctx = (Member x ctx, MembersOf xs ctx)
 
 type family Length (xs :: [k]) :: Nat where
     Length '[] = 0

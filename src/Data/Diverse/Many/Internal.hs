@@ -93,7 +93,7 @@ type role Many representational
 
 -- | Lift a value into a Many of possibly other types.
 -- NB. forall used to specify @xs@ first, so TypeApplications can be used to specify @xs@.
-pick :: forall xs x. (Distinct xs, Member x xs) => x -> Many xs
+pick :: forall xs x. (Distinct xs, KnownNat (IndexOf x xs)) => x -> Many xs
 pick = Many (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | A variation of 'pick' into a Many of a single type
@@ -104,7 +104,7 @@ pick' = pick
 -- This is useful when we know something is Distinct, but I don't know how (or can't be bothered)
 -- to prove it to GHC.
 -- Eg. a subset of something Distinct is also Distinct.
--- unsafeToMany :: forall x xs. (Member x xs) => x -> Many xs
+-- unsafeToMany :: forall x xs. (KnownNat (IndexOf x xs)) => x -> Many xs
 -- unsafeToMany = Many (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | Retrieving the value out of a 'Many' of one type is always successful.
@@ -113,7 +113,7 @@ notMany :: Many '[a] -> a
 notMany (Many _ v) = unsafeCoerce v
 
 -- | For a specified or inferred type, deconstruct a Many into a Maybe value of that type.
-trial :: forall x xs. (Member x xs) => Many xs -> Maybe x
+trial :: forall x xs. (KnownNat (IndexOf x xs)) => Many xs -> Maybe x
 trial (Many n v) = if n == fromInteger (natVal @(IndexOf x xs) Proxy)
             then Just (unsafeCoerce v)
             else Nothing
@@ -127,7 +127,7 @@ trial' (Many n v) = if n == 0
 -- | 'trial' a value out of a Many, and get Either the Right value or the Left-over possibilities.
 trialEither
     :: forall x xs.
-       (Member x xs)
+       (KnownNat (IndexOf x xs))
     => Many xs -> Either (Many (Without x xs)) x
 trialEither (Many n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
                   in if n == i
@@ -148,7 +148,7 @@ trialEither' (Many n v) = if n == 0
 -- That is, a value can be 'pick'ed into a Many or mabye 'trial'ed out of a Many.
 -- Use TypeApplication to specify the inner type of the of the prism.
 -- Example: @facet \@Int@
-facet :: forall x xs. (Distinct xs, Member x xs) => Prism' (Many xs) x
+facet :: forall x xs. (Distinct xs, KnownNat (IndexOf x xs)) => Prism' (Many xs) x
 facet = prism' pick trial
 {-# INLINE facet #-}
 
@@ -169,7 +169,7 @@ data CaseDiversify (tree :: [Type]) (branch :: [Type]) r = CaseDiversify
 instance Reiterate (CaseDiversify tree) branch where
     reiterate CaseDiversify = CaseDiversify
 
-instance (Member (Head branch) tree, Distinct tree) => Case (CaseDiversify tree) branch (Many tree) where
+instance (KnownNat (IndexOf (Head branch) tree), Distinct tree) => Case (CaseDiversify tree) branch (Many tree) where
     case' CaseDiversify = pick
 
 ------------------------------------------------------------------
@@ -177,7 +177,7 @@ instance (Member (Head branch) tree, Distinct tree) => Case (CaseDiversify tree)
 -- | Convert a Many into possibly another Many with a totally different typelist.
 -- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
 -- The Switch constraint is fulfilled with
--- (Distinct ys, forall x (in xs). (MaybeMember x ys)
+-- (Distinct ys, forall x (in xs). (KnownNat (PositionOf x ys))
 reinterpret :: forall ys xs. Reinterpret ys xs => Many xs -> Maybe (Many ys)
 reinterpret = forMany (CaseReinterpret @ys)
 
@@ -189,7 +189,7 @@ data CaseReinterpret (ys :: [Type]) (xs :: [Type]) r = CaseReinterpret
 instance Reiterate (CaseReinterpret ys) xs where
     reiterate CaseReinterpret = CaseReinterpret
 
-instance (MaybeMember (Head xs) ys, Distinct ys) => Case (CaseReinterpret ys) xs (Maybe (Many ys)) where
+instance (KnownNat (PositionOf (Head xs) ys), Distinct ys) => Case (CaseReinterpret ys) xs (Maybe (Many ys)) where
     case' CaseReinterpret a = case fromInteger (natVal @(PositionOf (Head xs) ys) Proxy) of
                                      0 -> Nothing
                                      i -> Just $ Many (i - 1) (unsafeCoerce a)

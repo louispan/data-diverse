@@ -29,6 +29,28 @@ type family IndexOfImpl (ctx :: [k]) x (xs :: [k]) :: Nat where
                                       ':<>: 'ShowType ctx
                                       ':<>: 'Text "’")
 
+type family PositionOfLabelImpl (ctx :: [Type]) (l :: k) (xs :: [k]) :: Nat where
+    PositionOfLabelImpl ctx l '[] = TypeError ('Text "Label ‘"
+                                    ':<>: 'ShowType l
+                                    ':<>: 'Text "’"
+                                    ':<>: 'Text " not found in "
+                                    ':<>: 'Text "‘"
+                                    ':<>: 'ShowType ctx
+                                    ':<>: 'Text "’")
+    PositionOfLabelImpl ctx l (tagged l v ': xs) = 0
+    PositionOfLabelImpl ctx l (x ': xs) = 1 + PositionOfLabelImpl ctx l xs
+
+type family IndexOfLabelImpl (ctx :: [k]) (l :: k) (xs :: [k]) :: Nat where
+    IndexOfLabelImpl ctx l '[] = TypeError ('Text "Label ‘"
+                                    ':<>: 'ShowType l
+                                    ':<>: 'Text "’"
+                                    ':<>: 'Text " not found in "
+                                    ':<>: 'Text "‘"
+                                    ':<>: 'ShowType ctx
+                                    ':<>: 'Text "’")
+    IndexOfLabelImpl ctx l (tagged l v ': xs) = 0
+    IndexOfLabelImpl ctx l (x ': xs) = 1 + IndexOfLabelImpl ctx l xs
+
 -- | Add a type to a typelist, disallowing duplicates.
 -- NB. xs are not checked.
 type family InsertImpl (ctx :: [k]) (y :: k) (xs :: [k]) :: [k] where
@@ -54,16 +76,16 @@ type family OutcomeOfImpl (ctx :: [Type]) r (xs :: [Type]) :: Type where
                                        ':<>: 'Text "’")
 
 -- | Indexed access into the list
-type family TypeAtImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: k where
-   TypeAtImpl i ctx 0 '[] = TypeError ('Text "Index ‘"
+type family KindAtImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: k where
+   KindAtImpl i ctx 0 '[] = TypeError ('Text "Index ‘"
                                        ':<>: 'ShowType i
                                        ':<>: 'Text "’"
                                        ':<>: 'Text " is out of bounds of "
                                        ':<>: 'Text "‘"
                                        ':<>: 'ShowType ctx
                                        ':<>: 'Text "’")
-   TypeAtImpl i ctx 0 (x ': xs) = x
-   TypeAtImpl i ctx n (x ': xs) = TypeAtImpl i ctx (n - 1) xs
+   KindAtImpl i ctx 0 (x ': xs) = x
+   KindAtImpl i ctx n (x ': xs) = KindAtImpl i ctx (n - 1) xs
 
 type family ReverseImpl (ret :: [k]) (xs :: [k]) :: [k] where
     ReverseImpl ret '[] = ret
@@ -85,6 +107,7 @@ type family SameLengthImpl (ctx :: [k]) (cty :: [k]) (xs :: [k]) (yx :: [k]) :: 
                                             ':<>: 'Text "‘"
                                             ':<>: 'ShowType bs
                                             ':<>: 'Text "’")
+
 type family InitImpl (ret :: [k]) (xs :: [k]) :: [k] where
     InitImpl ret '[]  = TypeError ('Text "Cannot Init an empty type list")
     InitImpl ret '[x] = ReverseImpl '[] ret
