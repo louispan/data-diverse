@@ -19,8 +19,3 @@ class Reiterate c (xs :: [Type]) where
 class ReiterateN c (n :: Nat) (xs :: [Type]) where
     -- | Return the next iteration without the type x in (x ': xs)
     reiterateN :: c n xs r -> c (n + 1) (Tail xs) r
-
--- | Allows iterating over the types in a typelist, using a Labels
-class ReiterateL c (ls :: [k]) (xs :: [Type]) where
-    -- | Return the next iteration without the type x in (x ': xs)
-    reiterateL :: c ls xs r -> c (Tail ls) (Tail xs) r

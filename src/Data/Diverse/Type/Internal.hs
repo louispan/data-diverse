@@ -29,27 +29,27 @@ type family IndexOfImpl (ctx :: [k]) x (xs :: [k]) :: Nat where
                                       ':<>: 'ShowType ctx
                                       ':<>: 'Text "’")
 
-type family PositionOfLabelImpl (ctx :: [Type]) (l :: k) (xs :: [k]) :: Nat where
-    PositionOfLabelImpl ctx l '[] = TypeError ('Text "Label ‘"
-                                    ':<>: 'ShowType l
-                                    ':<>: 'Text "’"
-                                    ':<>: 'Text " not found in "
-                                    ':<>: 'Text "‘"
-                                    ':<>: 'ShowType ctx
-                                    ':<>: 'Text "’")
-    PositionOfLabelImpl ctx l (tagged l v ': xs) = 0
-    PositionOfLabelImpl ctx l (x ': xs) = 1 + PositionOfLabelImpl ctx l xs
+-- type family PositionOfLabelImpl (ctx :: [Type]) (l :: k1) (xs :: [k2]) :: Nat where
+--     PositionOfLabelImpl ctx l '[] = TypeError ('Text "Label ‘"
+--                                     ':<>: 'ShowType l
+--                                     ':<>: 'Text "’"
+--                                     ':<>: 'Text " not found in "
+--                                     ':<>: 'Text "‘"
+--                                     ':<>: 'ShowType ctx
+--                                     ':<>: 'Text "’")
+--     PositionOfLabelImpl ctx l (tagged l v ': xs) = 0
+--     PositionOfLabelImpl ctx l (x ': xs) = 1 + PositionOfLabelImpl ctx l xs
 
-type family IndexOfLabelImpl (ctx :: [k]) (l :: k) (xs :: [k]) :: Nat where
-    IndexOfLabelImpl ctx l '[] = TypeError ('Text "Label ‘"
+type family IndexAtLabelImpl (ctx :: [k2]) (l :: k1) (xs :: [k2]) :: Nat where
+    IndexAtLabelImpl ctx l '[] = TypeError ('Text "Label ‘"
                                     ':<>: 'ShowType l
                                     ':<>: 'Text "’"
                                     ':<>: 'Text " not found in "
                                     ':<>: 'Text "‘"
                                     ':<>: 'ShowType ctx
                                     ':<>: 'Text "’")
-    IndexOfLabelImpl ctx l (tagged l v ': xs) = 0
-    IndexOfLabelImpl ctx l (x ': xs) = 1 + IndexOfLabelImpl ctx l xs
+    IndexAtLabelImpl ctx l (tagged l v ': xs) = 0
+    IndexAtLabelImpl ctx l (x ': xs) = 1 + IndexAtLabelImpl ctx l xs
 
 -- | Add a type to a typelist, disallowing duplicates.
 -- NB. xs are not checked.
@@ -76,16 +76,28 @@ type family OutcomeOfImpl (ctx :: [Type]) r (xs :: [Type]) :: Type where
                                        ':<>: 'Text "’")
 
 -- | Indexed access into the list
-type family KindAtImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: k where
-   KindAtImpl i ctx 0 '[] = TypeError ('Text "Index ‘"
+type family KindAtIndexImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: k where
+   KindAtIndexImpl i ctx 0 '[] = TypeError ('Text "Index ‘"
                                        ':<>: 'ShowType i
                                        ':<>: 'Text "’"
                                        ':<>: 'Text " is out of bounds of "
                                        ':<>: 'Text "‘"
                                        ':<>: 'ShowType ctx
                                        ':<>: 'Text "’")
-   KindAtImpl i ctx 0 (x ': xs) = x
-   KindAtImpl i ctx n (x ': xs) = KindAtImpl i ctx (n - 1) xs
+   KindAtIndexImpl i ctx 0 (x ': xs) = x
+   KindAtIndexImpl i ctx n (x ': xs) = KindAtIndexImpl i ctx (n - 1) xs
+
+-- | Access a list via label
+type family KindAtLabelImpl (orig :: k1) (ctx :: [k2]) (l :: k1) (xs :: [k2]) :: k1 where
+   KindAtLabelImpl orig ctx  l '[] = TypeError ('Text "Label ‘"
+                                       ':<>: 'ShowType orig
+                                       ':<>: 'Text "’"
+                                       ':<>: 'Text " is not in "
+                                       ':<>: 'Text "‘"
+                                       ':<>: 'ShowType ctx
+                                       ':<>: 'Text "’")
+   KindAtLabelImpl orig ctx l (tagged l v ': xs) = tagged l v
+   KindAtLabelImpl orig ctx l (x ': xs) = KindAtLabelImpl orig ctx l xs
 
 type family ReverseImpl (ret :: [k]) (xs :: [k]) :: [k] where
     ReverseImpl ret '[] = ret
@@ -97,7 +109,7 @@ type family WithoutImpl x (ret :: [k]) (xs :: [k]) :: [k] where
     WithoutImpl x ret (y ': xs) = WithoutImpl x (y ': ret) xs
 
 
-type family SameLengthImpl (ctx :: [k]) (cty :: [k]) (xs :: [k]) (yx :: [k]) :: Constraint where
+type family SameLengthImpl (ctx :: [k1]) (cty :: [k2]) (xs :: [k1]) (yx :: [k2]) :: Constraint where
     SameLengthImpl as bs '[] '[] = ()
     SameLengthImpl as bs (x ': xs) (y ': ys) = SameLengthImpl as bs xs ys
     SameLengthImpl as bs xs ys = TypeError ('Text "‘"

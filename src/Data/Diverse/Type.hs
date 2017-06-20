@@ -89,12 +89,12 @@ type IndexOf x (xs :: [k]) = IndexOfImpl xs x xs
 type PositionOf x (xs :: [k]) = PositionOfImpl 0 x xs
 
 -- | Get the type at an index
-type KindAt (n :: Nat) (xs :: [k]) = KindAtImpl n xs n xs
+type KindAtIndex (n :: Nat) (xs :: [k]) = KindAtIndexImpl n xs n xs
 
 -- | Get the types at an list of index
-type family KindsAt (ns :: [Nat]) (xs :: [k]) :: [k] where
-    KindsAt '[] xs = '[]
-    KindsAt (n ': ns) xs = KindAt n xs ': KindsAt ns xs
+type family KindsAtIndices (ns :: [Nat]) (xs :: [k]) :: [k] where
+    KindsAtIndices '[] xs = '[]
+    KindsAtIndices (n ': ns) xs = KindAtIndex n xs ': KindsAtIndices ns xs
 
 -- | The typelist xs without x. It is okay for x not to exist in xs
 type Without x (xs :: [k]) = WithoutImpl x '[] xs
@@ -111,12 +111,19 @@ type Reverse (xs :: [k]) = ReverseImpl '[] xs
 type WithinBounds (n :: Nat) (xs :: [k]) = (n + 1 <= Length xs, 0 <= n)
 
 -- | Get the index of type with tag @l@ in the typelist.
-type IndexOfLabel (l :: k) (xs :: [k]) = IndexOfLabelImpl xs l xs
-
-type family LabelsOf (xs :: [k]) :: [k] where
+type IndexAtLabel (l :: k1) (xs :: [k2]) = IndexAtLabelImpl xs l xs
+-- FIXME: Kinds?
+type family LabelsOf (xs :: [Type]) :: [Type] where
      LabelsOf '[] = '[]
      LabelsOf (tagged l v ': xs) = l ': LabelsOf xs
      LabelsOf (x ': xs) = LabelsOf xs
+
+type KindAtLabel (l :: k1) (xs :: [k2]) = KindAtLabelImpl l xs l xs
+
+-- | Get the types at an list of index
+type family KindsAtLabels (ls :: [k1]) (xs :: [k2]) :: [k2] where
+    KindsAtLabels '[] xs = '[]
+    KindsAtLabels (l ': ls) xs = KindAtLabel l xs ': KindsAtLabels ls xs
 
 -- | KnownNat constraint is proof to GHC that it can instantiate a value of KnownNat
 -- for a particular typelevel Nat for a particular usage of 'natVal'.
@@ -141,7 +148,7 @@ type family Head (xs :: [k]) :: k where
     Head '[] = TypeError ('Text "Cannot Head an empty type list")
     Head (x ': xs) = x
 
-type SameLength (xs :: [k]) (ys :: [k]) = SameLengthImpl xs ys xs ys
+type SameLength (xs :: [k1]) (ys :: [k2]) = SameLengthImpl xs ys xs ys
 
 -- | Set complement. Returns the set of things in xs that are not in ys.
 type family Complement (xs :: [k]) (ys :: [k]) :: [k] where

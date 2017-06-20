@@ -78,35 +78,3 @@ instance ( Emit (e n) (x ': xs) r
          ) =>
          AFoldable (CollectorN0 e n (x ': xs)) r where
     afoldr f z (CollectorN0 e) = f (emit e) (afoldr f z (CollectorN0 (reiterateN e)))
-
-
---------------------------------------------
-
--- Undecidable instances! But this is safe since it's a wrapper
-newtype CollectorL e (ls :: [k]) (xs :: [Type]) r = CollectorL (e ls xs r)
-
--- | null case that doesn't even use the Emit
-instance AFoldable (CollectorL e '[] '[]) r where
-    afoldr _ z _ = z
-
-instance ( Emit (e (l ': ls)) (x ': xs) r
-         , ReiterateL e (l ': ls) (x ': xs)
-         , AFoldable (CollectorL e ls xs) r
-         ) =>
-         AFoldable (CollectorL e (l ': ls) (x ': xs)) r where
-    afoldr f z (CollectorL e) = f (emit e) (afoldr f z (CollectorL (reiterateL e)))
-
--- Undecidable instances! But this is safe since it's a wrapper
-newtype CollectorL0 e (ls :: [k]) (xs :: [Type]) r = CollectorL0 (e ls xs r)
-
--- | terminating case that does use emit
-instance (Emit (e '[]) '[] r) =>
-         AFoldable (CollectorL0 e '[] '[]) r where
-    afoldr f z (CollectorL0 e) = f (emit e) z
-
-instance ( Emit (e (l ': ls)) (x ': xs) r
-         , ReiterateL e (l ': ls) (x ': xs)
-         , AFoldable (CollectorL0 e ls xs) r
-         ) =>
-         AFoldable (CollectorL0 e (l ': ls) (x ': xs)) r where
-    afoldr f z (CollectorL0 e) = f (emit e) (afoldr f z (CollectorL0 (reiterateL e)))

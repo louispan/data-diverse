@@ -2,7 +2,8 @@
 module Data.Diverse.Nary (
     -- * 'Nary' type
       Nary -- Hiding constructor
-    -- * Construction
+
+      -- * Construction
     , blank
     , (.|)
     , singleton
@@ -12,25 +13,33 @@ module Data.Diverse.Nary (
     , (\.)
     , append
     , (/./)
+
     -- * Simple queries
     , front
     , back
     , aft
     , fore
+
     -- * Single field
     -- ** Getter for single field
     , fetch
     , (.^.)
     , fetchN
     , (!^.)
+    , fetchL
+    , (#^.)
     -- ** Setter for single field
     , replace
     , (..~)
     , replaceN
     , (!.~)
-    -- ** Lens
+    , replaceL
+    , (#.~)
+    -- ** Lens for a single field
     , item
     , itemN
+    , itemL
+
     -- * Multiple fields
     -- ** Getter for multiple fields
     , Narrow
@@ -39,6 +48,9 @@ module Data.Diverse.Nary (
     , NarrowN
     , narrowN
     , (!\^.)
+    , NarrowL
+    , narrowL
+    , (#\^.)
     -- ** Setter for multiple fields
     , Amend
     , amend
@@ -46,9 +58,14 @@ module Data.Diverse.Nary (
     , AmendN
     , amendN
     , (!\.~)
+    , AmendL
+    , amendL
+    , (#\.~)
     -- ** Lens for multiple fields
     , project
     , projectN
+    , projectL
+
     -- * Destruction
     -- ** By type
     , Via -- no constructor

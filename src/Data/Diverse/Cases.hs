@@ -52,5 +52,5 @@ instance ReiterateN (CasesN fs) n xs where
     reiterateN (CasesN s) = CasesN s
 
 -- | UndecidableIstnaces because fs appers more often.
-instance (KindAt n fs ~ (Head xs -> r), KnownNat n, WithinBounds n fs) => Case (CasesN fs n) xs r where
+instance (KindAtIndex n fs ~ (Head xs -> r), KnownNat n, WithinBounds n fs) => Case (CasesN fs n) xs r where
     case' (CasesN s) = fetchN (Proxy @n) s
