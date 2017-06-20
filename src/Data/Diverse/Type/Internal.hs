@@ -40,7 +40,7 @@ type family IndexOfImpl (ctx :: [k]) x (xs :: [k]) :: Nat where
 --     PositionOfLabelImpl ctx l (tagged l v ': xs) = 0
 --     PositionOfLabelImpl ctx l (x ': xs) = 1 + PositionOfLabelImpl ctx l xs
 
-type family IndexAtLabelImpl (ctx :: [k2]) (l :: k1) (xs :: [k2]) :: Nat where
+type family IndexAtLabelImpl (ctx :: [k]) (l :: Symbol) (xs :: [k]) :: Nat where
     IndexAtLabelImpl ctx l '[] = TypeError ('Text "Label ‘"
                                     ':<>: 'ShowType l
                                     ':<>: 'Text "’"
@@ -88,7 +88,7 @@ type family KindAtIndexImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) ::
    KindAtIndexImpl i ctx n (x ': xs) = KindAtIndexImpl i ctx (n - 1) xs
 
 -- | Access a list via label
-type family KindAtLabelImpl (orig :: k1) (ctx :: [k2]) (l :: k1) (xs :: [k2]) :: k1 where
+type family KindAtLabelImpl (orig :: Symbol) (ctx :: [Type]) (l :: Symbol) (xs :: [Type]) :: Type where
    KindAtLabelImpl orig ctx  l '[] = TypeError ('Text "Label ‘"
                                        ':<>: 'ShowType orig
                                        ':<>: 'Text "’"

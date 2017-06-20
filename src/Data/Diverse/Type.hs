@@ -110,18 +110,27 @@ type Reverse (xs :: [k]) = ReverseImpl '[] xs
 -- | Index is within Bounds of the typelist
 type WithinBounds (n :: Nat) (xs :: [k]) = (n + 1 <= Length xs, 0 <= n)
 
--- | Get the index of type with tag @l@ in the typelist.
-type IndexAtLabel (l :: k1) (xs :: [k2]) = IndexAtLabelImpl xs l xs
--- FIXME: Kinds?
-type family LabelsOf (xs :: [Type]) :: [Type] where
+type family LabelledValue (x :: Type) :: Type where
+     LabelledValue (tagged l v) = v
+
+type family ValueOfLabelled (x :: Type) :: Type where
+     ValueOfLabelled (tagged l v) = v
+
+type family LabelOf (x :: Type) :: Symbol where
+    LabelOf (tagged l v) = l
+
+type family LabelsOf (xs :: [Type]) :: [Symbol] where
      LabelsOf '[] = '[]
      LabelsOf (tagged l v ': xs) = l ': LabelsOf xs
      LabelsOf (x ': xs) = LabelsOf xs
 
-type KindAtLabel (l :: k1) (xs :: [k2]) = KindAtLabelImpl l xs l xs
+-- | Get the index of type with tag @l@ in the typelist.
+type IndexAtLabel (l :: Symbol) (xs :: [k]) = IndexAtLabelImpl xs l xs
+
+type KindAtLabel (l :: Symbol) (xs :: [Type]) = KindAtLabelImpl l xs l xs
 
 -- | Get the types at an list of index
-type family KindsAtLabels (ls :: [k1]) (xs :: [k2]) :: [k2] where
+type family KindsAtLabels (ls :: [Symbol]) (xs :: [Type]) :: [Type] where
     KindsAtLabels '[] xs = '[]
     KindsAtLabels (l ': ls) xs = KindAtLabel l xs ': KindsAtLabels ls xs
 

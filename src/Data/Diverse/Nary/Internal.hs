@@ -484,7 +484,11 @@ collectN = flip forNaryN
 
 -----------------------------------------------------------------------
 
-type Narrow (smaller :: [Type]) (larger :: [Type]) = (AFoldable (Collector (Via (CaseNarrow smaller)) larger) [(Key, WrappedAny)], Distinct larger, Distinct smaller)
+type Narrow (smaller :: [Type]) (larger :: [Type]) =
+    (AFoldable
+        ( Collector (Via (CaseNarrow smaller)) larger) [(Key, WrappedAny)]
+        , Distinct larger
+        , Distinct smaller)
 
 -- | Construct a 'Nary' with a smaller number of fields than the original
 -- Analogous to 'fetch' getter but for multiple fields
@@ -523,7 +527,10 @@ instance forall smaller x xs. KnownNat (PositionOf x smaller) =>
 
 -----------------------------------------------------------------------
 
-type NarrowN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) = (smaller ~ KindsAtIndices ns larger, AFoldable (CollectorN (ViaN (CaseNarrowN ns)) 0 larger) [(Key, WrappedAny)], Distinct ns)
+type NarrowN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
+    ( AFoldable (CollectorN (ViaN (CaseNarrowN ns)) 0 larger) [(Key, WrappedAny)]
+    , smaller ~ KindsAtIndices ns larger
+    , Distinct ns)
 
 -- | Construct a 'Nary' with a smaller number of fields than the original
 -- Analogous to 'fetchN' getter but for multiple fields
@@ -563,7 +570,7 @@ instance forall indices n x xs. KnownNat (PositionOf n indices) =>
 
 -----------------------------------------------------------------------
 
-type NarrowL (ls :: [k]) (smaller :: [Type]) (larger :: [Type]) = (AFoldable
+type NarrowL ls smaller larger = (AFoldable
                          ( Collector (Via (CaseNarrowL ls)) larger) [(Key, WrappedAny)]
                          , smaller ~ KindsAtLabels ls larger
                          , Distinct (LabelsOf larger))
@@ -647,7 +654,10 @@ instance KnownNat (IndexOf x larger) => Case (CaseAmend larger) (x ': xs) (Key, 
 
 -----------------------------------------------------------------------
 
-type AmendN ns smaller larger = (AFoldable (CollectorN (ViaN (CaseAmendN ns)) 0 smaller) (Key, WrappedAny), smaller ~ KindsAtIndices ns larger, Distinct ns)
+type AmendN ns smaller larger =
+    ( AFoldable (CollectorN (ViaN (CaseAmendN ns)) 0 smaller) (Key, WrappedAny)
+    , smaller ~ KindsAtIndices ns larger
+    , Distinct ns)
 
 -- | Sets the subset of  'Nary' in the larger 'Nary'
 -- Analogous to 'replaceN' setter but for multiple fields.
@@ -686,10 +696,10 @@ instance (KnownNat (KindAtIndex n indices)) =>
 
 -----------------------------------------------------------------------
 
-type AmendL ls smaller larger = (AFoldable
-                         ( Collector (Via (CaseAmendL (LabelsOf larger))) smaller) (Key, WrappedAny)
-                         , smaller ~ KindsAtLabels ls larger
-                         , Distinct (LabelsOf larger))
+type AmendL ls smaller larger =
+    ( AFoldable (Collector (Via (CaseAmendL (LabelsOf larger))) smaller) (Key, WrappedAny)
+    , smaller ~ KindsAtLabels ls larger
+    , Distinct (LabelsOf larger))
 
 -- | Sets the subset of  'Nary' in the larger 'Nary'
 -- Analogous to 'replaceL' setter but for multiple fields.
