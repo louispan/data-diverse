@@ -5,7 +5,6 @@ module Data.Diverse.Nary (
 
       -- * Construction
     , blank
-    , (.|)
     , singleton
     , prefix
     , (./)

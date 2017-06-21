@@ -34,15 +34,15 @@ main = do
     hspec $ do
         describe "Nary" $ do
             it "is a Read and Show" $ do
-                let s = "5 ./ False .|"
+                let s = "5 ./ False ./ blank"
                     x = read s :: Nary '[Int, Bool]
                 show x `shouldBe` s
 
-        --     it "is a Eq" $ do
-        --         let s = "Catalog (5,False)"
-        --             x = read s :: Catalog '[Int, Bool]
-        --             y = catalog (5, False)
-        --         x `shouldBe` y
+            it "is a Eq" $ do
+                let s = "5 ./ False ./ blank"
+                    x = read s :: Nary '[Int, Bool]
+                    y = 5 ./ False ./ blank
+                x `shouldBe` y
 
         --     it "can edit fields" $ do
         --         let x = review _Cataloged (5, False) :: Catalog '[Int, Bool]

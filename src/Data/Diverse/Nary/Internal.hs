@@ -22,7 +22,6 @@ module Data.Diverse.Nary.Internal (
 
       -- * Construction
     , blank
-    , (.|)
     , singleton
     , prefix
     , (./)
@@ -177,10 +176,6 @@ leftKeyForCons (LeftOffset lo) (NewRightOffset ro) (Key lk) = Key (lk - lo + ro)
 blank :: Nary '[]
 blank = Nary 0 M.empty
 infixr 5 `blank` -- to be the same as cons
-
--- | 'blank' memonic: A blank wall '.|' stops.
-(.|) :: Nary '[]
-(.|) = blank
 
 -- | Create a Nary from a single value. Analogous to 'M.singleton'
 singleton :: x -> Nary '[x]
@@ -684,16 +679,10 @@ instance Reiterate EmitShowNary (x ': xs) where
     reiterate (EmitShowNary xxs) = EmitShowNary (Partial.tail xxs)
 
 instance Emit EmitShowNary '[] ShowS where
-    emit _ = showString " .|"
+    emit _ = showString "blank"
 
-instance Show x => Emit EmitShowNary '[x] ShowS where
-    emit (EmitShowNary xs) = showsPrec (cons_prec + 1) v
-      where
-        -- use of front here is safe as we are guaranteed the length from the typelist
-        v = unsafeCoerce (Partial.head xs) :: x
-        cons_prec = 5 -- infixr 5 cons
 
-instance Show x => Emit EmitShowNary (x ': x' ': xs) ShowS where
+instance Show x => Emit EmitShowNary (x ': xs) ShowS where
     emit (EmitShowNary xxs) = showsPrec (cons_prec + 1) v . showString " ./ "
       where
         -- use of front here is safe as we are guaranteed the length from the typelist
@@ -720,16 +709,10 @@ instance Reiterate EmitReadNary (x ': xs) where
 
 instance Emit EmitReadNary '[] (ReadPrec [(Key, WrappedAny)]) where
     emit (EmitReadNary _) = do
-        lift $ L.expect (Symbol ".|")
+        lift $ L.expect (Ident "blank")
         pure []
 
-instance Read x => Emit EmitReadNary '[x] (ReadPrec [(Key, WrappedAny)]) where
-    emit (EmitReadNary i) = do
-        a <- readPrec @x
-        -- don't read the ".|", save that for Emit '[]
-        pure [(i, WrappedAny (unsafeCoerce a))]
-
-instance Read x => Emit EmitReadNary (x ': x' ': xs) (ReadPrec [(Key, WrappedAny)]) where
+instance Read x => Emit EmitReadNary (x ': xs) (ReadPrec [(Key, WrappedAny)]) where
     emit (EmitReadNary i) = do
         a <- readPrec @x
         lift $ L.expect (Symbol "./")
