@@ -190,13 +190,13 @@ diversify = forMany (CaseDiversify @tree @branch)
 -- | A friendlier constraint synonym for 'diversify'. All 'Many' fufill this constraint.
 type Diversify (tree :: [Type]) (branch :: [Type]) = (Reduce Many (Switch (CaseDiversify tree)) branch (Many tree), Distinct tree)
 
-data CaseDiversify (tree :: [Type]) (branch :: [Type]) r = CaseDiversify
+data CaseDiversify (tree :: [Type]) (branch' :: [Type]) r = CaseDiversify
 
-instance Reiterate (CaseDiversify tree) branch where
+instance Reiterate (CaseDiversify tree) branch' where
     reiterate CaseDiversify = CaseDiversify
 
-instance (KnownNat (IndexOf (Head branch) tree)) =>
-         Case (CaseDiversify tree) branch (Many tree) where
+instance (KnownNat (IndexOf x tree)) =>
+         Case (CaseDiversify tree) (x ': branch') (Many tree) where
     case' CaseDiversify = unsafeToMany
 
 ------------------------------------------------------------------
@@ -208,15 +208,15 @@ diversifyN _ = forManyN (CaseDiversifyN @indices @0 @branch)
 
 type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) = (Reduce Many (SwitchN (CaseDiversifyN indices) 0) (KindsAtIndices indices tree) (Many tree), KindsAtIndices indices tree ~ branch)
 
-data CaseDiversifyN (indices :: [Nat]) (n :: Nat) (branch :: [Type]) r = CaseDiversifyN
+data CaseDiversifyN (indices :: [Nat]) (n :: Nat) (branch' :: [Type]) r = CaseDiversifyN
 
-instance ReiterateN (CaseDiversifyN indices) n branch where
+instance ReiterateN (CaseDiversifyN indices) n branch' where
     reiterateN CaseDiversifyN = CaseDiversifyN
 
 instance ( KnownNat (KindAtIndex n indices)
          , x ~ KindAtIndex (KindAtIndex n indices) tree
          ) =>
-         Case (CaseDiversifyN indices n) (x ': branch) (Many tree) where
+         Case (CaseDiversifyN indices n) (x ': branch') (Many tree) where
     case' CaseDiversifyN v = pickN (Proxy @(KindAtIndex n indices)) v
 
 ------------------------------------------------------------------
@@ -225,22 +225,22 @@ instance ( KnownNat (KindAtIndex n indices)
 -- Returns either the 'Right' reinterpretation, or the 'Left' over Many type.
 -- NB. forall used to specify @branch@ first, so TypeApplications can be used to specify @branch@.
 reinterpret :: forall branch tree. Reinterpret branch tree => Many tree -> Either (Many (Complement tree branch)) (Many branch)
-reinterpret = forMany (CaseReinterpret @branch @tree)
+reinterpret = forMany (CaseReinterpret @branch @tree @tree)
 
 type Reinterpret branch tree = (Reduce Many (Switch (CaseReinterpret branch tree)) tree (Either (Many (Complement tree branch)) (Many branch))
          , Distinct branch
          , Distinct tree)
 
-data CaseReinterpret (branch :: [Type]) (tree :: [Type]) (xs :: [Type]) r = CaseReinterpret
+data CaseReinterpret (branch :: [Type]) (tree :: [Type]) (tree' :: [Type]) r = CaseReinterpret
 
-instance Reiterate (CaseReinterpret branch tree) xs where
+instance Reiterate (CaseReinterpret branch tree) tree' where
     reiterate CaseReinterpret = CaseReinterpret
 
 instance ( KnownNat (PositionOf x branch)
          , comp ~ Complement tree branch
          , KnownNat (PositionOf x comp)
          ) =>
-         Case (CaseReinterpret branch tree) (x ': xs) (Either (Many comp) (Many branch)) where
+         Case (CaseReinterpret branch tree) (x ': tree') (Either (Many comp) (Many branch)) where
     case' CaseReinterpret a =
         case fromInteger (natVal @(PositionOf x branch) Proxy) of
             0 -> let j = fromInteger (natVal @(PositionOf x (Complement tree branch)) Proxy)
@@ -259,9 +259,9 @@ reinterpretN' _ = forManyN (CaseReinterpretN @indices @0 @tree)
 -- | A friendllier constraint synonym for 'reinterpret'. All 'Many' fufill this constraint.
 type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) = (Reduce Many (SwitchN (CaseReinterpretN indices) 0) tree (Maybe (Many (KindsAtIndices indices tree))), KindsAtIndices indices tree ~ branch)
 
-data CaseReinterpretN (indices :: [Nat]) (n :: Nat) (tree :: [Type]) r = CaseReinterpretN
+data CaseReinterpretN (indices :: [Nat]) (n :: Nat) (tree' :: [Type]) r = CaseReinterpretN
 
-instance ReiterateN (CaseReinterpretN indices) n tree where
+instance ReiterateN (CaseReinterpretN indices) n tree' where
     reiterateN CaseReinterpretN = CaseReinterpretN
 
 instance ( KnownNat (PositionOf n indices)
