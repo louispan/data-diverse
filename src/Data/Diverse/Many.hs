@@ -2,32 +2,43 @@
 module Data.Diverse.Many (
       -- * 'Many' type
       Many -- hiding constructor
+
       -- * Single type
       -- ** Construction
     , pick
     , pick'
+    , pickN
       -- ** Destruction
     , notMany
     , trial
     , trial'
-    , trialEither
-    , trialEither'
+    , trialN
       -- ** Lens
     , facet
+    , facetN
+
       -- * Multiple types
       -- ** Injection
     , Diversify
     , diversify
-    , Reinterpret
+    , DiversifyN
+    , diversifyN
       -- ** Inverse Injection
+    , Reinterpret
     , reinterpret
-    , reinterpretEither
+    , ReinterpretN
+    , reinterpretN'
       -- ** Lens
     , inject
+    , injectN
+
       -- * Catamorphism
     , Switch(..)
     , forMany
     , switch
+    , SwitchN(..)
+    , forManyN
+    , switchN
     ) where
 
 import Data.Diverse.Many.Internal

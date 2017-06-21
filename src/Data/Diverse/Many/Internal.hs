@@ -27,9 +27,6 @@ module Data.Diverse.Many.Internal (
     , trial
     , trial'
     , trialN
-    , trialEither
-    , trialEither'
-    , trialEitherN
       -- ** Lens
     , facet
     , facetN
@@ -38,12 +35,16 @@ module Data.Diverse.Many.Internal (
       -- ** Injection
     , Diversify
     , diversify
-    , Reinterpret
+    , DiversifyN
+    , diversifyN
       -- ** Inverse Injection
+    , Reinterpret
     , reinterpret
-    , reinterpretEither
+    , ReinterpretN
+    , reinterpretN'
       -- ** Lens
     , inject
+    , injectN
 
       -- * Catamorphism
     , Switch(..)
@@ -104,7 +105,7 @@ type role Many representational
 -- | Lift a value into a Many of possibly other types.
 -- NB. forall used to specify @xs@ first, so TypeApplications can be used to specify @xs@.
 pick :: forall xs x. (Distinct xs, KnownNat (IndexOf x xs)) => x -> Many xs
-pick = Many (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+pick = unsafeToMany
 
 -- | A variation of 'pick' into a Many of a single type
 pick' :: x -> Many '[x]
@@ -120,38 +121,38 @@ pickN _ = Many (fromInteger (natVal @n Proxy)) . unsafeCoerce
 -- This is useful when we know something is Distinct, but I don't know how (or can't be bothered)
 -- to prove it to GHC.
 -- Eg. a subset of something Distinct is also Distinct.
--- unsafeToMany :: forall x xs. (KnownNat (IndexOf x xs)) => x -> Many xs
--- unsafeToMany = Many (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+unsafeToMany :: forall x xs. (KnownNat (IndexOf x xs)) => x -> Many xs
+unsafeToMany = Many (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | Retrieving the value out of a 'Many' of one type is always successful.
 -- Mnemonic: A 'Many' with one type is 'notMany' at all.
 notMany :: Many '[a] -> a
 notMany (Many _ v) = unsafeCoerce v
 
--- | For a specified or inferred type, deconstruct a Many into a Maybe value of that type.
-trial :: forall x xs. (Distinct xs, KnownNat (IndexOf x xs)) => Many xs -> Maybe x
-trial (Many n v) = if n == fromInteger (natVal @(IndexOf x xs) Proxy)
-            then Just (unsafeCoerce v)
-            else Nothing
+-- -- | For a specified or inferred type, deconstruct a Many into a Maybe value of that type.
+-- trial :: forall x xs. (Distinct xs, KnownNat (IndexOf x xs)) => Many xs -> Maybe x
+-- trial (Many n v) = if n == fromInteger (natVal @(IndexOf x xs) Proxy)
+--             then Just (unsafeCoerce v)
+--             else Nothing
 
--- | A version of 'trial'' which trys the first type in the type list.
-trial' :: Many (x ': xs) -> Maybe x
-trial' (Many n v) = if n == 0
-            then Just (unsafeCoerce v)
-            else Nothing
+-- -- | A version of 'trial'' which trys the first type in the type list.
+-- trial' :: Many (x ': xs) -> Maybe x
+-- trial' (Many n v) = if n == 0
+--             then Just (unsafeCoerce v)
+--             else Nothing
 
--- | For a specified Nat index, deconstruct a Many into a Maybe value of that type.
-trialN :: forall n xs x proxy. (KnownNat n, x ~ KindAtIndex n xs) => proxy n -> Many xs -> Maybe x
-trialN _ (Many n v) = if n == fromInteger (natVal @n Proxy)
-            then Just (unsafeCoerce v)
-            else Nothing
+-- -- | For a specified Nat index, deconstruct a Many into a Maybe value of that type.
+-- trialN :: forall n xs x proxy. (KnownNat n, x ~ KindAtIndex n xs) => proxy n -> Many xs -> Maybe x
+-- trialN _ (Many n v) = if n == fromInteger (natVal @n Proxy)
+--             then Just (unsafeCoerce v)
+--             else Nothing
 
 -- | 'trial' a value out of a Many, and get Either the Right value or the Left-over possibilities.
-trialEither
+trial
     :: forall x xs.
        (Distinct xs, KnownNat (IndexOf x xs))
     => Many xs -> Either (Many (Without x xs)) x
-trialEither (Many n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
+trial (Many n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
                   in if n == i
                      then Right (unsafeCoerce v)
                      else if n > i
@@ -159,23 +160,26 @@ trialEither (Many n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
                           else Left (Many n v)
 
 -- | A version of 'trialEither' which trys the first type in the type list.
-trialEither' :: Many (x ': xs) -> Either (Many xs) x
-trialEither' (Many n v) = if n == 0
+trial' :: Many (x ': xs) -> Either (Many xs) x
+trial' (Many n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Many (n - 1) v)
 
 
 -- | 'trialN' a value out of a Many, and get Either the Right value or the Left-over possibilities.
-trialEitherN
+trialN
     :: forall n xs x proxy.
        (KnownNat n, x ~ KindAtIndex n xs)
     => proxy n -> Many xs -> Either (Many (Without x xs)) x
-trialEitherN _ (Many n v) = let i = fromInteger (natVal @n Proxy)
+trialN _ (Many n v) = let i = fromInteger (natVal @n Proxy)
                   in if n == i
                      then Right (unsafeCoerce v)
                      else if n > i
                           then Left (Many (n - 1) v)
                           else Left (Many n v)
+
+hush :: Either a b -> Maybe b
+hush = either (const Nothing) Just
 
 -----------------------------------------------------------------
 
@@ -184,11 +188,11 @@ trialEitherN _ (Many n v) = let i = fromInteger (natVal @n Proxy)
 -- Use TypeApplication to specify the inner type of the of the prism.
 -- Example: @facet \@Int@
 facet :: forall x xs. (Distinct xs, KnownNat (IndexOf x xs)) => Prism' (Many xs) x
-facet = prism' pick trial
+facet = prism' pick (hush . trial)
 {-# INLINE facet #-}
 
 facetN :: forall n xs x proxy. (KnownNat n, x ~ KindAtIndex n xs) => proxy n -> Prism' (Many xs) x
-facetN p = prism' (pickN p) (trialN p)
+facetN p = prism' (pickN p) (hush . trialN p)
 {-# INLINE facetN #-}
 
 ------------------------------------------------------------------
@@ -198,28 +202,28 @@ facetN p = prism' (pickN p) (trialN p)
 -- This can be used to rearrange the order of the types in the Many.
 -- NB. @tree@ is ordered first, so TypeApplications can be used to specify it.
 diversify :: forall tree branch. Diversify tree branch => Many branch -> Many tree
-diversify = forMany (CaseDiversify @tree)
+diversify = forMany (CaseDiversify @tree @branch)
 
 -- | A friendlier constraint synonym for 'diversify'. All 'Many' fufill this constraint.
-type Diversify (tree :: [Type]) (branch :: [Type]) = Reduce Many (Switch (CaseDiversify tree)) branch (Many tree)
+type Diversify (tree :: [Type]) (branch :: [Type]) = (Reduce Many (Switch (CaseDiversify tree)) branch (Many tree), Distinct tree)
 
 data CaseDiversify (tree :: [Type]) (branch :: [Type]) r = CaseDiversify
 
 instance Reiterate (CaseDiversify tree) branch where
     reiterate CaseDiversify = CaseDiversify
 
-instance (KnownNat (IndexOf (Head branch) tree), Distinct tree) =>
+instance (KnownNat (IndexOf (Head branch) tree)) =>
          Case (CaseDiversify tree) branch (Many tree) where
-    case' CaseDiversify = pick
+    case' CaseDiversify = unsafeToMany
 
 ------------------------------------------------------------------
 
 -- where indices[branch_idx] = tree_idx
 
-diversifyN :: forall indices tree branch proxy. (DiversifyN indices tree, KindsAtIndices indices tree ~ branch) => proxy indices -> Many branch -> Many tree
+diversifyN :: forall indices tree branch proxy. (DiversifyN indices tree branch) => proxy indices -> Many branch -> Many tree
 diversifyN _ = forManyN (CaseDiversifyN @indices @0 @branch)
 
-type DiversifyN (indices :: [Nat]) (tree :: [Type]) = Reduce Many (SwitchN (CaseDiversifyN indices) 0) (KindsAtIndices indices tree) (Many tree)
+type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) = (Reduce Many (SwitchN (CaseDiversifyN indices) 0) (KindsAtIndices indices tree) (Many tree), KindsAtIndices indices tree ~ branch)
 
 data CaseDiversifyN (indices :: [Nat]) (n :: Nat) (branch :: [Type]) r = CaseDiversifyN
 
@@ -235,69 +239,54 @@ instance ( KnownNat (KindAtIndex n indices)
 ------------------------------------------------------------------
 
 -- | Convert a Many into possibly another Many with a totally different typelist.
--- NB. forall used to specify ys first, so TypeApplications can be used to specify ys.
--- The Switch constraint is fulfilled with
--- (Distinct ys, forall x (in xs). (KnownNat (PositionOf x ys))
-reinterpret :: forall ys xs. Reinterpret ys xs => Many xs -> Maybe (Many ys)
-reinterpret = forMany (CaseReinterpret @ys)
+-- Returns either the 'Right' reinterpretation, or the 'Left' over Many type.
+-- NB. forall used to specify @branch@ first, so TypeApplications can be used to specify @branch@.
+reinterpret :: forall branch tree. Reinterpret branch tree => Many tree -> Either (Many (Complement tree branch)) (Many branch)
+reinterpret = forMany (CaseReinterpret @branch @tree)
 
--- | A friendllier constraint synonym for 'reinterpret'. All 'Many' fufill this constraint.
-type Reinterpret ys xs = Reduce Many (Switch (CaseReinterpret ys)) xs (Maybe (Many ys))
+type Reinterpret branch tree = (Reduce Many (Switch (CaseReinterpret branch)) tree (Either (Many (Complement tree branch)) (Many branch))
+         , Distinct branch
+         , Distinct tree)
 
-data CaseReinterpret (ys :: [Type]) (xs :: [Type]) r = CaseReinterpret
+data CaseReinterpret (branch :: [Type]) (tree :: [Type]) r = CaseReinterpret
 
-instance Reiterate (CaseReinterpret ys) xs where
+instance Reiterate (CaseReinterpret branch) tree where
     reiterate CaseReinterpret = CaseReinterpret
 
-instance (KnownNat (PositionOf (Head xs) ys), Distinct ys) =>
-         Case (CaseReinterpret ys) xs (Maybe (Many ys)) where
+instance ( KnownNat (PositionOf (Head tree) branch)
+         , comp ~ Complement tree branch
+         , KnownNat (IndexOf (Head tree) comp)
+         ) =>
+         Case (CaseReinterpret branch) tree (Either (Many comp) (Many branch)) where
     case' CaseReinterpret a =
-        case fromInteger (natVal @(PositionOf (Head xs) ys) Proxy) of
-            0 -> Nothing
-            i -> Just $ Many (i - 1) (unsafeCoerce a)
-
--- | Like reinterpret, but return the complement (the parts of @xs@ not in @ys@) in the case of failure.
-reinterpretEither
-    :: forall ys xs.
-       ( Diversify (Complement xs ys) xs
-       , Reinterpret ys xs
-       )
-    => Many xs -> Either (Many (Complement xs ys)) (Many ys)
-reinterpretEither v = case reinterpret v of
-    Nothing -> Left (diversify v)
-    Just v' -> Right v'
+        case fromInteger (natVal @(PositionOf (Head tree) branch) Proxy) of
+            0 -> let j = fromInteger (natVal @(IndexOf (Head tree) (Complement tree branch)) Proxy)
+                 in Left $ Many j (unsafeCoerce a)
+            i -> Right $ Many (i - 1) (unsafeCoerce a)
 
 ------------------------------------------------------------------
 
+-- | A limited form of 'reinterpret' where the @branch@ must be a subset of @tree@ instead of any arbitrary Many.
+-- Also it returns a Maybe instead of Either.
+-- Specify a typelist mapping of @branch@ into @tree@
 -- where indices[branch_idx] = tree_idx
-
-reinterpretN :: forall (indices :: [Nat]) branch tree proxy. (ReinterpretN indices tree, KindsAtIndices indices tree ~ branch) => proxy indices -> Many tree -> Maybe (Many branch)
-reinterpretN _ = forManyN (CaseReinterpretN @indices @0 @tree)
+reinterpretN' :: forall (indices :: [Nat]) branch tree proxy. (ReinterpretN indices branch tree) => proxy indices -> Many tree -> Maybe (Many branch)
+reinterpretN' _ = forManyN (CaseReinterpretN @indices @0 @tree)
 
 -- | A friendllier constraint synonym for 'reinterpret'. All 'Many' fufill this constraint.
-type ReinterpretN (indices :: [Nat]) (tree :: [Type]) = Reduce Many (SwitchN (CaseReinterpretN indices) 0) tree (Maybe (Many (KindsAtIndices indices tree)))
+type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) = (Reduce Many (SwitchN (CaseReinterpretN indices) 0) tree (Maybe (Many (KindsAtIndices indices tree))), KindsAtIndices indices tree ~ branch)
 
 data CaseReinterpretN (indices :: [Nat]) (n :: Nat) (tree :: [Type]) r = CaseReinterpretN
 
 instance ReiterateN (CaseReinterpretN indices) n tree where
     reiterateN CaseReinterpretN = CaseReinterpretN
 
-instance KnownNat (PositionOf n indices) => Case (CaseReinterpretN indices n) tree (Maybe (Many branch)) where
+instance ( KnownNat (PositionOf n indices)
+         , x ~ KindAtIndex n branch) => Case (CaseReinterpretN indices n) (x ': tree) (Maybe (Many branch)) where
     case' CaseReinterpretN a =
         case fromInteger (natVal @(PositionOf n indices) Proxy) of
             0 -> Nothing
             i -> Just $ Many (i - 1) (unsafeCoerce a)
-
--- -- | Like reinterpret, but return the complement (the parts of @xs@ not in @ys@) in the case of failure.
--- reinterpretEither
---     :: forall ys xs.
---        ( Diversify (Complement xs ys) xs
---        , Reinterpret ys xs
---        )
---     => Many xs -> Either (Many (Complement xs ys)) (Many ys)
--- reinterpretEither v = case reinterpret v of
---     Nothing -> Left (diversify v)
---     Just v' -> Right v'
 
 -- ------------------------------------------------------------------
 
@@ -311,13 +300,22 @@ instance KnownNat (PositionOf n indices) => Case (CaseReinterpretN indices n) tr
 --
 -- @inject \@_ \@'[Int, String]@
 inject
-    :: forall tree branch.
+    :: forall branch tree.
        ( Diversify tree branch
        , Reinterpret branch tree
        )
     => Prism' (Many tree) (Many branch)
-inject = prism' diversify reinterpret
+inject = prism' diversify (hush . reinterpret)
 {-# INLINE inject #-}
+
+injectN
+    :: forall indices branch tree proxy.
+       ( DiversifyN indices tree branch
+       , ReinterpretN indices branch tree
+       )
+    => proxy indices -> Prism' (Many tree) (Many branch)
+injectN p = prism' (diversifyN p) (reinterpretN' p)
+{-# INLINE injectN #-}
 
 ------------------------------------------------------------------
 
@@ -332,7 +330,7 @@ newtype Switch c (xs :: [Type]) r = Switch (c xs r)
 instance (Case c (x ': x' ': xs) r, Reduce Many (Switch c) (x' ': xs) r, Reiterate c (x : x' : xs)) =>
          Reduce Many (Switch c) (x ': x' ': xs) r where
     reduce (Switch c) v =
-        case trialEither' v of
+        case trial' v of
             Right a -> case' c a
             Left v' -> reduce (Switch (reiterate c)) v'
     {-# INLINE reduce #-}
@@ -361,7 +359,7 @@ newtype SwitchN c (n :: Nat) (xs :: [Type]) r = SwitchN (c n xs r)
 instance (Case (c n) (x ': x' ': xs) r, Reduce Many (SwitchN c (n + 1)) (x' ': xs) r, ReiterateN c n (x : x' : xs)) =>
          Reduce Many (SwitchN c n) (x ': x' ': xs) r where
     reduce (SwitchN c) v =
-        case trialEither' v of
+        case trial' v of
             Right a -> case' c a
             Left v' -> reduce (SwitchN (reiterateN c)) v'
     {-# INLINE reduce #-}

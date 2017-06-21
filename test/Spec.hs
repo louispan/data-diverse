@@ -9,9 +9,9 @@
 {-# LANGUAGE TypeOperators #-}
 
 import Control.Lens
-import Data.Diverse.Distinct
+import Data.Diverse
 import Data.Diverse.Type
-import Data.Diverse.Data.CaseTypeable
+import Data.Diverse.CaseTypeable
 import Data.Typeable
 import Test.Hspec
 
@@ -28,56 +28,56 @@ proxy _ = Proxy
 main :: IO ()
 main = do
     hspec $ do
-        describe "Catalog" $ do
-            it "is a Read and Show" $ do
-                let s = "Catalog (5,False)"
-                    x = read s :: Catalog '[Int, Bool]
-                show x `shouldBe` s
+        -- describe "Catalog" $ do
+        --     it "is a Read and Show" $ do
+        --         let s = "Catalog (5,False)"
+        --             x = read s :: Catalog '[Int, Bool]
+        --         show x `shouldBe` s
 
-            it "is a Eq" $ do
-                let s = "Catalog (5,False)"
-                    x = read s :: Catalog '[Int, Bool]
-                    y = catalog (5, False)
-                x `shouldBe` y
+        --     it "is a Eq" $ do
+        --         let s = "Catalog (5,False)"
+        --             x = read s :: Catalog '[Int, Bool]
+        --             y = catalog (5, False)
+        --         x `shouldBe` y
 
-            it "can edit fields" $ do
-                let x = review _Cataloged (5, False) :: Catalog '[Int, Bool]
-                    y = x & item @Int .~ 6
-                    z = catalog (6, False)
-                y `shouldBe` z
+        --     it "can edit fields" $ do
+        --         let x = review _Cataloged (5, False) :: Catalog '[Int, Bool]
+        --             y = x & item @Int .~ 6
+        --             z = catalog (6, False)
+        --         y `shouldBe` z
 
-            it "can read both fields" $ do
-                let x = review _Cataloged (5, False) :: Catalog '[Int, Bool]
-                (x ^. item @Int, x ^. item @Bool) `shouldBe` (5, False)
+        --     it "can read both fields" $ do
+        --         let x = review _Cataloged (5, False) :: Catalog '[Int, Bool]
+        --         (x ^. item @Int, x ^. item @Bool) `shouldBe` (5, False)
 
-            it "can be projected" $ do
-                let x = catalog (5, False) :: Catalog '[Int, Bool]
-                    y = catalog 5
-                y `shouldBe` (x ^. project @(Catalog '[Int]))
+        --     it "can be projected" $ do
+        --         let x = catalog (5, False) :: Catalog '[Int, Bool]
+        --             y = catalog 5
+        --         y `shouldBe` (x ^. project @(Catalog '[Int]))
 
-            it "is a Typeable" $ do
-                let x = catalog (5, False) :: Catalog '[Int, Bool]
-                    y = cast x :: Maybe (Catalog '[Int, String])
-                    z = cast x :: Maybe (Catalog '[Int, Bool])
-                y `shouldBe` Nothing
-                z `shouldBe` Just x
+        --     it "is a Typeable" $ do
+        --         let x = catalog (5, False) :: Catalog '[Int, Bool]
+        --             y = cast x :: Maybe (Catalog '[Int, String])
+        --             z = cast x :: Maybe (Catalog '[Int, Bool])
+        --         y `shouldBe` Nothing
+        --         z `shouldBe` Just x
 
-        describe "TypeLevel" $ do
-            it "PositionOf" $ do
-                fromIntegral (natVal @(PositionOf String '[Bool, Int]) Proxy) `shouldBe` (0 :: Int)
-                fromIntegral (natVal @(PositionOf Bool '[Bool, Int]) Proxy) `shouldBe` (1 :: Int)
-                fromIntegral (natVal @(PositionOf Int '[Bool, Int]) Proxy) `shouldBe` (2 :: Int)
-                fromIntegral (natVal @(PositionOf Int '[Bool, Int, Char]) Proxy) `shouldBe` (2 :: Int)
-                fromIntegral (natVal @(PositionOf Int '[Bool, String, Char]) Proxy) `shouldBe` (0 :: Int)
+        -- describe "TypeLevel" $ do
+        --     it "PositionOf" $ do
+        --         fromIntegral (natVal @(PositionOf String '[Bool, Int]) Proxy) `shouldBe` (0 :: Int)
+        --         fromIntegral (natVal @(PositionOf Bool '[Bool, Int]) Proxy) `shouldBe` (1 :: Int)
+        --         fromIntegral (natVal @(PositionOf Int '[Bool, Int]) Proxy) `shouldBe` (2 :: Int)
+        --         fromIntegral (natVal @(PositionOf Int '[Bool, Int, Char]) Proxy) `shouldBe` (2 :: Int)
+        --         fromIntegral (natVal @(PositionOf Int '[Bool, String, Char]) Proxy) `shouldBe` (0 :: Int)
 
-            it "ComplementOf" $ do
-                let complementTest :: (Complement xs ys ~ comp) => Proxy xs -> Proxy ys -> Proxy comp -> Proxy comp
-                    complementTest _ _ comp = comp
+        --     it "ComplementOf" $ do
+        --         let complementTest :: (Complement xs ys ~ comp) => Proxy xs -> Proxy ys -> Proxy comp -> Proxy comp
+        --             complementTest _ _ comp = comp
 
-                complementTest (Proxy @[String, Int]) (Proxy @[Bool, Int]) (Proxy @'[String]) `shouldBe` Proxy
-                complementTest (Proxy @[String, Int, Char]) (Proxy @[Bool, Int]) (Proxy @[String, Char]) `shouldBe` Proxy
-                complementTest (Proxy @[Bool, Int]) (Proxy @[Bool, Int]) (Proxy @'[]) `shouldBe` Proxy
-                complementTest (Proxy @[String, Bool]) (Proxy @[Int, Char]) (Proxy @'[String, Bool]) `shouldBe` Proxy
+        --         complementTest (Proxy @[String, Int]) (Proxy @[Bool, Int]) (Proxy @'[String]) `shouldBe` Proxy
+        --         complementTest (Proxy @[String, Int, Char]) (Proxy @[Bool, Int]) (Proxy @[String, Char]) `shouldBe` Proxy
+        --         complementTest (Proxy @[Bool, Int]) (Proxy @[Bool, Int]) (Proxy @'[]) `shouldBe` Proxy
+        --         complementTest (Proxy @[String, Bool]) (Proxy @[Int, Char]) (Proxy @'[String, Bool]) `shouldBe` Proxy
 
         describe "Many" $ do
             it "can be constructed and destructed" $ do
@@ -94,20 +94,20 @@ main = do
                     Left y' -> (notMany y') `shouldBe` (5 :: Int)
                     Right _ -> pure ()
 
-            it "can be switched with a catalog of handlers in any order" $ do
-                let y = pick (5 :: Int) :: Many '[Int, Bool]
-                switch y (cases
-                    ( show @Bool
-                    , show @Int
-                    )) `shouldBe` "5"
+            -- it "can be switched with a catalog of handlers in any order" $ do
+            --     let y = pick (5 :: Int) :: Many '[Int, Bool]
+            --     switch y (cases
+            --         ( show @Bool
+            --         , show @Int
+            --         )) `shouldBe` "5"
 
-            it "can be switched with a catalog of handlers with extraneous content" $ do
-                let y = pick (5 :: Int) :: Many '[Int]
-                switch y (Cases (catalog( -- cannot use `cases` function if you can redundant cases
-                    ( show @Int
-                    , 20 :: Int
-                    -- , False
-                    )))) `shouldBe` "5"
+            -- it "can be switched with a catalog of handlers with extraneous content" $ do
+            --     let y = pick (5 :: Int) :: Many '[Int]
+            --     switch y (Cases (catalog( -- cannot use `cases` function if you can redundant cases
+            --         ( show @Int
+            --         , 20 :: Int
+            --         -- , False
+            --         )))) `shouldBe` "5"
 
             it "can be switched with CaseTypeable" $ do
                 let y = pick (5 :: Int) :: Many '[Int, Bool]
@@ -132,6 +132,16 @@ main = do
                 let y = pick @[Int, Char] (5 :: Int)
                     y' = reinterpretEither @[String, Bool] y
                 y' `shouldBe` Left y
+
+            it "can be reinterpreted into either one of two different Many" $ do
+                let y = pick @[Int, Char] (5 :: Int)
+                    y' = reinterpretEither @[String, Char] y
+                y' `shouldBe` Left (pick (5 :: Int))
+
+            it "can be reinterpreted into either one of two different Many" $ do
+                let y = pick @[Int, Char] (5 :: Int)
+                    y' = reinterpretEither @[String, Int] y
+                y' `shouldBe` Right (pick (5 :: Int))
 
             it "is a Read and Show" $ do
                 let s = "Many 5"

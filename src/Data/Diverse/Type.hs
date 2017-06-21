@@ -88,6 +88,14 @@ type IndexOf x (xs :: [k]) = IndexOfImpl xs x xs
 -- Will return 0 if x doesn't exists in xs.
 type PositionOf x (xs :: [k]) = PositionOfImpl 0 x xs
 
+-- type family AddJustNat x y :: Maybe Nat where
+--    AddJustNat ('Just x) ('Just y) = 'Just (x + y)
+
+-- type family MaybeIndexOf x (xs :: [k]) :: Maybe Nat where
+--    MaybeIndexOf x (x ': xs) = 'Just 0
+--    MaybeIndexOf y (x ': xs) = AddJustNat ('Just 1) (MaybeIndexOf y xs)
+--    MaybeIndexOf y '[] = 'Nothing
+
 -- | Get the type at an index
 type KindAtIndex (n :: Nat) (xs :: [k]) = KindAtIndexImpl n xs n xs
 

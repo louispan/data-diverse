@@ -26,19 +26,14 @@ module Data.Diverse.Nary (
     , (.^.)
     , fetchN
     , (!^.)
-    , fetchL
-    , (#^.)
     -- ** Setter for single field
     , replace
     , (..~)
     , replaceN
     , (!.~)
-    , replaceL
-    , (#.~)
     -- ** Lens for a single field
     , item
     , itemN
-    , itemL
 
     -- * Multiple fields
     -- ** Getter for multiple fields
@@ -48,9 +43,6 @@ module Data.Diverse.Nary (
     , NarrowN
     , narrowN
     , (!\^.)
-    , NarrowL
-    , narrowL
-    , (#\^.)
     -- ** Setter for multiple fields
     , Amend
     , amend
@@ -58,13 +50,9 @@ module Data.Diverse.Nary (
     , AmendN
     , amendN
     , (!\.~)
-    , AmendL
-    , amendL
-    , (#\.~)
     -- ** Lens for multiple fields
     , project
     , projectN
-    , projectL
 
     -- * Destruction
     -- ** By type

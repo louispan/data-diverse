@@ -43,19 +43,14 @@ module Data.Diverse.Nary.Internal (
     , (.^.)
     , fetchN
     , (!^.)
-    , fetchL
-    , (#^.)
     -- ** Setter for single field
     , replace
     , (..~)
     , replaceN
     , (!.~)
-    , replaceL
-    , (#.~)
     -- ** Lens for a single field
     , item
     , itemN
-    , itemL
 
     -- * Multiple fields
     -- ** Getter for multiple fields
@@ -65,9 +60,6 @@ module Data.Diverse.Nary.Internal (
     , NarrowN
     , narrowN
     , (!\^.)
-    , NarrowL
-    , narrowL
-    , (#\^.)
     -- ** Setter for multiple fields
     , Amend
     , amend
@@ -75,13 +67,9 @@ module Data.Diverse.Nary.Internal (
     , AmendN
     , amendN
     , (!\.~)
-    , AmendL
-    , amendL
-    , (#\.~)
     -- ** Lens for multiple fields
     , project
     , projectN
-    , projectL
 
     -- * Destruction
     -- ** By type
@@ -295,7 +283,7 @@ infixl 8 .^. -- like Control.Lens.(^.)
 -- | Getter. Get the value of the field at index type-level Nat @n@
 --
 -- @getchN (Proxy \@2) t@
-fetchN :: forall n xs x proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => proxy n -> Nary xs -> x
+fetchN :: forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => proxy n -> Nary xs -> x
 fetchN p (Nary o m) = unsafeCoerce (m M.! (Key (o + i)))
   where i = fromInteger (natVal p)
 
@@ -304,35 +292,9 @@ fetchN p (Nary o m) = unsafeCoerce (m M.! (Key (o + i)))
 -- @foo !^. (Proxy \@2)@
 --
 -- Mnemonic: Like 'Control.Lens.(^.)' but with an extra @!@ in front.
-(!^.) :: forall n xs x proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => Nary xs -> proxy n -> x
+(!^.) :: forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => Nary xs -> proxy n -> x
 (!^.) = flip fetchN
 infixl 8 !^. -- like Control.Lens.(^.)
-
---------------------------------------------------
-
--- | Getter. Get the tagged field with Label @label@
--- This will get the field of type @tagged label value@
--- NB. This returns the entire tagged field, not the untagged value
--- so that any Tagged library can be used.
---
--- @fetchL (Proxy \@"foo") t@
-fetchL
-    :: forall l xs x proxy.
-       (KnownNat (IndexAtLabel l xs), Distinct (LabelsOf xs), x ~ KindAtLabel l xs)
-    => proxy l -> Nary xs -> x
-fetchL _ (Nary o m) = unsafeCoerce (m M.! (Key (o + i)))
-  where i = fromInteger (natVal @(IndexAtLabel l xs) Proxy)
-
--- | infix version of 'flip fetchL'
---
--- @foo #^. (Proxy \@"foo")@
---
--- Mnemonic: Like 'Control.Lens.(^.)' but with an extra @#@ in front.
-(#^.) :: forall l xs x proxy.
-       (KnownNat (IndexAtLabel l xs), Distinct (LabelsOf xs), x ~ KindAtLabel l xs)
-    => Nary xs -> proxy l -> x
-(#^.) = flip fetchL
-infixl 8 #^. -- like Control.Lens.(^.)
 
 --------------------------------------------------
 
@@ -360,7 +322,7 @@ infixl 1 ..~ -- like Control.Lens.(.~)
 --
 -- @replaceN (Proxy \@1) t@
 --
-replaceN :: forall n xs x proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => proxy n -> Nary xs -> x -> Nary xs
+replaceN :: forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => proxy n -> Nary xs -> x -> Nary xs
 replaceN p (Nary o m) v = Nary o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal p)
 
@@ -369,35 +331,12 @@ replaceN p (Nary o m) v = Nary o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 -- @foo !.~ (Proxy \@2)@
 --
 -- Mnemonic: Like 'Control.Lens.(.~)' but with an extra @!@ in front.
-(!.~) :: forall n xs x proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => Nary xs -> proxy n -> x -> Nary xs
+(!.~) :: forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => Nary xs -> proxy n -> x -> Nary xs
 (!.~) = flip replaceN
 infixl 1 !.~ -- like Control.Lens.(.~)
 
 -----------------------------------------------------------------------
 
--- | Setter. Use TypeApplication of the @label@ to set.
--- This will set the field of type @tagged label value@
---
--- @replaceL (Proxy \@"foo") t@
---
-replaceL :: forall l xs x proxy.
-       (KnownNat (IndexAtLabel l xs), Distinct (LabelsOf xs), x ~ KindAtLabel l xs)
-    => proxy l -> Nary xs -> x -> Nary xs
-replaceL _ (Nary o m) v = Nary o (M.insert (Key (o + i)) (unsafeCoerce v) m)
-  where i = fromInteger (natVal @(IndexAtLabel l xs) Proxy)
-
--- | infix version of 'flip replaceL'
---
--- @foo #.~ (Proxy \@"foo")@
---
--- Mnemonic: Like 'Control.Lens.(.~)' but with an extra @#@ in front.
-(#.~) :: forall l xs x proxy.
-       (KnownNat (IndexAtLabel l xs), Distinct (LabelsOf xs), x ~ KindAtLabel l xs)
-    => Nary xs -> proxy l -> x -> Nary xs
-(#.~) = flip replaceL
-infixl 1 #.~ -- like Control.Lens.(.~)
-
------------------------------------------------------------------------
 -- | 'fetch' and 'replace' in lens form.
 -- Use TypeApplication to specify the field type of the lens.
 -- Example: @item \@Int@
@@ -408,18 +347,9 @@ item = lens fetch replace
 -- | 'fetchN' and 'replaceN' in lens form.
 -- You can use TypeApplication to specify the index of the type of the lens.
 -- Example: @itemN \@1 Proxy@
-itemN ::  forall n xs x proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => proxy n -> Lens' (Nary xs) x
+itemN ::  forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => proxy n -> Lens' (Nary xs) x
 itemN p = lens (fetchN p) (replaceN p)
 {-# INLINE itemN #-}
-
--- | 'fetchL' and 'replaceL' in lens form.
--- Use TypeApplication to specify the index of the type of the lens.
--- Example: @itemL \@1 Proxy@
-itemL :: forall l xs x proxy.
-       (KnownNat (IndexAtLabel l xs), Distinct (LabelsOf xs), x ~ KindAtLabel l xs)
-    => proxy l -> Lens' (Nary xs) x
-itemL p = lens (fetchL p) (replaceL p)
-{-# INLINE itemL #-}
 
 -----------------------------------------------------------------------
 
@@ -433,7 +363,7 @@ fromList' xs = M.fromList (coerce xs)
 newtype Via c (xs :: [Type]) r = Via (c xs r, [Any])
 
 -- | Creates an 'Via' safely, so that the invariant of \"typelist to the value list type and size\" holds.
-via :: forall xs c r. c xs r -> Nary xs -> Via c xs r
+via :: c xs r -> Nary xs -> Via c xs r
 via c (Nary _ m) = Via (c, snd <$> M.toAscList m)
 
 instance Reiterate c (x ': xs) => Reiterate (Via c) (x ': xs) where
@@ -462,7 +392,7 @@ collect = flip forNary
 newtype ViaN c (n :: Nat) (xs :: [Type]) r = ViaN (c n xs r, [Any])
 
 -- | Creates an 'ViaN' safely, so that the invariant of \"typelist to the value list type and size\" holds.
-viaN :: forall n xs c r. c n xs r -> Nary xs -> ViaN c n xs r
+viaN :: c n xs r -> Nary xs -> ViaN c n xs r
 viaN c (Nary _ m) = ViaN (c, snd <$> M.toAscList m)
 
 instance ReiterateN c n (x ': xs) => ReiterateN (ViaN c) n (x ': xs) where
@@ -570,54 +500,6 @@ instance forall indices n x xs. KnownNat (PositionOf n indices) =>
 
 -----------------------------------------------------------------------
 
-type NarrowL ls smaller larger = (AFoldable
-                         ( Collector (Via (CaseNarrowL ls)) larger) [(Key, WrappedAny)]
-                         , smaller ~ KindsAtLabels ls larger
-                         , Distinct (LabelsOf larger))
-
--- | Construct a 'Nary' with a smaller number of fields than the original
--- Analogous to 'fetchL' getter but for multiple fields
--- Specify a typelist of labels to 'narrowL' into,
--- where labels[smaller_idx] = label of larger
---
--- @narrowL (Proxy \@["foo",Int]) t@
-narrowL
-    :: forall ls smaller larger proxy.
-       (NarrowL ls smaller larger)
-    => proxy ls -> Nary larger -> Nary smaller
-narrowL _ xs = Nary 0 (fromList' xs')
-  where
-    xs' = afoldr (++) [] (forNary (CaseNarrowL @ls @larger) xs)
-
--- | infix version of 'flip narrowL'
---
--- @foo !\^. (Proxy @'[6, 3])@
---
--- Mnemonic: Like 'Control.Lens.(^.)' but with an extra '#\' (labelled, narrow to the right) in front.
-(#\^.)
-    :: forall ls smaller larger proxy.
-       (NarrowL ls smaller larger)
-    => Nary larger -> proxy ls -> Nary smaller
-(#\^.) = flip narrowL
-infixl 8 #\^. -- like Control.Lens.(^.)
-
-data CaseNarrowL (ls :: [k]) (larger :: [Type]) r = CaseNarrowL
-
-instance Reiterate (CaseNarrowL ls) (tagged l x ': xs) where
-    reiterate CaseNarrowL = CaseNarrowL
-
--- | For each type x in @larger@, find the index in ys, and create an (incrementing key, value)
-instance KnownNat (IndexAtLabel l ls) =>
-         Case (CaseNarrowL ls) (tagged l x ': xs) [(Key, WrappedAny)] where
-    case' _ v =
-        case i of
-            0 -> []
-            i' -> [(Key (i' - 1), WrappedAny (unsafeCoerce v))]
-      where
-        i = fromInteger (natVal @(IndexAtLabel l ls) Proxy)
-
------------------------------------------------------------------------
-
 type Amend smaller larger = (AFoldable (Collector (Via (CaseAmend larger)) smaller) (Key, WrappedAny)
        , Distinct larger
        , Distinct smaller)
@@ -696,49 +578,6 @@ instance (KnownNat (KindAtIndex n indices)) =>
 
 -----------------------------------------------------------------------
 
-type AmendL ls smaller larger =
-    ( AFoldable (Collector (Via (CaseAmendL (LabelsOf larger))) smaller) (Key, WrappedAny)
-    , smaller ~ KindsAtLabels ls larger
-    , Distinct (LabelsOf larger))
-
--- | Sets the subset of  'Nary' in the larger 'Nary'
--- Analogous to 'replaceL' setter but for multiple fields.
--- Specify a typelist of Labels to 'amendL' into,
--- where labels[smaller_idx] = label of larger
---
--- @amendL \@["foo",Int] Proxy t1 t2@
-amendL
-    :: forall ls smaller larger proxy.
-       (AmendL ls smaller larger)
-    => proxy ls -> Nary larger -> Nary smaller -> Nary larger
-amendL _ (Nary lo lm) t = Nary lo (fromList' xs' `M.union` lm)
-  where
-    xs' = afoldr (:) [] (forNary (CaseAmendL @(LabelsOf larger) @smaller lo) t)
-
--- | infix version of 'flip amendL'. Mnemonic. Like 'Control.Lens.(.~)' but with an extra '#\' (labelled, narrow to the right) in front.
--- Specify a typelist of Labels of the original fields to 'amendL' into.
---
--- @t1 #\.~ (Proxy \@["foo",Int])@
-(#\.~) :: forall ls smaller larger proxy.
-       (AmendL ls smaller larger)
-    => Nary larger -> proxy ls -> Nary smaller -> Nary larger
-(#\.~) = flip amendL
-infixl 1 #\.~ -- like Control.Lens.(.~)
-
-newtype CaseAmendL (ls :: [k]) (xs :: [Type]) r = CaseAmendL Int
-
-instance Reiterate (CaseAmendL ls) (tagged l x ': xs) where
-    reiterate (CaseAmendL lo) = CaseAmendL lo
-
--- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
-instance KnownNat (IndexAtLabel l ls) =>
-         Case (CaseAmendL ls) (tagged l x ': xs) (Key, WrappedAny) where
-    case' (CaseAmendL lo) v = (Key (lo + i), WrappedAny (unsafeCoerce v))
-      where
-        i = fromInteger (natVal @(IndexAtLabel l ls) Proxy)
-
------------------------------------------------------------------------
-
 -- | Projection.
 -- A Nary can be narrowed or have its order changed by projecting into another Nary type.
 --
@@ -774,22 +613,8 @@ projectN
 projectN p = lens (narrowN p) (amendN p)
 {-# INLINE projectN #-}
 
-
--- | Projection.
--- A version of 'project' using a typelist of labels to specify the other Nary type.
---
--- @projectL p = lens (narrowL p) (amendLs p)@
---
--- Specify a typelist of the labels of the original fields.
---
--- @projectL (Proxy \@'["foo", Int])@
---
-projectL
-    :: forall ls smaller larger proxy.
-       (NarrowL ls smaller  larger, AmendL ls smaller larger)
-    => proxy ls -> Lens' (Nary larger) (Nary smaller)
-projectL p = lens (narrowL p) (amendL p)
-{-# INLINE projectL #-}
+-- wack :: Proxy '[Maybe Nat]
+-- wack = undefined
 
 -----------------------------------------------------------------------
 
