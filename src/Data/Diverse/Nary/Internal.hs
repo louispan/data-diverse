@@ -684,7 +684,7 @@ instance Reiterate EmitShowNary (x ': xs) where
     reiterate (EmitShowNary xxs) = EmitShowNary (Partial.tail xxs)
 
 instance Emit EmitShowNary '[] ShowS where
-    emit _ = showString ".|"
+    emit _ = showString " .|"
 
 instance Show x => Emit EmitShowNary '[x] ShowS where
     emit (EmitShowNary xs) = showsPrec (cons_prec + 1) v
@@ -694,7 +694,7 @@ instance Show x => Emit EmitShowNary '[x] ShowS where
         cons_prec = 5 -- infixr 5 cons
 
 instance Show x => Emit EmitShowNary (x ': x' ': xs) ShowS where
-    emit (EmitShowNary xxs) = showsPrec (cons_prec + 1) v . showString "./"
+    emit (EmitShowNary xxs) = showsPrec (cons_prec + 1) v . showString " ./ "
       where
         -- use of front here is safe as we are guaranteed the length from the typelist
         v = unsafeCoerce (Partial.head xxs) :: x
@@ -702,11 +702,11 @@ instance Show x => Emit EmitShowNary (x ': x' ': xs) ShowS where
 
 showNary
     :: forall xs.
-       AFoldable (Collector EmitShowNary xs) ShowS
+       AFoldable (Collector0 EmitShowNary xs) ShowS
     => Nary xs -> ShowS
-showNary (Nary _ m) = afoldr (.) id (Collector (EmitShowNary @xs (snd <$> M.toAscList m)))
+showNary (Nary _ m) = afoldr (.) id (Collector0 (EmitShowNary @xs (snd <$> M.toAscList m)))
 
-instance AFoldable (Collector EmitShowNary xs) ShowS => Show (Nary xs) where
+instance AFoldable (Collector0 EmitShowNary xs) ShowS => Show (Nary xs) where
     showsPrec d t = showParen (d > cons_prec) $ showNary t
       where
         cons_prec = 5 -- infixr 5 cons
