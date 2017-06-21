@@ -34,14 +34,14 @@ main = do
     hspec $ do
         describe "Nary" $ do
             it "is a Read and Show" $ do
-                let s = "5 ./ False ./ blank"
+                let s = "5 ./ False ./ nul"
                     x = read s :: Nary '[Int, Bool]
                 show x `shouldBe` s
 
             it "is a Eq" $ do
-                let s = "5 ./ False ./ blank"
+                let s = "5 ./ False ./ nul"
                     x = read s :: Nary '[Int, Bool]
-                    y = 5 ./ False ./ blank
+                    y = 5 ./ False ./ nul
                 x `shouldBe` y
 
         --     it "can edit fields" $ do

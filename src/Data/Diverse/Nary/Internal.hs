@@ -21,7 +21,7 @@ module Data.Diverse.Nary.Internal (
       Nary(..) -- Exporting constructor unsafely!
 
       -- * Construction
-    , blank
+    , nul
     , singleton
     , prefix
     , (./)
@@ -172,14 +172,14 @@ rightOffsetForCons (LeftSize ld) (RightOffset ro) = NewRightOffset (ro - ld)
 leftKeyForCons :: LeftOffset -> NewRightOffset -> Key -> Key
 leftKeyForCons (LeftOffset lo) (NewRightOffset ro) (Key lk) = Key (lk - lo + ro)
 
--- | Analogous to 'Prelude.null'. Named 'blank' to avoid conflicting with 'Prelude.null'.
-blank :: Nary '[]
-blank = Nary 0 M.empty
-infixr 5 `blank` -- to be the same as cons
+-- | Analogous to 'Prelude.null'. Named 'nul' to avoid conflicting with 'Prelude.null'.
+nul :: Nary '[]
+nul = Nary 0 M.empty
+infixr 5 `nul` -- to be the same as cons
 
 -- | Create a Nary from a single value. Analogous to 'M.singleton'
-singleton :: x -> Nary '[x]
-singleton v = Nary 0 (M.singleton (Key 0) (unsafeCoerce v))
+single :: x -> Nary '[x]
+single v = Nary 0 (M.singleton (Key 0) (unsafeCoerce v))
 
 -- | Add an element to the left of a Nary.
 -- Not named 'cons' to avoid conflict with lens.
@@ -679,7 +679,7 @@ instance Reiterate EmitShowNary (x ': xs) where
     reiterate (EmitShowNary xxs) = EmitShowNary (Partial.tail xxs)
 
 instance Emit EmitShowNary '[] ShowS where
-    emit _ = showString "blank"
+    emit _ = showString "nul"
 
 
 instance Show x => Emit EmitShowNary (x ': xs) ShowS where
@@ -709,7 +709,7 @@ instance Reiterate EmitReadNary (x ': xs) where
 
 instance Emit EmitReadNary '[] (ReadPrec [(Key, WrappedAny)]) where
     emit (EmitReadNary _) = do
-        lift $ L.expect (Ident "blank")
+        lift $ L.expect (Ident "nul")
         pure []
 
 instance Read x => Emit EmitReadNary (x ': xs) (ReadPrec [(Key, WrappedAny)]) where

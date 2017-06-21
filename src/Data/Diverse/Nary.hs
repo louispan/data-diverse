@@ -4,8 +4,8 @@ module Data.Diverse.Nary (
       Nary -- Hiding constructor
 
       -- * Construction
-    , blank
-    , singleton
+    , nul
+    , single
     , prefix
     , (./)
     , postfix
