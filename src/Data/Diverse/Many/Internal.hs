@@ -129,24 +129,6 @@ unsafeToMany = Many (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 notMany :: Many '[a] -> a
 notMany (Many _ v) = unsafeCoerce v
 
--- -- | For a specified or inferred type, deconstruct a Many into a Maybe value of that type.
--- trial :: forall x xs. (Distinct xs, KnownNat (IndexOf x xs)) => Many xs -> Maybe x
--- trial (Many n v) = if n == fromInteger (natVal @(IndexOf x xs) Proxy)
---             then Just (unsafeCoerce v)
---             else Nothing
-
--- -- | A version of 'trial'' which trys the first type in the type list.
--- trial' :: Many (x ': xs) -> Maybe x
--- trial' (Many n v) = if n == 0
---             then Just (unsafeCoerce v)
---             else Nothing
-
--- -- | For a specified Nat index, deconstruct a Many into a Maybe value of that type.
--- trialN :: forall n xs x proxy. (KnownNat n, x ~ KindAtIndex n xs) => proxy n -> Many xs -> Maybe x
--- trialN _ (Many n v) = if n == fromInteger (natVal @n Proxy)
---             then Just (unsafeCoerce v)
---             else Nothing
-
 -- | 'trial' a value out of a Many, and get Either the Right value or the Left-over possibilities.
 trial
     :: forall x xs.
@@ -159,7 +141,7 @@ trial (Many n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
                           then Left (Many (n - 1) v)
                           else Left (Many n v)
 
--- | A version of 'trialEither' which trys the first type in the type list.
+-- | A version of 'trial' which trys the first type in the type list.
 trial' :: Many (x ': xs) -> Either (Many xs) x
 trial' (Many n v) = if n == 0
            then Right (unsafeCoerce v)
@@ -178,6 +160,7 @@ trialN _ (Many n v) = let i = fromInteger (natVal @n Proxy)
                           then Left (Many (n - 1) v)
                           else Left (Many n v)
 
+-- | Utility to convert Either to Maybe
 hush :: Either a b -> Maybe b
 hush = either (const Nothing) Just
 
@@ -244,24 +227,24 @@ instance ( KnownNat (KindAtIndex n indices)
 reinterpret :: forall branch tree. Reinterpret branch tree => Many tree -> Either (Many (Complement tree branch)) (Many branch)
 reinterpret = forMany (CaseReinterpret @branch @tree)
 
-type Reinterpret branch tree = (Reduce Many (Switch (CaseReinterpret branch)) tree (Either (Many (Complement tree branch)) (Many branch))
+type Reinterpret branch tree = (Reduce Many (Switch (CaseReinterpret branch tree)) tree (Either (Many (Complement tree branch)) (Many branch))
          , Distinct branch
          , Distinct tree)
 
-data CaseReinterpret (branch :: [Type]) (tree :: [Type]) r = CaseReinterpret
+data CaseReinterpret (branch :: [Type]) (tree :: [Type]) (xs :: [Type]) r = CaseReinterpret
 
-instance Reiterate (CaseReinterpret branch) tree where
+instance Reiterate (CaseReinterpret branch tree) xs where
     reiterate CaseReinterpret = CaseReinterpret
 
-instance ( KnownNat (PositionOf (Head tree) branch)
+instance ( KnownNat (PositionOf x branch)
          , comp ~ Complement tree branch
-         , KnownNat (IndexOf (Head tree) comp)
+         , KnownNat (PositionOf x comp)
          ) =>
-         Case (CaseReinterpret branch) tree (Either (Many comp) (Many branch)) where
+         Case (CaseReinterpret branch tree) (x ': xs) (Either (Many comp) (Many branch)) where
     case' CaseReinterpret a =
-        case fromInteger (natVal @(PositionOf (Head tree) branch) Proxy) of
-            0 -> let j = fromInteger (natVal @(IndexOf (Head tree) (Complement tree branch)) Proxy)
-                 in Left $ Many j (unsafeCoerce a)
+        case fromInteger (natVal @(PositionOf x branch) Proxy) of
+            0 -> let j = fromInteger (natVal @(PositionOf x (Complement tree branch)) Proxy)
+                 in Left $ Many (j - 1) (unsafeCoerce a) -- j will never be zero
             i -> Right $ Many (i - 1) (unsafeCoerce a)
 
 ------------------------------------------------------------------

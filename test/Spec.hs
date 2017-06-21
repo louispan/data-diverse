@@ -25,6 +25,10 @@ import GHC.TypeLits
 proxy :: a -> Proxy a
 proxy _ = Proxy
 
+-- -- | Utility to convert Either to Maybe
+-- hush :: Either a b -> Maybe b
+-- hush = either (const Nothing) Just
+
 main :: IO ()
 main = do
     hspec $ do
@@ -88,7 +92,7 @@ main = do
             it "can be trialled until it's not a Many" $ do
                 let y = pick (5 :: Int) :: Many '[Int, Bool]
                     -- y' = pick (5 :: Int) :: Many '[Int]
-                    x = trialEither y :: Either (Many '[Int]) Bool
+                    x = trial y :: Either (Many '[Int]) Bool
                 -- x `shouldBe` (Left y') -- FIXME: Eq not done yet
                 case x of
                     Left y' -> (notMany y') `shouldBe` (5 :: Int)
@@ -125,22 +129,22 @@ main = do
 
             it "can be reinterpreted into a different Many" $ do
                 let y = pick @[Int, Char] (5 :: Int)
-                    y' = reinterpret @[String, Bool] y
-                y' `shouldBe` Nothing
-
-            it "can be reinterpreted into either one of two different Many" $ do
-                let y = pick @[Int, Char] (5 :: Int)
-                    y' = reinterpretEither @[String, Bool] y
+                    y' = (reinterpret @[String, Bool] y)
                 y' `shouldBe` Left y
 
             it "can be reinterpreted into either one of two different Many" $ do
                 let y = pick @[Int, Char] (5 :: Int)
-                    y' = reinterpretEither @[String, Char] y
+                    y' = reinterpret @[String, Bool] y
+                y' `shouldBe` Left y
+
+            it "can be reinterpreted into either one of two different Many" $ do
+                let y = pick @[Int, Char] (5 :: Int)
+                    y' = reinterpret @[String, Char] y
                 y' `shouldBe` Left (pick (5 :: Int))
 
             it "can be reinterpreted into either one of two different Many" $ do
                 let y = pick @[Int, Char] (5 :: Int)
-                    y' = reinterpretEither @[String, Int] y
+                    y' = reinterpret @[String, Int] y
                 y' `shouldBe` Right (pick (5 :: Int))
 
             it "is a Read and Show" $ do
