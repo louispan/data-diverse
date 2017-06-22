@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
@@ -20,9 +21,16 @@ module Data.Diverse.Nary.Internal (
     -- * 'Nary' type
       Nary(..) -- Exporting constructor unsafely!
 
+      -- * Isomorphism
+    , IsNary(..)
+    , fromNary'
+    , toNary'
+    , _Nary
+    , _Nary'
+
       -- * Construction
     , nul
-    , singleton
+    , single
     , prefix
     , (./)
     , postfix
@@ -41,12 +49,10 @@ module Data.Diverse.Nary.Internal (
     , fetch
     , (.^.)
     , fetchN
-    , (!^.)
     -- ** Setter for single field
     , replace
-    , (..~)
+    , (.~.)
     , replaceN
-    , (!.~)
     -- ** Lens for a single field
     , item
     , itemN
@@ -58,14 +64,12 @@ module Data.Diverse.Nary.Internal (
     , (\^.)
     , NarrowN
     , narrowN
-    , (!\^.)
     -- ** Setter for multiple fields
     , Amend
     , amend
-    , (\.~)
+    , (\~.)
     , AmendN
     , amendN
-    , (!\.~)
     -- ** Lens for multiple fields
     , project
     , projectN
@@ -95,6 +99,7 @@ import Data.Diverse.Type
 import Data.Kind
 import qualified Data.Map.Strict as M
 import Data.Proxy
+import Data.Tagged
 import GHC.Prim (Any, coerce)
 import GHC.TypeLits
 import Text.ParserCombinators.ReadPrec
@@ -137,6 +142,109 @@ data Nary (xs :: [Type]) = Nary {-# UNPACK #-} !Int (M.Map Key Any)
 
 -- | Inferred role is phantom which is incorrect
 type role Nary representational
+
+-----------------------------------------------------------------------
+
+-- | This instance allows converting to and from Nary
+-- There are instance for converting tuples of up to size 16.
+class IsNary t xs a where
+    toNary :: t xs a -> Nary xs
+    fromNary :: Nary xs -> t xs a
+
+-- | Converts from a value (eg a tuple) to a Nary, via a Tagged wrapper
+toNary' :: IsNary Tagged xs a => a -> Nary xs
+toNary' a = toNary (Tagged a)
+
+-- | Converts from a Nary to a value (eg a tuple), via a Tagged wrapper
+fromNary' :: IsNary Tagged xs a => Nary xs -> a
+fromNary' = unTagged . fromNary
+
+-- | @_Nary = iso fromNary toNary@
+_Nary :: IsNary t xs a => Iso' (Nary xs) (t xs a)
+_Nary = iso fromNary toNary
+
+-- | @_Nary' = iso fromNary' toNary'@
+_Nary' :: IsNary Tagged xs a => Iso' (Nary xs) a
+_Nary' = iso fromNary' toNary'
+
+instance IsNary Tagged '[] () where
+    toNary _ = nul
+    fromNary _ = Tagged ()
+
+instance IsNary Tagged '[a] a where
+    toNary (Tagged a) = single a
+    fromNary r = Tagged (fetch @a r)
+
+instance IsNary Tagged '[a,b] (a,b) where
+    toNary (Tagged (a,b)) = a./b./nul
+    fromNary r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r)
+
+instance IsNary Tagged '[a,b,c] (a,b,c) where
+    toNary (Tagged (a,b,c)) = a./b./c./nul
+    fromNary r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r)
+
+instance IsNary Tagged '[a,b,c,d] (a,b,c,d) where
+    toNary (Tagged (a,b,c,d)) = a./b./c./d./nul
+    fromNary r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r)
+
+instance IsNary Tagged '[a,b,c,d,e] (a,b,c,d,e) where
+    toNary (Tagged (a,b,c,d,e)) = a./b./c./d./e./nul
+    fromNary r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r)
+
+instance IsNary Tagged '[a,b,c,d,e,f] (a,b,c,d,e,f) where
+    toNary (Tagged (a,b,c,d,e,f)) = a./b./c./d./e./f./nul
+    fromNary r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
+                        , fetchN (Proxy @5) r)
+
+instance IsNary Tagged '[a,b,c,d,e,f,g] (a,b,c,d,e,f,g) where
+    toNary (Tagged (a,b,c,d,e,f,g)) = a./b./c./d./e./f./g./nul
+    fromNary r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
+                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r)
+
+instance IsNary Tagged '[a,b,c,d,e,f,g,h] (a,b,c,d,e,f,g,h) where
+    toNary (Tagged (a,b,c,d,e,f,g,h)) = a./b./c./d./e./f./g./h./nul
+    fromNary r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
+                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r)
+
+instance IsNary Tagged '[a,b,c,d,e,f,g,h,i] (a,b,c,d,e,f,g,h,i) where
+    toNary (Tagged (a,b,c,d,e,f,g,h,i)) = a./b./c./d./e./f./g./h./i./ nul
+    fromNary r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
+                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r)
+
+instance IsNary Tagged '[a,b,c,d,e,f,g,h,i,j] (a,b,c,d,e,f,g,h,i,j) where
+    toNary (Tagged (a,b,c,d,e,f,g,h,i,j)) = a./b./c./d./e./f./g./h./i./j./nul
+    fromNary r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
+                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r)
+
+instance IsNary Tagged '[a,b,c,d,e,f,g,h,i,j,k] (a,b,c,d,e,f,g,h,i,j,k) where
+    toNary (Tagged (a,b,c,d,e,f,g,h,i,j,k)) = a./b./c./d./e./f./g./h./i./j./k./nul
+    fromNary r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
+                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
+                        , fetchN (Proxy @10) r)
+
+instance IsNary Tagged '[a,b,c,d,e,f,g,h,i,j,k,l] (a,b,c,d,e,f,g,h,i,j,k,l) where
+    toNary (Tagged (a,b,c,d,e,f,g,h,i,j,k,l)) = a./b./c./d./e./f./g./h./i./j./k./l./nul
+    fromNary r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
+                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
+                        , fetchN (Proxy @10) r, fetchN (Proxy @11) r)
+
+instance IsNary Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m] (a,b,c,d,e,f,g,h,i,j,k,l,m) where
+    toNary (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m)) = a./b./c./d./e./f./g./h./i./j./k./l./m./nul
+    fromNary r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
+                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
+                        , fetchN (Proxy @10) r, fetchN (Proxy @11) r, fetchN (Proxy @12) r)
+
+instance IsNary Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n] (a,b,c,d,e,f,g,h,i,j,k,l,m,n) where
+    toNary (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m,n)) = a./b./c./d./e./f./g./h./i./j./k./l./m./n./nul
+    fromNary r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
+                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
+                        , fetchN (Proxy @10) r, fetchN (Proxy @11) r, fetchN (Proxy @12) r, fetchN (Proxy @13) r)
+
+instance IsNary Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l,m,n,o) where
+    toNary (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m,n,o)) = a./b./c./d./e./f./g./h./i./j./k./l./m./n./o./nul
+    fromNary r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
+                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
+                        , fetchN (Proxy @10) r, fetchN (Proxy @11) r, fetchN (Proxy @12) r, fetchN (Proxy @13) r, fetchN (Proxy @14) r)
 
 -----------------------------------------------------------------------
 
@@ -215,7 +323,7 @@ infixl 5 \.
 -- | 'append' mnemonic: 'cons' './' with an extra slash (meaning 'Nary') in front.
 (/./) :: Nary xs -> Nary ys -> Nary (Concat xs ys)
 (/./) = append
-infixl 5 /./
+infixr 5 /./ -- like (++)
 
 -- | Contains two Narys together
 append :: Nary xs -> Nary ys -> Nary (Concat xs ys)
@@ -237,12 +345,12 @@ infixr 5 `append` -- like Data.List (++)
 -- | Extract the first element of a Nary, which guaranteed to be non-empty.
 -- Analogous to 'Partial.head'
 front :: Nary (x ': xs) -> x
-front (Nary o m) = unsafeCoerce (m M.! (Key o))
+front (Nary _ m) = unsafeCoerce (snd . Partial.head $ M.toAscList m)
 
 -- | Extract the 'back' element of a Nary, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.last'
-back :: Nary (x ': xs) -> x
-back (Nary o m) = unsafeCoerce (m M.! (Key (M.size m + o)))
+back :: Nary (x ': xs) -> Last (x ': xs)
+back (Nary _ m) = unsafeCoerce (snd . Partial.head $ M.toDescList m)
 
 -- | Extract the elements after the front of a Nary, which guaranteed to be non-empty.
 -- Analogous to 'Partial.tail'
@@ -251,7 +359,7 @@ aft (Nary o m) = Nary (o + 1) (M.delete (Key o) m)
 
 -- | Return all the elements of a Nary except the 'back' one, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.init'
-fore :: Nary xs -> Nary (Init xs)
+fore :: Nary (x ': xs) -> Nary (Init (x ': xs))
 fore (Nary o m) = Nary o (M.delete (Key (o + M.size m - 1)) m)
 
 --------------------------------------------------
@@ -282,15 +390,6 @@ fetchN :: forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n
 fetchN p (Nary o m) = unsafeCoerce (m M.! (Key (o + i)))
   where i = fromInteger (natVal p)
 
--- | infix version of 'flip fetchN'
---
--- @foo !^. (Proxy \@2)@
---
--- Mnemonic: Like 'Control.Lens.(^.)' but with an extra @!@ in front.
-(!^.) :: forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => Nary xs -> proxy n -> x
-(!^.) = flip fetchN
-infixl 8 !^. -- like Control.Lens.(^.)
-
 --------------------------------------------------
 
 -- | Setter. Use TypeApplication of the type to set.
@@ -306,10 +405,10 @@ replace (Nary o m) v = Nary o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 --
 -- @foo ..~ x@
 --
--- Mnemonic: Like 'Control.Lens.(.~)' but with an extra @.@ in front.
-(..~) :: forall x xs. (Distinct xs, KnownNat (IndexOf x xs)) => Nary xs -> x -> Nary xs
-(..~) = replace
-infixl 1 ..~ -- like Control.Lens.(.~)
+-- Mnemonic: Like a back to front 'Control.Lens.(.~)' with an extra @.@ in front.
+(.~.) :: forall x xs. (Distinct xs, KnownNat (IndexOf x xs)) => Nary xs -> x -> Nary xs
+(.~.) = replace
+infixl 1 .~. -- like Control.Lens.(.~)
 
 --------------------------------------------------
 
@@ -320,15 +419,6 @@ infixl 1 ..~ -- like Control.Lens.(.~)
 replaceN :: forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => proxy n -> Nary xs -> x -> Nary xs
 replaceN p (Nary o m) v = Nary o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal p)
-
--- | infix version of 'flip replaceN'
---
--- @foo !.~ (Proxy \@2)@
---
--- Mnemonic: Like 'Control.Lens.(.~)' but with an extra @!@ in front.
-(!.~) :: forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => Nary xs -> proxy n -> x -> Nary xs
-(!.~) = flip replaceN
-infixl 1 !.~ -- like Control.Lens.(.~)
 
 -----------------------------------------------------------------------
 
@@ -468,16 +558,6 @@ narrowN _ xs = Nary 0 (fromList' xs')
   where
     xs' = afoldr (++) [] (forNaryN (CaseNarrowN @ns @0 @larger) xs)
 
--- | infix version of 'flip narrowN'
---
--- @foo !\^. (Proxy @'[6, 3])@
---
---
--- Mnemonic: Like 'Control.Lens.(^.)' but with an extra '!\' (indexed, narrow to the right) in front.
-(!\^.) :: forall ns smaller larger proxy. (NarrowN ns smaller larger) => Nary larger -> proxy ns -> Nary smaller
-(!\^.) = flip narrowN
-infixl 8 !\^. -- like Control.Lens.(^.)
-
 data CaseNarrowN (indices :: [Nat]) (n :: Nat) (xs :: [Type]) r = CaseNarrowN
 
 instance ReiterateN (CaseNarrowN indices) n (x ': xs) where
@@ -513,10 +593,10 @@ amend (Nary lo lm) t = Nary lo (fromList' xs' `M.union` lm)
 --
 -- @t1 \.~ t2
 --
--- Mnemonic: Like 'Control.Lens.(^.)' but with an extra '\' (narrow to the right) in front.
-(\.~) :: forall smaller larger. Amend smaller larger => Nary larger -> Nary smaller -> Nary larger
-(\.~) = amend
-infixl 1 \.~ -- like Control.Lens.(.~)
+-- Mnemonic: Like backwards 'Control.Lens.(^.)' but with an extra '\' (narrow to the right) in front.
+(\~.) :: forall smaller larger. Amend smaller larger => Nary larger -> Nary smaller -> Nary larger
+(\~.) = amend
+infixl 1 \~. -- like Control.Lens.(.~)
 
 newtype CaseAmend (larger :: [Type]) (xs :: [Type]) r = CaseAmend Int
 
@@ -548,16 +628,6 @@ amendN :: forall ns smaller larger proxy.
 amendN _ (Nary lo lm) t = Nary lo (fromList' xs' `M.union` lm)
   where
     xs' = afoldr (:) [] (forNaryN (CaseAmendN @ns @0 @smaller lo) t)
-
--- | infix version of 'flip amendN'. Mnemonic. Like 'Control.Lens.(.~)' but with an extra '!\' (index, narrow to the right) in front.
--- Specify a Nat-list of fields to 'amendN' into.
---
--- @t1 !\.~ (Proxy \@[6,2])@
-(!\.~) :: forall ns smaller larger proxy.
-       (AmendN ns smaller larger)
-    => Nary larger -> proxy ns -> Nary smaller -> Nary larger
-(!\.~) = flip amendN
-infixl 1 !\.~ -- like Control.Lens.(.~)
 
 newtype CaseAmendN (indices :: [Nat]) (n :: Nat) (xs :: [Type]) r = CaseAmendN Int
 
@@ -607,9 +677,6 @@ projectN
     => proxy ns -> Lens' (Nary larger) (Nary smaller)
 projectN p = lens (narrowN p) (amendN p)
 {-# INLINE projectN #-}
-
--- wack :: Proxy '[Maybe Nat]
--- wack = undefined
 
 -----------------------------------------------------------------------
 
@@ -737,5 +804,3 @@ instance ( Distinct xs
 -- | 'WrappedAny' avoids the following:
 -- Illegal type synonym family application in instance: Any
 newtype WrappedAny = WrappedAny Any
-
--- FIXME: Add tuple conversion functions?

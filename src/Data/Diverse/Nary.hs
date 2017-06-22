@@ -3,6 +3,13 @@ module Data.Diverse.Nary (
     -- * 'Nary' type
       Nary -- Hiding constructor
 
+      -- * Isomorphism
+    , IsNary(..)
+    , fromNary'
+    , toNary'
+    , _Nary
+    , _Nary'
+
       -- * Construction
     , nul
     , single
@@ -24,12 +31,10 @@ module Data.Diverse.Nary (
     , fetch
     , (.^.)
     , fetchN
-    , (!^.)
     -- ** Setter for single field
     , replace
-    , (..~)
+    , (.~.)
     , replaceN
-    , (!.~)
     -- ** Lens for a single field
     , item
     , itemN
@@ -41,14 +46,12 @@ module Data.Diverse.Nary (
     , (\^.)
     , NarrowN
     , narrowN
-    , (!\^.)
     -- ** Setter for multiple fields
     , Amend
     , amend
-    , (\.~)
+    , (\~.)
     , AmendN
     , amendN
-    , (!\.~)
     -- ** Lens for multiple fields
     , project
     , projectN

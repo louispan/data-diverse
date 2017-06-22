@@ -29,40 +29,21 @@ type family IndexOfImpl (ctx :: [k]) x (xs :: [k]) :: Nat where
                                       ':<>: 'ShowType ctx
                                       ':<>: 'Text "’")
 
--- type family PositionOfLabelImpl (ctx :: [Type]) (l :: k1) (xs :: [k2]) :: Nat where
---     PositionOfLabelImpl ctx l '[] = TypeError ('Text "Label ‘"
---                                     ':<>: 'ShowType l
---                                     ':<>: 'Text "’"
---                                     ':<>: 'Text " not found in "
---                                     ':<>: 'Text "‘"
---                                     ':<>: 'ShowType ctx
---                                     ':<>: 'Text "’")
---     PositionOfLabelImpl ctx l (tagged l v ': xs) = 0
---     PositionOfLabelImpl ctx l (x ': xs) = 1 + PositionOfLabelImpl ctx l xs
-
-type family IndexAtLabelImpl (ctx :: [k]) (l :: Symbol) (xs :: [k]) :: Nat where
-    IndexAtLabelImpl ctx l '[] = TypeError ('Text "Label ‘"
-                                    ':<>: 'ShowType l
-                                    ':<>: 'Text "’"
-                                    ':<>: 'Text " not found in "
-                                    ':<>: 'Text "‘"
-                                    ':<>: 'ShowType ctx
-                                    ':<>: 'Text "’")
-    IndexAtLabelImpl ctx l (tagged l v ': xs) = 0
-    IndexAtLabelImpl ctx l (x ': xs) = 1 + IndexAtLabelImpl ctx l xs
-
--- | Add a type to a typelist, disallowing duplicates.
--- NB. xs are not checked.
-type family InsertImpl (ctx :: [k]) (y :: k) (xs :: [k]) :: [k] where
-    InsertImpl ctx y '[] = '[y]
-    InsertImpl ctx  x (x ': xs) = TypeError ('Text "‘"
+-- | Errors if a type exists in a typelist
+type family UniqueImpl (ctx :: [k]) (y :: k) (xs :: [k]) :: Constraint where
+    UniqueImpl ctx y '[] = ()
+    UniqueImpl ctx x (x ': xs) = TypeError ('Text "‘"
                                              ':<>: 'ShowType x
                                              ':<>: 'Text "’"
                                              ':<>: 'Text " is a duplicate in "
                                              ':<>: 'Text "‘"
                                              ':<>: 'ShowType ctx
                                              ':<>: 'Text "’")
-    InsertImpl ctx  y (x ': xs) = x ': (InsertImpl ctx y xs)
+    UniqueImpl ctx y (x ': xs) = (UniqueImpl ctx y xs)
+
+type family DistinctImpl (ctx :: [k]) (xs :: [k]) :: Constraint where
+    DistinctImpl ctx '[] = ()
+    DistinctImpl ctx (x ': xs) = (UniqueImpl ctx x xs, DistinctImpl ctx xs)
 
 type family OutcomeOfImpl (ctx :: [Type]) r (xs :: [Type]) :: Type where
     OutcomeOfImpl ctx r '[] = r
@@ -86,18 +67,6 @@ type family KindAtIndexImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) ::
                                        ':<>: 'Text "’")
    KindAtIndexImpl i ctx 0 (x ': xs) = x
    KindAtIndexImpl i ctx n (x ': xs) = KindAtIndexImpl i ctx (n - 1) xs
-
--- | Access a list via label
-type family KindAtLabelImpl (orig :: Symbol) (ctx :: [Type]) (l :: Symbol) (xs :: [Type]) :: Type where
-   KindAtLabelImpl orig ctx  l '[] = TypeError ('Text "Label ‘"
-                                       ':<>: 'ShowType orig
-                                       ':<>: 'Text "’"
-                                       ':<>: 'Text " is not in "
-                                       ':<>: 'Text "‘"
-                                       ':<>: 'ShowType ctx
-                                       ':<>: 'Text "’")
-   KindAtLabelImpl orig ctx l (tagged l v ': xs) = tagged l v
-   KindAtLabelImpl orig ctx l (x ': xs) = KindAtLabelImpl orig ctx l xs
 
 type family ReverseImpl (ret :: [k]) (xs :: [k]) :: [k] where
     ReverseImpl ret '[] = ret
