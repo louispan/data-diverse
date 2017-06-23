@@ -25,12 +25,12 @@ library
                        Data.Diverse.Emit
                        Data.Diverse.Many
                        Data.Diverse.Many.Internal
-                       Data.Diverse.Nary
-                       Data.Diverse.Nary.Internal
                        Data.Diverse.Reduce
                        Data.Diverse.Reiterate
                        Data.Diverse.Type
                        Data.Diverse.Type.Internal
+                       Data.Diverse.Which
+                       Data.Diverse.Which.Internal
   build-depends:       base >= 4.7 && < 5
                      , containers >= 0.5 && < 0.6
                      , ghc-prim >= 0.5 && < 1
@@ -43,6 +43,9 @@ test-suite data-diverse-test
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
   main-is:             Spec.hs
+  other-modules:       Data.Diverse.ManySpec
+                       Data.Diverse.TypeSpec
+                       Data.Diverse.WhichSpec
   build-depends:       base
                      , data-diverse
                      , hspec >= 2 && < 3

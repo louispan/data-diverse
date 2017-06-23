@@ -29,21 +29,36 @@ type family IndexOfImpl (ctx :: [k]) x (xs :: [k]) :: Nat where
                                       ':<>: 'ShowType ctx
                                       ':<>: 'Text "’")
 
+-- Searches for y in ys
+-- if not found than use y, and repeat search with next (y ': ys) in ctx
+-- else if found, then don't use y, then repeat search with next (y ': ys) in ctx
+type family DistinctImpl (ctx :: [k]) y (ys :: [k]) :: [k] where
+    DistinctImpl '[] y '[] = y ': '[]
+    DistinctImpl '[] y (y ': xs) = '[]
+    DistinctImpl (x ': xs) y '[] = y ': DistinctImpl xs x xs
+    DistinctImpl (x ': xs) y (y ': ys) = DistinctImpl xs x xs
+    DistinctImpl ctx y (x ': xs) = DistinctImpl ctx y xs
+
 -- | Errors if a type exists in a typelist
-type family UniqueImpl (ctx :: [k]) (y :: k) (xs :: [k]) :: Constraint where
-    UniqueImpl ctx y '[] = ()
-    UniqueImpl ctx x (x ': xs) = TypeError ('Text "‘"
+type family MissingImpl (ctx :: [k]) (y :: k) (xs :: [k]) :: Constraint where
+    MissingImpl ctx y '[] = ()
+    MissingImpl ctx x (x ': xs) = TypeError ('Text "‘"
                                              ':<>: 'ShowType x
                                              ':<>: 'Text "’"
                                              ':<>: 'Text " is a duplicate in "
                                              ':<>: 'Text "‘"
                                              ':<>: 'ShowType ctx
                                              ':<>: 'Text "’")
-    UniqueImpl ctx y (x ': xs) = (UniqueImpl ctx y xs)
+    MissingImpl ctx y (x ': xs) = (MissingImpl ctx y xs)
 
-type family DistinctImpl (ctx :: [k]) (xs :: [k]) :: Constraint where
-    DistinctImpl ctx '[] = ()
-    DistinctImpl ctx (x ': xs) = (UniqueImpl ctx x xs, DistinctImpl ctx xs)
+type family IsDistinctImpl (ctx :: [k]) (xs :: [k]) :: Constraint where
+    IsDistinctImpl ctx '[] = ()
+    IsDistinctImpl ctx (x ': xs) = (MissingImpl ctx x xs, IsDistinctImpl ctx xs)
+
+type family UniqueImpl (ctx :: [k]) x (xs :: [k]) :: Constraint where
+    UniqueImpl ctx x '[] = ()
+    UniqueImpl ctx x (x ': xs) = MissingImpl ctx x xs
+    UniqueImpl ctx x (y ': xs) = UniqueImpl ctx x xs
 
 type family OutcomeOfImpl (ctx :: [Type]) r (xs :: [Type]) :: Type where
     OutcomeOfImpl ctx r '[] = r
@@ -58,25 +73,15 @@ type family OutcomeOfImpl (ctx :: [Type]) r (xs :: [Type]) :: Type where
 
 -- | Indexed access into the list
 type family KindAtIndexImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: k where
-   KindAtIndexImpl i ctx 0 '[] = TypeError ('Text "Index ‘"
+    KindAtIndexImpl i ctx 0 '[] = TypeError ('Text "Index ‘"
                                        ':<>: 'ShowType i
                                        ':<>: 'Text "’"
                                        ':<>: 'Text " is out of bounds of "
                                        ':<>: 'Text "‘"
                                        ':<>: 'ShowType ctx
                                        ':<>: 'Text "’")
-   KindAtIndexImpl i ctx 0 (x ': xs) = x
-   KindAtIndexImpl i ctx n (x ': xs) = KindAtIndexImpl i ctx (n - 1) xs
-
-type family ReverseImpl (ret :: [k]) (xs :: [k]) :: [k] where
-    ReverseImpl ret '[] = ret
-    ReverseImpl ret (x ': xs) = ReverseImpl (x ': ret) xs
-
-type family WithoutImpl x (ret :: [k]) (xs :: [k]) :: [k] where
-    WithoutImpl x ret '[] = ReverseImpl '[] ret
-    WithoutImpl x ret (x ': xs) = WithoutImpl x ret xs
-    WithoutImpl x ret (y ': xs) = WithoutImpl x (y ': ret) xs
-
+    KindAtIndexImpl i ctx 0 (x ': xs) = x
+    KindAtIndexImpl i ctx n (x ': xs) = KindAtIndexImpl i ctx (n - 1) xs
 
 type family SameLengthImpl (ctx :: [k1]) (cty :: [k2]) (xs :: [k1]) (yx :: [k2]) :: Constraint where
     SameLengthImpl as bs '[] '[] = ()
@@ -88,8 +93,3 @@ type family SameLengthImpl (ctx :: [k1]) (cty :: [k2]) (xs :: [k1]) (yx :: [k2])
                                             ':<>: 'Text "‘"
                                             ':<>: 'ShowType bs
                                             ':<>: 'Text "’")
-
-type family InitImpl (ret :: [k]) (xs :: [k]) :: [k] where
-    InitImpl ret '[]  = TypeError ('Text "Cannot Init an empty type list")
-    InitImpl ret '[x] = ReverseImpl '[] ret
-    InitImpl ret (x ': xs) = InitImpl (x ': ret) xs

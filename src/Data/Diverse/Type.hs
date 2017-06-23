@@ -13,8 +13,18 @@ import Data.Diverse.Type.Internal
 import Data.Kind
 import GHC.TypeLits
 
+-- FIXME: Bring back Member, so we can have functions for polymorhpic records
+
+-- FIXME: lower IsDistinct constraints to just have that type be distinct, not all typelist
+
 -- | A constraint ensuring that the type list contain unique types
-type Distinct (xs :: [k]) = DistinctImpl xs xs
+type IsDistinct (xs :: [k]) = IsDistinctImpl xs xs
+
+type family Distinct (xs :: [k]) :: [k] where
+    Distinct '[] = '[]
+    Distinct (x ': xs) = DistinctImpl xs x xs
+
+type Unique x (xs :: [k]) = UniqueImpl xs x xs
 
 -- | Gets the result type from an list of handlers/continuations of different types.
 type family OutcomeOf (xs :: [Type]) :: Type where
@@ -36,18 +46,28 @@ type PositionOf x (xs :: [k]) = PositionOfImpl 0 x xs
 -- | Get the type at an index
 type KindAtIndex (n :: Nat) (xs :: [k]) = KindAtIndexImpl n xs n xs
 
+-- | It's actually ok for the position to be zero, but if it's not zero then the types must match
+type family KindAtPositionIs (x :: k) (n :: Nat) (xs :: [k]) :: Constraint where
+    KindAtPositionIs x 0 xs = ()
+    KindAtPositionIs x n xs = (x ~ KindAtIndexImpl (n - 1) xs (n - 1) xs)
+
 -- | Get the types at an list of index
 type family KindsAtIndices (ns :: [Nat]) (xs :: [k]) :: [k] where
     KindsAtIndices '[] xs = '[]
     KindsAtIndices (n ': ns) xs = KindAtIndex n xs ': KindsAtIndices ns xs
 
 -- | The typelist xs without x. It is okay for x not to exist in xs
-type Without x (xs :: [k]) = WithoutImpl x '[] xs
-
-type Reverse (xs :: [k]) = ReverseImpl '[] xs
+type family Without x (xs :: [k]) :: [k] where
+    Without x '[] = '[]
+    Without x (x ': xs) = Without x xs
+    Without x (y ': xs) = y ': Without x xs
 
 -- | Index is within Bounds of the typelist
 type WithinBounds (n :: Nat) (xs :: [k]) = (n + 1 <= Length xs, 0 <= n)
+
+type family NotEmpty (xs :: [k]) :: Constraint where
+    NotEmpty '[] = TypeError ('Text "Typelist can't be empty")
+    NotEmpty (x ': xs) = ()
 
 type family Length (xs :: [k]) :: Nat where
     Length '[] = 0
@@ -73,8 +93,11 @@ type family Complement (xs :: [k]) (ys :: [k]) :: [k] where
     Complement xs '[] = xs
     Complement xs (y ': ys)  = Complement (Without y xs) ys
 
-type family Concat (xs :: [k]) (ys :: [k]) :: [k] where
-    Concat '[] ys = ys
-    Concat (x ': xs) ys = x ': Concat xs ys
+type family Append (xs :: [k]) (ys :: [k]) :: [k] where
+    Append '[] ys = ys
+    Append (x ': xs) ys = x ': Append xs ys
 
-type Init (xs :: [k]) = InitImpl '[] xs
+type family Init (xs :: [k]) :: [k] where
+    Init '[]  = TypeError ('Text "Cannot Init an empty type list")
+    Init '[x] = '[]
+    Init (x ': xs) = x ': Init xs

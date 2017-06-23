@@ -1,44 +1,72 @@
 -- | Re-export Many without the constructor
 module Data.Diverse.Many (
-      -- * 'Many' type
-      Many -- hiding constructor
+    -- * 'Many' type
+      Many -- Hiding constructor
 
-      -- * Single type
-      -- ** Construction
-    , pick
-    , pick'
-    , pickN
-      -- ** Destruction
-    , notMany
-    , trial
-    , trial'
-    , trialN
-      -- ** Lens
-    , facet
-    , facetN
+      -- * Isomorphism
+    , IsMany(..)
+    , fromMany'
+    , toMany'
+    , _Many
+    , _Many'
 
-      -- * Multiple types
-      -- ** Injection
-    , Diversify
-    , diversify
-    , DiversifyN
-    , diversifyN
-      -- ** Inverse Injection
-    , Reinterpret
-    , reinterpret
-    , ReinterpretN
-    , reinterpretN'
-      -- ** Lens
-    , inject
-    , injectN
+      -- * Construction
+    , nul
+    , single
+    , prefix
+    , (./)
+    , postfix
+    , (\.)
+    , append
+    , (/./)
 
-      -- * Catamorphism
-    , Switch(..)
+    -- * Simple queries
+    , front
+    , back
+    , aft
+    , fore
+
+    -- * Single field
+    -- ** Getter for single field
+    , fetch
+    , (.^.)
+    , fetchN
+    -- ** Setter for single field
+    , replace
+    , (.~.)
+    , replaceN
+    -- ** Lens for a single field
+    , item
+    , itemN
+
+    -- * Multiple fields
+    -- ** Getter for multiple fields
+    , Narrow
+    , narrow
+    , (\^.)
+    , NarrowN
+    , narrowN
+    -- ** Setter for multiple fields
+    , Amend
+    , amend
+    , (\~.)
+    , AmendN
+    , amendN
+    -- ** Lens for multiple fields
+    , project
+    , projectN
+
+    -- * Destruction
+    -- ** By type
+    , Via -- no constructor
+    , via -- safe construction
     , forMany
-    , switch
-    , SwitchN(..)
+    , collect
+    -- * By Nat index offset
+    , ViaN -- no constructor
+    , viaN -- safe construction
     , forManyN
-    , switchN
+    , collectN
     ) where
 
 import Data.Diverse.Many.Internal
