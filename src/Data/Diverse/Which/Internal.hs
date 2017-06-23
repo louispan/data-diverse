@@ -100,18 +100,28 @@ type role Which representational
 impossible :: Which '[]
 impossible = Which (-1) (unsafeCoerce ())
 
--- | Lift a value into a Which of possibly other types.
--- NB. forall used to specify @xs@ first, so TypeApplications can be used to specify @xs@.
+-- | Lift a value into a 'Which' of possibly other types @xs@ which can be inferred or specified with TypeApplications.
+-- NB. forall is used to specify @xs@ first, so TypeApplications can be used to specify @xs@ first
+--
+-- @
+-- 'pick' \'A' \@'[Int, Bool, Char, Maybe String]
+-- @
 pick :: forall xs x. UniqueMember x xs => x -> Which xs
 pick = Which (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
--- | A variation of 'pick' into a Which of a single type
+-- | A variation of 'pick' into a 'Which' of a single type.
+--
+-- @
+-- 'pick'' \'A'
+-- @
 pick' :: x -> Which '[x]
 pick' = pick
 
--- | Lift a value into a Which of possibly other (possibley indistinct) types, where the value is the n-th type.
+-- | Lift a value into a 'Which' of possibly other (possibley indistinct) types, where the value is the @n@-th type.
 --
--- @pickN \@0 @'[Int, Bool, Char] Proxy 5@
+-- @
+-- 'pickN' (Proxy \@4) (5 :: Int) :: Which '[Bool, Int, Char, Bool, Int, Char]
+-- @
 pickN :: forall n xs x proxy. MemberAt n x xs => proxy n -> x -> Which xs
 pickN _ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 
@@ -119,7 +129,7 @@ pickN _ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 obvious :: Which '[a] -> a
 obvious (Which _ v) = unsafeCoerce v
 
--- | 'trial' a value out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
+-- | 'trial' a confession out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
 trial
     :: forall x xs.
        (UniqueMember x xs)
@@ -131,18 +141,18 @@ trial (Which n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
                           then Left (Which (n - 1) v)
                           else Left (Which n v)
 
--- | A version of 'Which' 'trial' which trys the first type in the type list.
+-- | A version of a 'Which' 'trial' which 'trial''s the first type in the type list.
 trial' :: Which (x ': xs) -> Either (Which xs) x
 trial' (Which n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Which (n - 1) v)
 
 
--- | 'trialN' the n-th value out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
+-- | 'trialN' the n-th confession out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
 trialN
     :: forall n xs x proxy.
        (MemberAt n x xs)
-    => proxy n -> Which xs -> Either (Which (Without x xs)) x
+    => proxy n -> Which xs -> Either (Which (WithoutIndex n xs)) x
 trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
                   in if n == i
                      then Right (unsafeCoerce v)

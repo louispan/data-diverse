@@ -63,6 +63,9 @@ type family Without (x :: k) (xs :: [k]) :: [k] where
     Without x (x ': xs) = Without x xs
     Without x (y ': xs) = y ': Without x xs
 
+-- | The typelist @xs@ without the type at Nat @n@. @n@ must be within bounds of @xs@
+type WithoutIndex (n :: Nat) (xs :: [k]) = WithoutIndexImpl n xs n xs
+
 -- | Gets the ength of a typelist
 type family Length (xs :: [k]) :: Nat where
     Length '[] = 0

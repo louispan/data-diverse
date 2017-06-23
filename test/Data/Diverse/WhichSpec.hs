@@ -68,11 +68,50 @@ spec = do
             x `shouldBe` (Just 5)
 
         it "can be 'trial'led until its final 'obvious' value" $ do
-            let x = pick (5 :: Int) :: Which '[Int, Bool]
-                y = pick (5 :: Int) :: Which '[Int]
-                x' = trial x :: Either (Which '[Int]) Bool
-            x' `shouldBe` (Left y)
-            obvious y `shouldBe` 5
+            let a = pick @'[Char, Int, Bool, String] (5 :: Int)
+                b = pick @'[Char, Int, String] (5 :: Int)
+                c = pick @'[Int, String] (5 :: Int)
+                d = pick @'[Int] (5 :: Int)
+            trial @Int a `shouldBe` Right 5
+            trial @Bool a `shouldBe` Left b
+            trial @Int b `shouldBe` Right 5
+            trial @Char b `shouldBe` Left c
+            trial @Int c `shouldBe` Right 5
+            trial @String c `shouldBe` Left d
+            trial @Int d `shouldBe` Right 5
+            trial @Int d `shouldNotBe` Left impossible
+            obvious d `shouldBe` 5
+
+        it "can be 'trialN'led until its final 'obvious' value" $ do
+            let a = pickN @2 @'[Char, Bool, Int, Bool, Char, String] Proxy (5 :: Int)
+                b = pickN @2 @'[Char, Bool, Int, Char, String] Proxy (5 :: Int)
+                c = pickN @2 @'[Char, Bool, Int, String] Proxy (5 :: Int)
+                d = pickN @1 @'[Bool, Int, String] Proxy (5 :: Int)
+                e = pickN @1 @'[Bool, Int] Proxy (5 :: Int)
+                f = pickN @0 @'[Int] Proxy (5 :: Int)
+            trial @Int a `shouldBe` Right 5
+            trialN @2 Proxy a `shouldBe` Right 5
+            trialN @3 Proxy a `shouldBe` Left b
+
+            trial @Int b `shouldBe` Right 5
+            trialN @2 Proxy b `shouldBe` Right 5
+            trialN @3 Proxy b `shouldBe` Left c
+
+            trial @Int c `shouldBe` Right 5
+            trialN @2 Proxy c `shouldBe` Right 5
+            trialN @0 Proxy c `shouldBe` Left d
+
+            trial @Int d `shouldBe` Right 5
+            trialN @1 Proxy d `shouldBe` Right 5
+            trialN @2 Proxy d `shouldBe` Left e
+
+            trial @Int e `shouldBe` Right 5
+            trialN @1 Proxy e `shouldBe` Right 5
+            trialN @0 Proxy e `shouldBe` Left f
+
+            trial @Int f `shouldBe` Right 5
+            trial @Int f `shouldNotBe` Left impossible
+            obvious f `shouldBe` 5
 
         it "can be constructed and destructed by type with 'facet'" $ do
             let y = review (facet @Int) (5 :: Int) :: Which '[Bool, Int, Char, Bool, Char]

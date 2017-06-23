@@ -84,3 +84,15 @@ type family SameLengthImpl (ctx :: [k1]) (cty :: [k2]) (xs :: [k1]) (yx :: [k2])
                                             ':<>: 'Text "‘"
                                             ':<>: 'ShowType bs
                                             ':<>: 'Text "’")
+
+-- | The typelist @xs@ without the type at Nat @n@. @n@ must be within bounds of @xs@
+type family WithoutIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: [k] where
+    WithoutIndexImpl i ctx n '[] = TypeError ('Text "Index ‘"
+                                       ':<>: 'ShowType i
+                                       ':<>: 'Text "’"
+                                       ':<>: 'Text " is out of bounds of "
+                                       ':<>: 'Text "‘"
+                                       ':<>: 'ShowType ctx
+                                       ':<>: 'Text "’")
+    WithoutIndexImpl i ctx 0 (x ': xs) = xs
+    WithoutIndexImpl i ctx n (x ': xs) = x ': WithoutIndexImpl i ctx (n - 1) xs

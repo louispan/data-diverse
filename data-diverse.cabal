@@ -1,7 +1,10 @@
 name:                data-diverse
 version:             0.1.0.0
-synopsis:            Polymorphic variants 'Which' and extensible records 'Many' using field types as labels for getter/setter/projection/injection/fold/catamorphism functions.
-description:         Polymorhpic variants and extensible records using the fields types as labels for getter/setter/projection/injection/fold/catamorphism functions. Refer to test/WhichSpec.hs and test/ManySpec.hs for example usages.
+synopsis:            Polymorphic variants and extensible records, efficient for any size.
+description:         Polymorhpic variant of possibilities encoded as (Int, Any).
+                     Reasonably efficient extensible record for any size encoded as (Int, Map Int Any).
+                     Avoid clunky labels by using the the fields types with -XTypeApplications for getter/setter/projection/injection/fold/catamorphism functions.
+                     Refer to test/WhichSpec.hs and test/ManySpec.hs for example usages.
 homepage:            https://github.com/louispan/data-distinct#readme
 license:             BSD3
 license-file:        LICENSE
