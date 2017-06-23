@@ -32,7 +32,7 @@ instance Reiterate (Cases fs) xs where
     reiterate (Cases s) = Cases s
 
 -- | UndecidableIstnaces because fs appers more often.
-instance (Unique (Head xs -> r) fs, KnownNat (IndexOf (Head xs -> r) fs)) => Case (Cases fs) xs r where
+instance UniqueMember (Head xs -> r) fs => Case (Cases fs) xs r where
     case' (Cases s) = fetch @(Head xs -> r) s
 
 -- | Create and instance of 'Case' for handling 'switch' from a 'Many'.
@@ -57,7 +57,7 @@ instance ReiterateN (CasesN fs) n xs where
     reiterateN (CasesN s) = CasesN s
 
 -- | UndecidableIstnaces because fs appers more often.
-instance (KindAtIndex n fs ~ (Head xs -> r), KnownNat n, WithinBounds n fs) => Case (CasesN fs n) xs r where
+instance (MemberAt n (Head xs -> r) fs) => Case (CasesN fs n) xs r where
     case' (CasesN s) = fetchN (Proxy @n) s
 
 -- | Safe Constructor for CasesN ensuring that the n Nat starts at 0

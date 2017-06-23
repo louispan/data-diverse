@@ -9,16 +9,15 @@ module Data.Diverse.Type.Internal where
 import Data.Kind
 import GHC.TypeLits
 
--- | Get the first index of a type (Indexed by 1)
--- Will return 0 if x doesn't exists in xs.
-type family PositionOfImpl (i :: Nat) x (xs :: [k]) :: Nat where
+-- | Get the first position of a type (indexed by 1)
+-- Will return 0 if @x@ doesn't exists in @xs@.
+type family PositionOfImpl (i :: Nat) (x :: k) (xs :: [k]) :: Nat where
    PositionOfImpl i x (x ': xs) = i + 1
    PositionOfImpl i y (x ': xs) = PositionOfImpl (i + 1) y xs
    PositionOfImpl i x '[] = 0
 
--- | Get the first index of a type with exception from a list
--- Modified from https://github.com/haskus/haskus-utils/blob/3b6bd1c3fce463173b9827b579fb95c911e5a806/src/lib/Haskus/Utils/Types/List.hs#L223
-type family IndexOfImpl (ctx :: [k]) x (xs :: [k]) :: Nat where
+-- | Get the first index of a type from a list
+type family IndexOfImpl (ctx :: [k]) (x :: k) (xs :: [k]) :: Nat where
    IndexOfImpl ctx x (x ': xs) = 0
    IndexOfImpl ctx y (x ': xs) = 1 + IndexOfImpl ctx y xs
    IndexOfImpl ctx y '[] = TypeError ('Text "‘"
@@ -29,10 +28,10 @@ type family IndexOfImpl (ctx :: [k]) x (xs :: [k]) :: Nat where
                                       ':<>: 'ShowType ctx
                                       ':<>: 'Text "’")
 
--- Searches for y in ys
--- if not found than use y, and repeat search with next (y ': ys) in ctx
+-- | Searches for y in ys
+-- if not found, than use y, and repeat search with next (y ': ys) in ctx
 -- else if found, then don't use y, then repeat search with next (y ': ys) in ctx
-type family DistinctImpl (ctx :: [k]) y (ys :: [k]) :: [k] where
+type family DistinctImpl (ctx :: [k]) (y :: k) (ys :: [k]) :: [k] where
     DistinctImpl '[] y '[] = y ': '[]
     DistinctImpl '[] y (y ': xs) = '[]
     DistinctImpl (x ': xs) y '[] = y ': DistinctImpl xs x xs
@@ -51,15 +50,18 @@ type family MissingImpl (ctx :: [k]) (y :: k) (xs :: [k]) :: Constraint where
                                              ':<>: 'Text "’")
     MissingImpl ctx y (x ': xs) = (MissingImpl ctx y xs)
 
+-- | Ensures that the type list contain unique types
 type family IsDistinctImpl (ctx :: [k]) (xs :: [k]) :: Constraint where
     IsDistinctImpl ctx '[] = ()
     IsDistinctImpl ctx (x ': xs) = (MissingImpl ctx x xs, IsDistinctImpl ctx xs)
 
-type family UniqueImpl (ctx :: [k]) x (xs :: [k]) :: Constraint where
+-- | Ensures that @x@ only ever appears once in @xs@
+type family UniqueImpl (ctx :: [k]) (x :: k) (xs :: [k]) :: Constraint where
     UniqueImpl ctx x '[] = ()
     UniqueImpl ctx x (x ': xs) = MissingImpl ctx x xs
     UniqueImpl ctx x (y ': xs) = UniqueImpl ctx x xs
 
+-- | Gets the result type from an list of handlers/continuations of different types.
 type family OutcomeOfImpl (ctx :: [Type]) r (xs :: [Type]) :: Type where
     OutcomeOfImpl ctx r '[] = r
     OutcomeOfImpl ctx r ((a -> r) ': xs) = OutcomeOfImpl ctx r xs
@@ -83,6 +85,7 @@ type family KindAtIndexImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) ::
     KindAtIndexImpl i ctx 0 (x ': xs) = x
     KindAtIndexImpl i ctx n (x ': xs) = KindAtIndexImpl i ctx (n - 1) xs
 
+-- | Ensures two typelists are the same length
 type family SameLengthImpl (ctx :: [k1]) (cty :: [k2]) (xs :: [k1]) (yx :: [k2]) :: Constraint where
     SameLengthImpl as bs '[] '[] = ()
     SameLengthImpl as bs (x ': xs) (y ': ys) = SameLengthImpl as bs xs ys

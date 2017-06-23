@@ -368,7 +368,7 @@ fore (Many o m) = Many o (M.delete (Key (o + M.size m - 1)) m)
 -- Only available for 'Many' with 'IsDistinct' xs.
 --
 -- @fetch \@Int t@
-fetch :: forall x xs. (Unique x xs, KnownNat (IndexOf x xs)) => Many xs -> x
+fetch :: forall x xs. UniqueMember x xs => Many xs -> x
 fetch (Many o m) = unsafeCoerce (m M.! (Key (o + i)))
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
@@ -377,7 +377,7 @@ fetch (Many o m) = unsafeCoerce (m M.! (Key (o + i)))
 -- @foo .^. (Proxy \@Int)@
 --
 -- Mnemonic: Like 'Control.Lens.(^.)' but with an extra @.@ in front.
-(.^.) :: forall x xs proxy. (Unique x xs, KnownNat (IndexOf x xs)) => Many xs -> proxy x -> x
+(.^.) :: forall x xs proxy. UniqueMember x xs => Many xs -> proxy x -> x
 (.^.) v _ = fetch v
 infixl 8 .^. -- like Control.Lens.(^.)
 
@@ -386,7 +386,7 @@ infixl 8 .^. -- like Control.Lens.(^.)
 -- | Getter. Get the value of the field at index type-level Nat @n@
 --
 -- @getchN (Proxy \@2) t@
-fetchN :: forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => proxy n -> Many xs -> x
+fetchN :: forall n x xs proxy. MemberAt n x xs => proxy n -> Many xs -> x
 fetchN p (Many o m) = unsafeCoerce (m M.! (Key (o + i)))
   where i = fromInteger (natVal p)
 
@@ -396,7 +396,7 @@ fetchN p (Many o m) = unsafeCoerce (m M.! (Key (o + i)))
 --
 -- @replace \@Int t@
 --
-replace :: forall x xs. (Unique x xs, KnownNat (IndexOf x xs)) => Many xs -> x -> Many xs
+replace :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
 replace (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
@@ -406,7 +406,7 @@ replace (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 -- @foo ..~ x@
 --
 -- Mnemonic: Like a back to front 'Control.Lens.(.~)' with an extra @.@ in front.
-(.~.) :: forall x xs. (Unique x xs, KnownNat (IndexOf x xs)) => Many xs -> x -> Many xs
+(.~.) :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
 (.~.) = replace
 infixl 1 .~. -- like Control.Lens.(.~)
 
@@ -416,7 +416,7 @@ infixl 1 .~. -- like Control.Lens.(.~)
 --
 -- @replaceN (Proxy \@1) t@
 --
-replaceN :: forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => proxy n -> Many xs -> x -> Many xs
+replaceN :: forall n x xs proxy. MemberAt n x xs => proxy n -> Many xs -> x -> Many xs
 replaceN p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal p)
 
@@ -425,14 +425,14 @@ replaceN p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 -- | 'fetch' and 'replace' in lens form.
 -- Use TypeApplication to specify the field type of the lens.
 -- Example: @item \@Int@
-item :: forall x xs. (Unique x xs, KnownNat (IndexOf x xs)) => Lens' (Many xs) x
+item :: forall x xs. UniqueMember x xs => Lens' (Many xs) x
 item = lens fetch replace
 {-# INLINE item #-}
 
 -- | 'fetchN' and 'replaceN' in lens form.
 -- You can use TypeApplication to specify the index of the type of the lens.
 -- Example: @itemN \@1 Proxy@
-itemN ::  forall n x xs proxy. (KnownNat n, WithinBounds n xs, x ~ KindAtIndex n xs) => proxy n -> Lens' (Many xs) x
+itemN ::  forall n x xs proxy. MemberAt n x xs => proxy n -> Lens' (Many xs) x
 itemN p = lens (fetchN p) (replaceN p)
 {-# INLINE itemN #-}
 
@@ -530,7 +530,7 @@ instance Reiterate (CaseNarrow smaller) (x ': xs) where
     reiterate CaseNarrow = CaseNarrow
 
 -- | For each type x in larger, find the index in ys, and create an (incrementing key, value)
-instance forall smaller x xs. KnownNat (PositionOf x smaller) =>
+instance forall smaller x xs. MaybeUniqueMember x smaller =>
          Case (CaseNarrow smaller) (x ': xs) [(Key, WrappedAny)] where
     case' _ v =
         case i of
@@ -542,7 +542,7 @@ instance forall smaller x xs. KnownNat (PositionOf x smaller) =>
 -----------------------------------------------------------------------
 
 type NarrowN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
-    ( AFoldable (CollectorN (ViaN (CaseNarrowN ns)) 0 larger) [(Key, WrappedAny)]
+    ( AFoldable (CollectorN (ViaN (CaseNarrowN ns smaller)) 0 larger) [(Key, WrappedAny)]
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
@@ -552,19 +552,22 @@ type NarrowN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
 -- where indices[smaller_idx] = larger_idx
 --
 -- @narrowN \@[6,2] Proxy t@
-narrowN :: forall ns smaller larger proxy. (NarrowN ns smaller larger) => proxy ns -> Many larger -> Many smaller
+narrowN
+    :: forall ns smaller larger proxy.
+       NarrowN ns smaller larger
+    => proxy ns -> Many larger -> Many smaller
 narrowN _ xs = Many 0 (fromList' xs')
   where
-    xs' = afoldr (++) [] (forManyN (CaseNarrowN @ns @0 @larger) xs)
+    xs' = afoldr (++) [] (forManyN (CaseNarrowN @ns @smaller @0 @larger) xs)
 
-data CaseNarrowN (indices :: [Nat]) (n :: Nat) (xs :: [Type]) r = CaseNarrowN
+data CaseNarrowN (indices :: [Nat]) (smaller :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseNarrowN
 
-instance ReiterateN (CaseNarrowN indices) n (x ': xs) where
+instance ReiterateN (CaseNarrowN indices smaller) n (x ': xs) where
     reiterateN CaseNarrowN = CaseNarrowN
 
 -- | For each type x in @larger@, find the index in ys, and create an (incrementing key, value)
-instance forall indices n x xs. KnownNat (PositionOf n indices) =>
-         Case (CaseNarrowN indices n) (x ': xs) [(Key, WrappedAny)] where
+instance forall indices smaller n x xs. MaybeMemberAt (PositionOf n indices) x smaller =>
+         Case (CaseNarrowN indices smaller n) (x ': xs) [(Key, WrappedAny)] where
     case' _ v =
         case i of
             0 -> []
@@ -602,7 +605,7 @@ instance Reiterate (CaseAmend larger) (x ': xs) where
     reiterate (CaseAmend lo) = CaseAmend lo
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
-instance KnownNat (IndexOf x larger) => Case (CaseAmend larger) (x ': xs) (Key, WrappedAny) where
+instance UniqueMember x larger => Case (CaseAmend larger) (x ': xs) (Key, WrappedAny) where
     case' (CaseAmend lo) v = (Key (lo + i), WrappedAny (unsafeCoerce v))
       where
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
@@ -610,7 +613,7 @@ instance KnownNat (IndexOf x larger) => Case (CaseAmend larger) (x ': xs) (Key, 
 -----------------------------------------------------------------------
 
 type AmendN ns smaller larger =
-    ( AFoldable (CollectorN (ViaN (CaseAmendN ns)) 0 smaller) (Key, WrappedAny)
+    ( AFoldable (CollectorN (ViaN (CaseAmendN ns larger)) 0 smaller) (Key, WrappedAny)
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
@@ -625,16 +628,16 @@ amendN :: forall ns smaller larger proxy.
     => proxy ns -> Many larger -> Many smaller -> Many larger
 amendN _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
   where
-    xs' = afoldr (:) [] (forManyN (CaseAmendN @ns @0 @smaller lo) t)
+    xs' = afoldr (:) [] (forManyN (CaseAmendN @ns @larger @0 @smaller lo) t)
 
-newtype CaseAmendN (indices :: [Nat]) (n :: Nat) (xs :: [Type]) r = CaseAmendN Int
+newtype CaseAmendN (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseAmendN Int
 
-instance ReiterateN (CaseAmendN indices) n (x ': xs) where
+instance ReiterateN (CaseAmendN indices larger) n (x ': xs) where
     reiterateN (CaseAmendN lo) = CaseAmendN lo
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
-instance (KnownNat (KindAtIndex n indices)) =>
-         Case (CaseAmendN indices n) (x ': xs) (Key, WrappedAny) where
+instance (MemberAt (KindAtIndex n indices) x larger) =>
+         Case (CaseAmendN indices larger n) (x ': xs) (Key, WrappedAny) where
     case' (CaseAmendN lo) v = (Key (lo + i), WrappedAny (unsafeCoerce v))
       where
         i = fromInteger (natVal @(KindAtIndex n indices) Proxy)

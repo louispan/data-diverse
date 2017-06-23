@@ -101,8 +101,8 @@ impossible = Which (-1) (unsafeCoerce ())
 
 -- | Lift a value into a Which of possibly other types.
 -- NB. forall used to specify @xs@ first, so TypeApplications can be used to specify @xs@.
-pick :: forall xs x. (Unique x xs, KnownNat (IndexOf x xs)) => x -> Which xs
-pick = unsafeToWhich
+pick :: forall xs x. UniqueMember x xs => x -> Which xs
+pick = Which (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | A variation of 'pick' into a Which of a single type
 pick' :: x -> Which '[x]
@@ -111,15 +111,8 @@ pick' = pick
 -- | Lift a value into a Which of possibly other (possibley indistinct) types, where the value is the n-th type.
 --
 -- @pickN \@0 @'[Int, Bool, Char] Proxy 5@
-pickN :: forall n xs x proxy. (KnownNat n, x ~ KindAtIndex n xs) => proxy n -> x -> Which xs
+pickN :: forall n xs x proxy. MemberAt n x xs => proxy n -> x -> Which xs
 pickN _ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
-
--- | Internal function to create a many without bothering with the 'IsDistinct' constraint
--- This is useful when we know something is IsDistinct, but I don't know how (or can't be bothered)
--- to prove it to GHC.
--- Eg. a subset of something IsDistinct is also IsDistinct.
-unsafeToWhich :: forall x xs. (KnownNat (IndexOf x xs)) => x -> Which xs
-unsafeToWhich = Which (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 
 -- | Retrieving the value out of a 'Which' of one type is always successful.
 conclude :: Which '[a] -> a
@@ -128,7 +121,7 @@ conclude (Which _ v) = unsafeCoerce v
 -- | 'trial' a value out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
 trial
     :: forall x xs.
-       (NotEmpty xs, Unique x xs, KnownNat (IndexOf x xs))
+       (NotEmpty xs, UniqueMember x xs)
     => Which xs -> Either (Which (Without x xs)) x
 trial (Which n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
                   in if n == i
@@ -147,7 +140,7 @@ trial' (Which n v) = if n == 0
 -- | 'trialN' the n-th value out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
 trialN
     :: forall n xs x proxy.
-       (NotEmpty xs, KnownNat n, x ~ KindAtIndex n xs)
+       (NotEmpty xs, MemberAt n x xs)
     => proxy n -> Which xs -> Either (Which (Without x xs)) x
 trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
                   in if n == i
@@ -166,11 +159,11 @@ hush = either (const Nothing) Just
 -- That is, a value can be 'pick'ed into a Which or mabye 'trial'ed out of a Which.
 -- Use TypeApplication to specify the inner type of the of the prism.
 -- Example: @facet \@Int@
-facet :: forall x xs. (NotEmpty xs, Unique x xs, KnownNat (IndexOf x xs)) => Prism' (Which xs) x
+facet :: forall x xs. (NotEmpty xs, UniqueMember x xs) => Prism' (Which xs) x
 facet = prism' pick (hush . trial)
 {-# INLINE facet #-}
 
-facetN :: forall n xs x proxy. (NotEmpty xs, KnownNat n, x ~ KindAtIndex n xs) => proxy n -> Prism' (Which xs) x
+facetN :: forall n xs x proxy. (NotEmpty xs, MemberAt n x xs) => proxy n -> Prism' (Which xs) x
 facetN p = prism' (pickN p) (hush . trialN p)
 {-# INLINE facetN #-}
 
@@ -191,9 +184,10 @@ data CaseDiversify (tree :: [Type]) (branch' :: [Type]) r = CaseDiversify
 instance Reiterate (CaseDiversify tree) branch' where
     reiterate CaseDiversify = CaseDiversify
 
-instance (KnownNat (IndexOf x tree)) =>
+-- | This uses unsafeToWhich - why?
+instance (UniqueMember x tree) =>
          Case (CaseDiversify tree) (x ': branch') (Which tree) where
-    case' CaseDiversify = unsafeToWhich
+    case' CaseDiversify = pick
 
 ------------------------------------------------------------------
 
@@ -209,9 +203,7 @@ data CaseDiversifyN (indices :: [Nat]) (n :: Nat) (branch' :: [Type]) r = CaseDi
 instance ReiterateN (CaseDiversifyN indices) n branch' where
     reiterateN CaseDiversifyN = CaseDiversifyN
 
-instance ( KnownNat (KindAtIndex n indices)
-         , x ~ KindAtIndex (KindAtIndex n indices) tree
-         ) =>
+instance MemberAt (KindAtIndex n indices) x tree =>
          Case (CaseDiversifyN indices n) (x ': branch') (Which tree) where
     case' CaseDiversifyN v = pickN (Proxy @(KindAtIndex n indices)) v
 
@@ -232,9 +224,9 @@ data CaseReinterpret (branch :: [Type]) (tree :: [Type]) (tree' :: [Type]) r = C
 instance Reiterate (CaseReinterpret branch tree) tree' where
     reiterate CaseReinterpret = CaseReinterpret
 
-instance ( KnownNat (PositionOf x branch)
+instance ( MaybeUniqueMember x branch
          , comp ~ Complement tree branch
-         , KnownNat (PositionOf x comp)
+         , MaybeUniqueMember x comp
          ) =>
          Case (CaseReinterpret branch tree) (x ': tree') (Either (Which comp) (Which branch)) where
     case' CaseReinterpret a =
@@ -260,8 +252,7 @@ data CaseReinterpretN (indices :: [Nat]) (n :: Nat) (tree' :: [Type]) r = CaseRe
 instance ReiterateN (CaseReinterpretN indices) n tree' where
     reiterateN CaseReinterpretN = CaseReinterpretN
 
-instance ( KnownNat (PositionOf n indices)
-         , KindAtPositionIs x (PositionOf n indices) branch) => Case (CaseReinterpretN indices n) (x ': tree) (Maybe (Which branch)) where
+instance MaybeMemberAt (PositionOf n indices) x branch => Case (CaseReinterpretN indices n) (x ': tree) (Maybe (Which branch)) where
     case' CaseReinterpretN a =
         case fromInteger (natVal @(PositionOf n indices) Proxy) of
             0 -> Nothing
@@ -298,11 +289,11 @@ injectN p = prism' (diversifyN p) (reinterpretN' p)
 
 ------------------------------------------------------------------
 
--- | 'Switch' is an instance of 'Reduce' for which visits through the possibilities in Which,
+-- | 'Switch' is an instance of 'Reduce' for which __'reiterate'__s through the possibilities in a 'Which',
 -- delegating work to 'Case', ensuring termination when Which only contains one type.
 newtype Switch c (xs :: [Type]) r = Switch (c xs r)
 
--- | 'trial' each type in a Which, and either case' the handling of the value discovered, or loop
+-- | 'trial'' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterate'__
 -- trying the next type in the type list.
 -- This code will be efficiently compiled into a single case statement in GHC 8.2.1
 -- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
@@ -334,8 +325,14 @@ switch = flip which
 
 ------------------------------------------------------------------
 
+-- | 'Switch' is an instance of 'Reduce' for which __'reiterateN'__s through the possibilities in a 'Which',
+-- delegating work to 'CaseN', ensuring termination when 'Which' only contains one type.
 newtype SwitchN c (n :: Nat) (xs :: [Type]) r = SwitchN (c n xs r)
 
+-- | 'trial'' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterateN'__
+-- trying the next type in the type list.
+-- This code will be efficiently compiled into a single case statement in GHC 8.2.1
+-- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
 instance (Case (c n) (x ': x' ': xs) r, Reduce Which (SwitchN c (n + 1)) (x' ': xs) r, ReiterateN c n (x : x' : xs)) =>
          Reduce Which (SwitchN c n) (x ': x' ': xs) r where
     reduce (SwitchN c) v =

@@ -209,7 +209,8 @@ spec = do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
             narrow @'[Bool, Int, Maybe Char] x `shouldBe` False ./ (5 :: Int) ./ Just 'O' ./ nul
             let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
-            narrowN (Proxy @'[5, 4, 0, 1, 3, 2]) y `shouldBe` Just 'A' ./ (6 :: Int) ./ (5 ::Int) ./ False ./ Just 'O' ./ 'X' ./ nul
+            narrowN (Proxy @'[5, 4, 0, 1, 3, 2]) y `shouldBe`
+                Just 'A' ./ (6 :: Int) ./ (5 ::Int) ./ False ./ Just 'O' ./ 'X' ./ nul
 
         it "has getter for multiple fields with duplicates using 'narrowN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
