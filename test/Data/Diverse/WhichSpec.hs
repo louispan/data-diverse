@@ -18,10 +18,6 @@ import Test.Hspec
 main :: IO ()
 main = hspec spec
 
--- | get type of a value
-proxy :: a -> Proxy a
-proxy _ = Proxy
-
 -- | Utility to convert Either to Maybe
 hush :: Either a b -> Maybe b
 hush = either (const Nothing) Just
@@ -71,12 +67,12 @@ spec = do
                 x = hush $ trialN (Proxy @4) y
             x `shouldBe` (Just 5)
 
-        it "can be 'trial'led until its final 'conclude' value" $ do
+        it "can be 'trial'led until its final 'obvious' value" $ do
             let x = pick (5 :: Int) :: Which '[Int, Bool]
                 y = pick (5 :: Int) :: Which '[Int]
                 x' = trial x :: Either (Which '[Int]) Bool
             x' `shouldBe` (Left y)
-            conclude y `shouldBe` 5
+            obvious y `shouldBe` 5
 
         it "can be constructed and destructed by type with 'facet'" $ do
             let y = review (facet @Int) (5 :: Int) :: Which '[Bool, Int, Char, Bool, Char]
@@ -92,13 +88,13 @@ spec = do
             let y = pick' (5 :: Int)
                 y' = diversify @[Int, Bool] y
                 y'' = diversify @[Bool, Int] y'
-            switch y'' (CaseTypeable (show . typeRep . proxy)) `shouldBe` "Int"
+            switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
 
         it "can be extended and rearranged by index with 'diversify'" $ do
             let y = pick' (5 :: Int)
                 y' = diversifyN @'[0] @[Int, Bool] Proxy y
                 y'' = diversifyN @[1,0] @[Bool, Int] Proxy y'
-            switch y'' (CaseTypeable (show . typeRep . proxy)) `shouldBe` "Int"
+            switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
 
         it "can be 'reinterpret'ed by type into a totally different Which" $ do
             let y = pick @[Int, Char] (5 :: Int)
@@ -130,14 +126,14 @@ spec = do
             let y' = preview (injectN @[3, 1] @[String, Int] Proxy) y
             y' `shouldBe` Just (pick (5 :: Int))
 
-        it "can be 'switch'ed with a Many of handlers in any order" $ do
+        it "can be 'switch'ed with 'Many' handlers in any order" $ do
             let y = pickN @0 Proxy (5 :: Int) :: Which '[Int, Bool, Bool, Int]
             switch y (
                 cases (show @Bool
                     ./ show @Int
                     ./ nul)) `shouldBe` "5"
 
-        it "can be 'switch'ed with a Many of handlers with extraneous content" $ do
+        it "can be 'switch'ed with 'Many' handlers with extraneous content" $ do
             let y = pick (5 :: Int) :: Which '[Int, Bool]
             switch y (
                 -- contrast with lowercase 'cases' which disallows extraneous content
@@ -149,7 +145,7 @@ spec = do
                     ./ nul
                 )) `shouldBe` "5"
 
-        it "can be 'switchN'ed with a Many of handlers in index order" $ do
+        it "can be 'switchN'ed with 'Many' handlers in index order" $ do
             let y = pickN @0 Proxy (5 :: Int) :: Which '[Int, Bool, Bool, Int]
             switchN y (
                 casesN (show @Int
@@ -158,7 +154,15 @@ spec = do
                     ./ show @Int
                     ./ nul)) `shouldBe` "5"
 
-        it "can be switched with CaseTypeable" $ do
+        it "can be switched with a single 'CaseTypeable' handler" $ do
             let y = pick (5 :: Int) :: Which '[Int, Bool]
-            switch y (CaseTypeable (show . typeRep . proxy)) `shouldBe` "Int"
-            (show . typeRep . proxy $ y) `shouldBe` "Which (': * Int (': * Bool '[]))"
+            switch y (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
+            (show . typeRep . (pure @Proxy) $ y) `shouldBe` "Which (': * Int (': * Bool '[]))"
+
+        it "is a compile error to 'trial', 'diversify', 'reinterpret 'impossible'" $ do
+            -- let a = diversify @[Int, Bool] impossible
+            -- let a = trial @Int impossible
+            -- let a = trialN (Proxy @0) impossible
+            -- let a = reinterpret @[Int, Bool] impossible
+            -- let a = reinterpretN' (Proxy @'[0]) impossible
+            impossible `shouldBe` impossible

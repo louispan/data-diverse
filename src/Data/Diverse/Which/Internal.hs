@@ -24,7 +24,7 @@ module Data.Diverse.Which.Internal (
     , pick'
     , pickN
       -- ** Destruction
-    , conclude
+    , obvious
     , trial
     , trial'
     , trialN
@@ -76,15 +76,16 @@ import Unsafe.Coerce
 
 -- | A 'Which' is an anonymous sum type (also known as a polymorphic variant, or co-record)
 -- which can only contain one of the types in the typelist.
--- This is essentially a typed version of 'Data.Dynamic'
--- This module provides easier to use getter/setters, using type applications, for unique types in the list of possible types.
--- This means labels are not required, since the type itself (with type annotations or -XTypeApplications)
--- can be used to try values in the Which.
+-- This is essentially a typed version of 'Data.Dynamic'.
+--
+-- For unique types in the list of possible types, the types themselves become labels to allow easier to use constructor ('pick'), destructor ('trial'), injection ('diversify', 'reinterpret'), and catamorphism ('switch') using -XTypeApplications.
+--
+-- For duplicate types in the list of possible types, an indexed version of constructor ('pickN'), destructor ('trialN'), inejction ('diversifyN', 'reinterpretN''), and catamorphism ('switchN') is provided.
 --
 -- Encoding: The variant contains a value whose type is at the given position in the type list.
--- This is similar to the encoding as Haskus.Util.Variant and HList but with a different api.
--- See https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Which.hs
--- and https://hackage.haskell.org/package/HList-0.4.1.0/docs/src/Data-HList-Which.html
+-- This is the same encoding as <https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Variant.hs Haskus.Util.Variant> and <https://hackage.haskell.org/package/HList-0.4.1.0/docs/src/Data-HList-Variant.html Data.Hlist.Variant>.
+--
+-- The constructor is only exported in the "Data.Diverse.Which.Internal" module
 data Which (xs :: [Type]) = Which {-# UNPACK #-} !Int Any
 
 -- Just like Haskus and HList versions, inferred type is phantom which is wrong
@@ -92,9 +93,9 @@ type role Which representational
 
 ----------------------------------------------
 
--- | A 'Which' with no alternatives. You can't do anything with it
+-- | A 'Which' with no alternatives. You can't do anything with 'impossible'
 -- except Eq, Read, and Show it.
--- That is, using functions like 'switch' and 'trial' with 'impossible' is a compile error.
+-- Using functions like 'switch' and 'trial' with 'impossible' is a compile error.
 -- 'impossible' is only useful as a 'Left'-over from 'trial'
 impossible :: Which '[]
 impossible = Which (-1) (unsafeCoerce ())
@@ -114,14 +115,14 @@ pick' = pick
 pickN :: forall n xs x proxy. MemberAt n x xs => proxy n -> x -> Which xs
 pickN _ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 
--- | Retrieving the value out of a 'Which' of one type is always successful.
-conclude :: Which '[a] -> a
-conclude (Which _ v) = unsafeCoerce v
+-- | It is 'obvious' what value is inside a 'Which' of one type.
+obvious :: Which '[a] -> a
+obvious (Which _ v) = unsafeCoerce v
 
 -- | 'trial' a value out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
 trial
     :: forall x xs.
-       (NotEmpty xs, UniqueMember x xs)
+       (UniqueMember x xs)
     => Which xs -> Either (Which (Without x xs)) x
 trial (Which n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
                   in if n == i
@@ -140,7 +141,7 @@ trial' (Which n v) = if n == 0
 -- | 'trialN' the n-th value out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
 trialN
     :: forall n xs x proxy.
-       (NotEmpty xs, MemberAt n x xs)
+       (MemberAt n x xs)
     => proxy n -> Which xs -> Either (Which (Without x xs)) x
 trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
                   in if n == i
@@ -159,11 +160,11 @@ hush = either (const Nothing) Just
 -- That is, a value can be 'pick'ed into a Which or mabye 'trial'ed out of a Which.
 -- Use TypeApplication to specify the inner type of the of the prism.
 -- Example: @facet \@Int@
-facet :: forall x xs. (NotEmpty xs, UniqueMember x xs) => Prism' (Which xs) x
+facet :: forall x xs. (UniqueMember x xs) => Prism' (Which xs) x
 facet = prism' pick (hush . trial)
 {-# INLINE facet #-}
 
-facetN :: forall n xs x proxy. (NotEmpty xs, MemberAt n x xs) => proxy n -> Prism' (Which xs) x
+facetN :: forall n xs x proxy. (MemberAt n x xs) => proxy n -> Prism' (Which xs) x
 facetN p = prism' (pickN p) (hush . trialN p)
 {-# INLINE facetN #-}
 
@@ -232,7 +233,8 @@ instance ( MaybeUniqueMember x branch
     case' CaseReinterpret a =
         case fromInteger (natVal @(PositionOf x branch) Proxy) of
             0 -> let j = fromInteger (natVal @(PositionOf x (Complement tree branch)) Proxy)
-                 in Left $ Which (j - 1) (unsafeCoerce a) -- j will never be zero
+                 -- safe use of partial! j will never be zero due to check above
+                 in Left $ Which (j - 1) (unsafeCoerce a)
             i -> Right $ Which (i - 1) (unsafeCoerce a)
 
 ------------------------------------------------------------------
@@ -309,7 +311,7 @@ instance (Case c (x ': x' ': xs) r, Reduce Which (Switch c) (x' ': xs) r, Reiter
 -- with an empty typelist is not required.
 -- You can't reduce 'impossible'
 instance (Case c '[x] r) => Reduce Which (Switch c) '[x] r where
-    reduce (Switch c) v = case conclude v of
+    reduce (Switch c) v = case obvious v of
             a -> case' c a
 
 -- | Catamorphism for 'Which'. This is equivalent to @flip switch@.
@@ -345,7 +347,7 @@ instance (Case (c n) (x ': x' ': xs) r, Reduce Which (SwitchN c (n + 1)) (x' ': 
 -- with an empty typelist is not required.
 -- You can't reduce 'impossible'
 instance (Case (c n) '[x] r) => Reduce Which (SwitchN c n) '[x] r where
-    reduce (SwitchN c) v = case conclude v of
+    reduce (SwitchN c) v = case obvious v of
             a -> case' c a
 
 -- | Catamorphism for 'Which'. This is equivalent to @flip switch@.

@@ -18,10 +18,6 @@ import Test.Hspec
 main :: IO ()
 main = hspec spec
 
--- | get type of a value
-proxy :: a -> Proxy a
-proxy _ = Proxy
-
 spec :: Spec
 spec = do
     describe "Many" $ do
@@ -31,7 +27,7 @@ spec = do
                 z = cast x :: Maybe (Many '[Int, Bool])
             y `shouldBe` Nothing
             z `shouldBe` Just x
-            (show . typeRep . proxy $ x) `shouldBe` "Many (': * Int (': * Bool '[]))"
+            (show . typeRep . (pure @Proxy) $ x) `shouldBe` "Many (': * Int (': * Bool '[]))"
 
         it "is a Read and Show" $ do
             let s = "5 ./ False ./ 'X' ./ Just 'O' ./ nul"
@@ -248,16 +244,19 @@ spec = do
             (x & (projectN @'[5, 4, 0] Proxy) .~ (Just 'B' ./ (8 :: Int) ./ (4 ::Int) ./ nul)) `shouldBe`
                 (4 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (8 :: Int) ./ Just 'B' ./ nul
 
-        it "can be folded using 'forMany' or 'collect'" $ do
+        it "can be folded with 'Many' handlers using 'forMany' or 'collect'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
                 y = show @Int ./ show @Char ./ show @(Maybe Char) ./ show @Bool ./ nul
                 ret = ["5", "False", "'X'", "Just 'O'", "6", "Just 'A'"]
             afoldr (:) [] (collect x (cases y)) `shouldBe` ret
             afoldr (:) [] (forMany (cases y) x) `shouldBe` ret
             afoldr (:) [] (forMany (cases y) x) `shouldBe` ret
-            afoldr (:) [] (forMany (CaseTypeable (show . typeRep . proxy)) x) `shouldBe` ["Int", "Bool", "Char", "Maybe Char", "Int", "Maybe Char"]
 
-        it "can be folded using 'forManyN' or 'collectN'" $ do
+        it "can be folded with single 'CaseTypeable' handlers using 'forMany' or 'collect'" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            afoldr (:) [] (forMany (CaseTypeable (show . typeRep . (pure @Proxy))) x) `shouldBe` ["Int", "Bool", "Char", "Maybe Char", "Int", "Maybe Char"]
+
+        it "can be folded with 'Many' handlers in index order using 'forManyN' or 'collectN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
                 y = show @Int ./ show @Bool ./ show @Char ./ show @(Maybe Char) ./ show @Int ./ show @(Maybe Char) ./ nul
                 ret = ["5", "False", "'X'", "Just 'O'", "6", "Just 'A'"]

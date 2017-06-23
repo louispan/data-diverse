@@ -10,7 +10,7 @@ module Data.Diverse.Which (
     , pick'
     , pickN
       -- ** Destruction
-    , conclude
+    , obvious
     , trial
     , trial'
     , trialN

@@ -36,15 +36,6 @@ type family Distinct (xs :: [k]) :: [k] where
 -- | Ensures that @x@ only ever appears once in @xs@
 type Unique (x :: k) (xs :: [k]) = UniqueImpl xs x xs
 
--- | Gets the result type from an list of handlers/continuations of different types.
-type family OutcomeOf (xs :: [Type]) :: Type where
-    OutcomeOf '[] = TypeError ('Text "No continuation found in empty type list")
-    OutcomeOf ((a -> r) ': xs) = OutcomeOfImpl ((a -> r) ': xs) r xs
-    OutcomeOf ctx = TypeError ('Text "No continuation found in head of "
-                               ':<>: 'Text "‘"
-                               ':<>: 'ShowType ctx
-                               ':<>: 'Text "’")
-
 -- | Get the first index of a type (Indexed by 0)
 -- Will result in type error if x doesn't exist in xs.
 type IndexOf (x :: k) (xs :: [k]) = IndexOfImpl xs x xs
@@ -71,11 +62,6 @@ type family Without (x :: k) (xs :: [k]) :: [k] where
     Without x '[] = '[]
     Without x (x ': xs) = Without x xs
     Without x (y ': xs) = y ': Without x xs
-
--- | Ensures @xs@ is not empty
-type family NotEmpty (xs :: [k]) :: Constraint where
-    NotEmpty '[] = TypeError ('Text "Typelist can't be empty")
-    NotEmpty (x ': xs) = ()
 
 -- | Gets the ength of a typelist
 type family Length (xs :: [k]) :: Nat where

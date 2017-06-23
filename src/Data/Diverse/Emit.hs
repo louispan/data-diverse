@@ -5,5 +5,6 @@
 
 module Data.Diverse.Emit where
 
-class Emit g (xs :: [k]) r where
-    emit :: g xs r -> r
+-- | 'Emit' can generate a value, and is differentiated with an additional @xs@ typelist
+class Emit e (xs :: [k]) r where
+    emit :: e xs r -> r

@@ -61,18 +61,6 @@ type family UniqueImpl (ctx :: [k]) (x :: k) (xs :: [k]) :: Constraint where
     UniqueImpl ctx x (x ': xs) = MissingImpl ctx x xs
     UniqueImpl ctx x (y ': xs) = UniqueImpl ctx x xs
 
--- | Gets the result type from an list of handlers/continuations of different types.
-type family OutcomeOfImpl (ctx :: [Type]) r (xs :: [Type]) :: Type where
-    OutcomeOfImpl ctx r '[] = r
-    OutcomeOfImpl ctx r ((a -> r) ': xs) = OutcomeOfImpl ctx r xs
-    OutcomeOfImpl ctx r b = TypeError ('Text "‘"
-                                       ':<>: 'ShowType r
-                                       ':<>: 'Text "’"
-                                       ':<>: 'Text " is not a result of all types in "
-                                       ':<>: 'Text "‘"
-                                       ':<>: 'ShowType ctx
-                                       ':<>: 'Text "’")
-
 -- | Indexed access into the list
 type family KindAtIndexImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: k where
     KindAtIndexImpl i ctx 0 '[] = TypeError ('Text "Index ‘"

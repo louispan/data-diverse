@@ -1,7 +1,7 @@
 name:                data-diverse
 version:             0.1.0.0
-synopsis:            Polymorphic variants and extensible records with getter/setter/projection/injection/fold/catamorphism.
-description:         Polymorhpic variants and extensible records with getter/setter/projection/injection/fold/catamorphism.
+synopsis:            Polymorphic variants 'Which' and extensible records 'Many' using field types as labels for getter/setter/projection/injection/fold/catamorphism functions.
+description:         Polymorhpic variants and extensible records using the fields types as labels for getter/setter/projection/injection/fold/catamorphism functions. Refer to test/WhichSpec.hs and test/ManySpec.hs for example usages.
 homepage:            https://github.com/louispan/data-distinct#readme
 license:             BSD3
 license-file:        LICENSE
