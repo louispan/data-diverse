@@ -334,9 +334,10 @@ type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) = (Reduce
 -- the mapping is specified by @indicies@.
 --
 -- @
--- let a = 'pick'' (5 :: Int) :: 'Which' '[Int]
---     b = 'diversify' \@[Int, Bool] a :: 'Which' '[Int, Bool]
---     c = 'diversify' \@[Bool, Int] b :: 'Which' '[Bool, Int]
+-- let y = 'pickOnly' (5 :: Int)
+--     y' = 'diversify' \@[Int, Bool] y
+--     y'' = 'diversify' \@[Bool, Int] y'
+-- 'switch' y'' ('Data.Diverse.CaseTypeable.CaseTypeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Int"
 -- @
 diversifyN :: forall indices tree branch proxy. (DiversifyN indices tree branch) => proxy indices -> Which branch -> Which tree
 diversifyN _ = whichN (CaseDiversifyN @indices @0 @branch)
