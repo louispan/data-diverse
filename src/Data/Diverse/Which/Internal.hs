@@ -96,15 +96,16 @@ type role Which representational
 -- | A 'Which' with no alternatives. You can't do anything with 'impossible'
 -- except Eq, Read, and Show it.
 -- Using functions like 'switch' and 'trial' with 'impossible' is a compile error.
--- 'impossible' is only useful as a 'Left'-over from 'trial'
+-- 'impossible' is only useful as a 'Left'-over from 'trial'ing a @Which '[x]@ with one type.
 impossible :: Which '[]
 impossible = Which (-1) (unsafeCoerce ())
 
--- | Lift a value into a 'Which' of possibly other types @xs@ which can be inferred or specified with TypeApplications.
+-- | Lift a value into a 'Which' of possibly other types @xs@.
+-- @xs@ can be inferred or specified with TypeApplications.
 -- NB. forall is used to specify @xs@ first, so TypeApplications can be used to specify @xs@ first
 --
 -- @
--- 'pick' \'A' \@'[Int, Bool, Char, Maybe String]
+-- 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: Which '[Int, Bool, Char, Maybe String]
 -- @
 pick :: forall xs x. UniqueMember x xs => x -> Which xs
 pick = Which (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
@@ -112,7 +113,7 @@ pick = Which (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 -- | A variation of 'pick' into a 'Which' of a single type.
 --
 -- @
--- 'pick'' \'A'
+-- 'pick'' \'A' :: Which '[Char]
 -- @
 pick' :: x -> Which '[x]
 pick' = pick
@@ -126,10 +127,21 @@ pickN :: forall n xs x proxy. MemberAt n x xs => proxy n -> x -> Which xs
 pickN _ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 
 -- | It is 'obvious' what value is inside a 'Which' of one type.
+--
+-- @
+-- let x = 'pick'' \'A' :: Which '[Char]
+-- 'obvious' x \`shouldBe` \'A'
+-- @
 obvious :: Which '[a] -> a
 obvious (Which _ v) = unsafeCoerce v
 
 -- | 'trial' a confession out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
+--
+-- @
+-- let x = 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
+-- 'trial' \@Char x \`shouldBe` Right \'A'
+-- 'trial' \@Int x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Bool, Char, Maybe String]
+-- @
 trial
     :: forall x xs.
        (UniqueMember x xs)
@@ -142,6 +154,11 @@ trial (Which n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
                           else Left (Which n v)
 
 -- | A version of a 'Which' 'trial' which 'trial''s the first type in the type list.
+--
+-- @
+-- let x = 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
+-- 'trial'' x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Bool, Char, Maybe String]
+-- @
 trial' :: Which (x ': xs) -> Either (Which xs) x
 trial' (Which n v) = if n == 0
            then Right (unsafeCoerce v)
@@ -149,6 +166,11 @@ trial' (Which n v) = if n == 0
 
 
 -- | 'trialN' the n-th confession out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
+--
+-- @
+-- let x = 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
+-- 'trialN' @1 Proxy x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Int, Char, Maybe String]
+-- @
 trialN
     :: forall n xs x proxy.
        (MemberAt n x xs)
@@ -166,48 +188,81 @@ hush = either (const Nothing) Just
 
 -----------------------------------------------------------------
 
--- | A Which has a prism to an the inner type.
+-- | A 'Which' has a prism to an the inner type.
 -- That is, a value can be 'pick'ed into a Which or mabye 'trial'ed out of a Which.
+--
 -- Use TypeApplication to specify the inner type of the of the prism.
--- Example: @facet \@Int@
+--
+-- @
+-- let y = 'review' ('facet' \@Int) (5 :: Int) :: 'Which' '[Bool, Int, Char, Bool, Char]
+--     x = 'preview' ('facet' \@Int) y
+-- x \`shouldBe` (Just 5)
+-- @
 facet :: forall x xs. (UniqueMember x xs) => Prism' (Which xs) x
 facet = prism' pick (hush . trial)
 {-# INLINE facet #-}
 
+-- | A version of 'facet' specified by an @n@ Nat index
+--
+-- @
+-- let y = 'review' ('facetN' (Proxy \@4)) (5 :: Int) :: 'Which' '[Bool, Int, Char, Bool, Int, Char]
+--     x = 'preview' ('facetN' (Proxy \@4)) y
+-- x `shouldBe` (Just 5)
+-- @
 facetN :: forall n xs x proxy. (MemberAt n x xs) => proxy n -> Prism' (Which xs) x
 facetN p = prism' (pickN p) (hush . trialN p)
 {-# INLINE facetN #-}
 
 ------------------------------------------------------------------
 
--- | Convert a Which to another Which that may include other possibilities.
+-- | A friendlier constraint synonym for 'diversify'.
+type Diversify (tree :: [Type]) (branch :: [Type]) = (Reduce Which (Switch (CaseDiversify tree)) branch (Which tree), IsDistinct tree)
+
+-- | Convert a 'Which' to another 'Which' that may include other possibilities.
 -- That is, @branch@ is equal or is a subset of @tree@.
--- This can be used to rearrange the order of the types in the Which.
--- NB. @tree@ is ordered first, so TypeApplications can be used to specify it.
+--
+-- It is a compile error if @tree@ doesn't contain distict fields,
+-- or if its corresponding types in @branch@ are not distinct.
+--
+-- This can also be used to rearrange the order of the types in the 'Which'.
+--
+-- NB. forall is used to @tree@ is ordered first, so TypeApplications can be used to specify @tree@ first.
+--
+-- @
+-- let a = 'pick'' (5 :: Int) :: 'Which' '[Int]
+--     b = 'diversify' \@[Int, Bool] a :: 'Which' '[Int, Bool]
+--     c = 'diversify' \@[Bool, Int] b :: 'Which' '[Bool, Int]
+-- @
 diversify :: forall tree branch. Diversify tree branch => Which branch -> Which tree
 diversify = which (CaseDiversify @tree @branch)
-
--- | A friendlier constraint synonym for 'diversify'. All 'Which' fufill this constraint.
-type Diversify (tree :: [Type]) (branch :: [Type]) = (Reduce Which (Switch (CaseDiversify tree)) branch (Which tree), IsDistinct tree)
 
 data CaseDiversify (tree :: [Type]) (branch' :: [Type]) r = CaseDiversify
 
 instance Reiterate (CaseDiversify tree) branch' where
     reiterate CaseDiversify = CaseDiversify
 
--- | This uses unsafeToWhich - why?
 instance (UniqueMember x tree) =>
          Case (CaseDiversify tree) (x ': branch') (Which tree) where
     case' CaseDiversify = pick
 
 ------------------------------------------------------------------
 
--- where indices[branch_idx] = tree_idx
+-- | A friendlier constraint synonym for 'diversifyN'.
+-- All nonempty 'Which' fulfill this contraint.
+type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) = (Reduce Which (SwitchN (CaseDiversifyN indices) 0) (KindsAtIndices indices tree) (Which tree), KindsAtIndices indices tree ~ branch)
 
+-- where indices[branch_idx] = tree_idx
+-- | A version of 'diversify' which uses a Nat list to specify how to reorder the fields.
+--
+-- NB. forall is used to @tree@ is ordered first, so TypeApplications can be used to specify @tree@ first.
+--
+-- @
+-- let a = 'pick'' (5 :: Int) :: 'Which' '[Int]
+--     b = 'diversify' \@[Int, Bool] a :: 'Which' '[Int, Bool]
+--     c = 'diversify' \@[Bool, Int] b :: 'Which' '[Bool, Int]
+-- @
 diversifyN :: forall indices tree branch proxy. (DiversifyN indices tree branch) => proxy indices -> Which branch -> Which tree
 diversifyN _ = whichN (CaseDiversifyN @indices @0 @branch)
-
-type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) = (Reduce Which (SwitchN (CaseDiversifyN indices) 0) (KindsAtIndices indices tree) (Which tree), KindsAtIndices indices tree ~ branch)
 
 data CaseDiversifyN (indices :: [Nat]) (n :: Nat) (branch' :: [Type]) r = CaseDiversifyN
 

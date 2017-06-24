@@ -99,6 +99,7 @@ spec = do
 
             trial @Int c `shouldBe` Right 5
             trialN @2 Proxy c `shouldBe` Right 5
+            trial' c `shouldBe` Left d
             trialN @0 Proxy c `shouldBe` Left d
 
             trial @Int d `shouldBe` Right 5
@@ -108,9 +109,11 @@ spec = do
             trial @Int e `shouldBe` Right 5
             trialN @1 Proxy e `shouldBe` Right 5
             trialN @0 Proxy e `shouldBe` Left f
+            trial' e `shouldBe` Left f
 
             trial @Int f `shouldBe` Right 5
             trial @Int f `shouldNotBe` Left impossible
+            trial' f `shouldBe` Right 5
             obvious f `shouldBe` 5
 
         it "can be constructed and destructed by type with 'facet'" $ do

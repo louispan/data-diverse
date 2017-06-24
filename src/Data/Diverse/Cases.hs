@@ -47,7 +47,7 @@ instance UniqueMember (Head xs -> r) fs => Case (Cases fs) xs r where
 -- 'Data.Diverse.Which.switch' y (
 --     'cases' (show \@Bool
 --         './' show \@Int
---         './' 'nul')) `shouldBe` "5"
+--         './' 'nul')) \`shouldBe` "5"
 -- @
 --
 -- Or for handling 'collect' from a 'Many'.
@@ -55,8 +55,8 @@ instance UniqueMember (Head xs -> r) fs => Case (Cases fs) xs r where
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
 --     y = show \@Int './' show \@Char './' show \@(Maybe Char) './' show \@Bool './' 'nul'
---     ret = [\"5", \"False", \"'X'", \"Just \'O'", \"6", \"Just \'A'"]
--- 'Data.Diverse.AFoldable.afoldr' (:) [] ('collect' x ('cases' y)) `shouldBe` ret
+-- 'Data.Diverse.AFoldable.afoldr' (:) [] ('collect' x ('cases' y)) \`shouldBe`
+--     [\"5", \"False", \"'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
 --
 -- This function imposes additional @SameLength@ constraints than when using the 'Cases' constructor directly.
@@ -91,7 +91,7 @@ instance (MemberAt n (Head xs -> r) fs) => Case (CasesN fs n) xs r where
 --         './' show \@Bool
 --         './' show \@Bool
 --         './' show \@Int
---         './' 'nul')) `shouldBe` "5"
+--         './' 'nul')) \`shouldBe` "5"
 -- @
 --
 -- Or for handling 'collectN' from a 'Many'.
@@ -99,7 +99,7 @@ instance (MemberAt n (Head xs -> r) fs) => Case (CasesN fs n) xs r where
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
 --     y = show \@Int './' show \@Bool './' show \@Char './' show \@(Maybe Char) './' show \@Int './' show \@(Maybe Char) './' 'nul'
--- 'Data.Diverse.AFoldable.afoldr' (:) [] ('collectN' x ('casesN' y)) `shouldBe`
+-- 'Data.Diverse.AFoldable.afoldr' (:) [] ('collectN' x ('casesN' y)) \`shouldBe`
 --     [\"5", \"False", \"'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
 casesN :: SameLength fs xs => Many fs -> CasesN fs 0 xs r

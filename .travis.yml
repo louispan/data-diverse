@@ -43,6 +43,8 @@ install:
  - TEST=${TEST---enable-tests}
  - travis_retry cabal update -v
  - sed -i 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config
+ - cabal install hspec-discover
+ - which hspec-discover
  - rm -fv cabal.project.local
  - "echo 'packages: .' > cabal.project"
  - rm -f cabal.project.freeze
