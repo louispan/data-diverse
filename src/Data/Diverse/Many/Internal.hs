@@ -108,8 +108,7 @@ import Unsafe.Coerce
 
 -- This module uses the partial 'head', 'tail' from Prelude.
 -- I like to highlight them as partial by using them in the namespace Partial.head
--- These usages in this are safe due to size guarantees provided by the typelist
--- as long as the initial of the list matches the typelist.
+-- These usages in this module are safe due to size guarantees provided by the typelist.
 import Prelude as Partial
 
 newtype Key = Key Int deriving (Eq, Ord, Show)
@@ -118,26 +117,33 @@ newtype LeftSize = LeftSize Int
 newtype RightOffset = RightOffset Int
 newtype NewRightOffset = NewRightOffset { unNewRightOffset :: Int }
 
--- | A Many is an anonymous product type (also know as polymorphic record), with the ability to contain
--- an arbitrary number of fields.
+-- | A Many is an anonymous product type (also know as polymorphic record), with no limit on the number of fields.
 --
--- When it has fields of unique types, extra functions applied via TypeApplications
--- become available to be used:
+-- The following functions are available can be used to manipulate unique fields
 --
--- * 'fetch' and 'replace' getter/setter functions
--- * 'narrow' and 'amend' getter/setter of multiple fields
+-- * getter/setter for single field: 'fetch' and 'replace'
+-- * getter/setter for multiple fields: 'narrow' and 'amend'
+-- * folds: 'forMany' or 'collect'
 --
--- This means labels are not required, since the type itself (with type annotations or -XTypeApplications)
--- can be used to get and set fields in the Many.
+-- These functions are type specified. This means labels are not required because the types themselves can be used to access the 'Many.
 -- It is a compile error to use those functions for duplicate fields.
--- For duplicate fields, there are indexed version of the gettter/setter functions.
 --
--- This encoding stores the fields as Any in a Map, where the key is index + offset of the type in the typelist.
--- The offset is used to allow efficient cons.
+-- For duplicate fields, Nat-indexed versions of the functions are available:
+--
+-- * getter/setter for single field: 'fetchN' and 'replaceN'
+-- * getter/setter for multiple fields: 'narrowN' and 'amendN'
+-- * folds: 'forManyN' or 'collectN'
+--
+-- Encoding: The record is encoded as (Offset, Map Int Any).
+-- This encoding should reasonabily efficient for any number of fields.
+--
+-- The map Key is index + offset of the type in the typelist.
+-- The Offset is used to allow efficient cons 'prefix'.
 --
 -- @Key = Index of type in typelist + Offset@
 --
 -- The constructor will guarantee the correct number and types of the elements.
+-- The constructor is only exported in the "Data.Diverse.Many.Internal" module
 data Many (xs :: [Type]) = Many {-# UNPACK #-} !Int (M.Map Key Any)
 
 -- | Inferred role is phantom which is incorrect
@@ -151,7 +157,7 @@ class IsMany t xs a where
     toMany :: t xs a -> Many xs
     fromMany :: Many xs -> t xs a
 
--- | Converts from a value (eg a tuple) to a Many, via a Tagged wrapper
+-- | Converts from a value (eg a tuple) to a 'Many', via a 'Tagged' wrapper
 toMany' :: IsMany Tagged xs a => a -> Many xs
 toMany' a = toMany (Tagged a)
 
@@ -167,12 +173,13 @@ _Many = iso fromMany toMany
 _Many' :: IsMany Tagged xs a => Iso' (Many xs) a
 _Many' = iso fromMany' toMany'
 
--- These instances add about 7 seconds to the compile time!
-
+-- | These instances add about 7 seconds to the compile time!
 instance IsMany Tagged '[] () where
     toMany _ = nul
     fromMany _ = Tagged ()
 
+-- | This single field instance is the reason for 'Tagged' wrapper.
+-- Otherwise this instance will overlap.
 instance IsMany Tagged '[a] a where
     toMany (Tagged a) = single a
     fromMany r = Tagged (fetch @a r)
@@ -285,14 +292,14 @@ leftKeyForCons (LeftOffset lo) (NewRightOffset ro) (Key lk) = Key (lk - lo + ro)
 -- | Analogous to 'Prelude.null'. Named 'nul' to avoid conflicting with 'Prelude.null'.
 nul :: Many '[]
 nul = Many 0 M.empty
-infixr 5 `nul` -- to be the same as cons
+infixr 5 `nul` -- to be the same as 'prefix'
 
 -- | Create a Many from a single value. Analogous to 'M.singleton'
 single :: x -> Many '[x]
 single v = Many 0 (M.singleton (Key 0) (unsafeCoerce v))
 
 -- | Add an element to the left of a Many.
--- Not named 'cons' to avoid conflict with lens.
+-- Not named @cons@ to avoid conflict with 'Control.Lens.cons'
 prefix :: x -> Many xs -> Many (x ': xs)
 prefix x (Many ro rm) = Many (unNewRightOffset nro)
     (M.insert
@@ -303,13 +310,15 @@ prefix x (Many ro rm) = Many (unNewRightOffset nro)
     nro = rightOffsetForCons (LeftSize 1) (RightOffset ro)
 infixr 5 `prefix`
 
--- | 'prefix' mnemonic: Element is smaller than './' the larger Many
+-- | Infix version of 'prefix'.
+--
+-- Mnemonic: Element on the left is smaller './' than the larger 'Many' to the right.
 (./) :: x -> Many xs -> Many (x ': xs)
 (./) = prefix
 infixr 5 ./ -- like Data.List.(:)
 
 -- | Add an element to the right of a Many
--- Not named 'snoc' to avoid conflict with lens
+-- Not named 'snoc' to avoid conflict with 'Control.Lens.snoc'
 postfix :: Many xs -> y -> Many (Append xs '[y])
 postfix (Many lo lm) y = Many lo
     (M.insert (rightKeyForSnoc (LeftOffset lo) (LeftSize (M.size lm)) (RightOffset 0) (Key 0))
@@ -366,26 +375,31 @@ fore (Many o m) = Many o (M.delete (Key (o + M.size m - 1)) m)
 
 --------------------------------------------------
 
--- | Getter. Use TypeApplication of the type to get
--- Only available for 'Many' with 'IsDistinct' xs.
+-- | Getter by unique type. Get the field with type @x@.
 --
--- @fetch \@Int t@
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- 'fetch' \@Int x \`shouldBe` 5
+-- @
 fetch :: forall x xs. UniqueMember x xs => Many xs -> x
 fetch (Many o m) = unsafeCoerce (m M.! (Key (o + i)))
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
 -- | infix version of 'fetch', with a extra proxy to carry the destination type.
 --
--- @foo .^. (Proxy \@Int)@
---
 -- Mnemonic: Like 'Control.Lens.(^.)' but with an extra @.@ in front.
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- x '.^.' (Proxy \@Int) \`shouldBe` 5
+-- @
 (.^.) :: forall x xs proxy. UniqueMember x xs => Many xs -> proxy x -> x
 (.^.) v _ = fetch v
 infixl 8 .^. -- like Control.Lens.(^.)
 
 --------------------------------------------------
 
--- | Getter. Get the value of the field at index type-level Nat @n@
+-- | Getter by index. Get the value of the field at index type-level Nat @n@
 --
 -- @getchN (Proxy \@2) t@
 fetchN :: forall n x xs proxy. MemberAt n x xs => proxy n -> Many xs -> x
@@ -394,30 +408,36 @@ fetchN p (Many o m) = unsafeCoerce (m M.! (Key (o + i)))
 
 --------------------------------------------------
 
--- | Setter. Use TypeApplication of the type to set.
+-- | Setter by unique type. Set the field with type @x@.
 --
--- @replace \@Int t@
---
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- 'replace' \@Int x 6 \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- @
 replace :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
 replace (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
 -- | infix version of 'replace'
--- Only available for 'Many' with 'IsDistinct' xs.
---
--- @foo ..~ x@
 --
 -- Mnemonic: Like a back to front 'Control.Lens.(.~)' with an extra @.@ in front.
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- (x '.~.' (6 :: Int)) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- @
 (.~.) :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
 (.~.) = replace
 infixl 1 .~. -- like Control.Lens.(.~)
 
 --------------------------------------------------
 
--- | Setter. Use TypeApplication of the Nat index to set.
+-- | Setter by index. Set the value of the field at index type-level Nat @n@
 --
--- @replaceN (Proxy \@1) t@
---
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- 'replaceN' \@0 Proxy x 7 `shouldBe`
+-- @
 replaceN :: forall n x xs proxy. MemberAt n x xs => proxy n -> Many xs -> x -> Many xs
 replaceN p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal p)
@@ -425,15 +445,23 @@ replaceN p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 -----------------------------------------------------------------------
 
 -- | 'fetch' and 'replace' in lens form.
--- Use TypeApplication to specify the field type of the lens.
--- Example: @item \@Int@
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- x '^.' 'item' \@Int `shouldBe` 5
+-- (x '&' 'item' \@Int .~ 6) `shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- @
 item :: forall x xs. UniqueMember x xs => Lens' (Many xs) x
 item = lens fetch replace
 {-# INLINE item #-}
 
 -- | 'fetchN' and 'replaceN' in lens form.
--- You can use TypeApplication to specify the index of the type of the lens.
--- Example: @itemN \@1 Proxy@
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' ./ nul
+-- x '^.' 'itemN' (Proxy \@0) \`shouldBe` 5
+-- (x '&' 'itemN' (Proxy @0) '.~' 6) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
+-- @
 itemN ::  forall n x xs proxy. MemberAt n x xs => proxy n -> Lens' (Many xs) x
 itemN p = lens (fetchN p) (replaceN p)
 {-# INLINE itemN #-}
@@ -444,9 +472,12 @@ itemN p = lens (fetchN p) (replaceN p)
 fromList' :: Ord k => [(k, WrappedAny)] -> M.Map k Any
 fromList' xs = M.fromList (coerce xs)
 
--- | Wraps a 'Case' into an instance of 'Emit', feeding 'Case' with the value from the Many and 'emit'ting the results.
--- Internally, this holds the left-over [(k, v)] from the original Many with the remaining typelist xs.
--- That is the first v in the (k, v) is of type x, and the length of the list is equal to the length of xs.
+-- | Wraps a 'Case' into an instance of 'Emit', 'reiterate'ing and feeding 'Case' with the value from the 'Many'
+-- and 'emit'ting the results.
+--
+-- Internally, this holds the left-over [(k, v)] from the original 'Many' for the remaining typelist @xs@.
+--
+-- That is the first v in the (k, v) is of type @x@, and the length of the list is equal to the length of @xs@.
 newtype Via c (xs :: [Type]) r = Via (c xs r, [Any])
 
 -- | Creates an 'Via' safely, so that the invariant of \"typelist to the value list type and size\" holds.
@@ -463,19 +494,33 @@ instance (Case c (x ': xs) r) => Emit (Via c) (x ': xs) r where
        -- use of front here is safe as we are guaranteed the length from the typelist
        v = Partial.head xxs
 
--- | Destruction for any 'Many', even with indistinct types.
--- Given a distinct handler for the fields in 'Many', create a 'Collector'
--- of the results of running the handler over the 'Many'.
--- The 'Collector' is 'AFoldable' to get the results.
+-- | Folds any 'Many', even with indistinct types.
+-- Given __distinct__ handlers for the fields in 'Many', create a 'Collector'
+-- of the results of running the handlers over the fields in 'Many'.
+--
+-- The 'Collector' is 'AFoldable' to combine the results.
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
+--     y = show \@Int './' show \@Char './' show \@(Maybe Char) './' show \@Bool './' 'nul'
+-- 'Data.Diverse.AFoldable.afoldr' (:) [] ('forMany' ('Data.Diverse.Cases.cases' y) x) \`shouldBe`
+--     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
+-- @
 forMany :: c xs r -> Many xs -> Collector (Via c) xs r
 forMany c x = Collector (via c x)
 
--- | This is @flip forMany@
+-- | This is @flip 'forMany'@
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
+--     y = show \@Int './' show \@Char './' show \@(Maybe Char) './' show \@Bool './' 'nul'
+-- 'Data.Diverse.AFoldable.afoldr' (:) [] ('collect' x ('Data.Diverse.Cases.cases' y)) \`shouldBe`
+--     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
+-- @
 collect :: Many xs -> c xs r -> Collector (Via c) xs r
 collect = flip forMany
 
 -----------------------------------------------------------------------
 
+-- | A variation of 'Via' which __'reiterateN'__ instead.
 newtype ViaN c (n :: Nat) (xs :: [Type]) r = ViaN (c n xs r, [Any])
 
 -- | Creates an 'ViaN' safely, so that the invariant of \"typelist to the value list type and size\" holds.
@@ -492,19 +537,38 @@ instance (Case (c n) (x ': xs) r) => Emit (ViaN c n) (x ': xs) r where
        -- use of front here is safe as we are guaranteed the length from the typelist
        v = Partial.head xxs
 
+-- | Folds any 'Many', even with indistinct types.
+-- Given __index__ handlers for the fields in 'Many', create a 'CollectorN'
+-- of the results of running the handlers over the fields in 'Many'.
+--
+-- The 'CollectorN' is 'AFoldable' to combine the results.
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
+--     y = show \@Int './' show \@Bool './' show \@Char './' show \@(Maybe Char) './' show \@Int './' show \@(Maybe Char) './' 'nul'
+-- Data.Diverse.AFoldable.afoldr' (:) [] ('forManyN' ('Data.Diverse.Cases.casesN' y) x) \`shouldBe`
+--     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
+-- @
 forManyN :: c n xs r -> Many xs -> CollectorN (ViaN c) n xs r
 forManyN c x = CollectorN (viaN c x)
 
--- | This is @flip forManyN@
+-- | This is @flip 'forManyN'@
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
+--     y = show \@Int './' show \@Bool './' show \@Char './' show \@(Maybe Char) './' show \@Int './' show \@(Maybe Char) './' 'nul'
+-- Data.Diverse.AFoldable.afoldr' (:) [] ('collectN' x ('Data.Diverse.Cases.casesN' y)) \`shouldBe`
+--     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
+-- @
 collectN :: Many xs -> c n xs r -> CollectorN (ViaN c) n xs r
 collectN = flip forManyN
 
 -----------------------------------------------------------------------
 
+-- | A friendlier type constraint synomyn for 'narrow'
 type Narrow (smaller :: [Type]) (larger :: [Type]) =
     (AFoldable
-        ( Collector (Via (CaseNarrow smaller)) larger) [(Key, WrappedAny)]
-        , IsDistinct smaller)
+        ( Collector (Via (CaseNarrow smaller)) larger) [(Key, WrappedAny)])
 
 -- | Construct a 'Many' with a smaller number of fields than the original
 -- Analogous to 'fetch' getter but for multiple fields
@@ -543,6 +607,7 @@ instance forall smaller x xs. MaybeUniqueMember x smaller =>
 
 -----------------------------------------------------------------------
 
+-- | A friendlier type constraint synomyn for 'narrowN'
 type NarrowN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
     ( AFoldable (CollectorN (ViaN (CaseNarrowN ns smaller)) 0 larger) [(Key, WrappedAny)]
     , smaller ~ KindsAtIndices ns larger
@@ -579,6 +644,7 @@ instance forall indices smaller n x xs. MaybeMemberAt (PositionOf n indices) x s
 
 -----------------------------------------------------------------------
 
+-- | A friendlier type constraint synomyn for 'amend'
 type Amend smaller larger = (AFoldable (Collector (Via (CaseAmend larger)) smaller) (Key, WrappedAny)
        , IsDistinct smaller)
 
@@ -614,6 +680,7 @@ instance UniqueMember x larger => Case (CaseAmend larger) (x ': xs) (Key, Wrappe
 
 -----------------------------------------------------------------------
 
+-- | A friendlier type constraint synomyn for 'amendN'
 type AmendN ns smaller larger =
     ( AFoldable (CollectorN (ViaN (CaseAmendN ns larger)) 0 smaller) (Key, WrappedAny)
     , smaller ~ KindsAtIndices ns larger
@@ -704,6 +771,7 @@ eqMany
 eqMany (Many _ lm) (Many _ rm) = afoldr (:) []
     (Collector (EmitEqMany @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
 
+-- | Two 'Many's are equal if all their fields equal
 instance AFoldable (Collector EmitEqMany xs) Bool => Eq (Many xs) where
     lt == rt = foldr (\e z -> bool False z e) True eqs
       where
@@ -732,6 +800,7 @@ ordMany
 ordMany (Many _ lm) (Many _ rm) = afoldr (:) []
     (Collector (EmitOrdMany @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
 
+-- | Two 'Many's are ordered by 'compare'ing their fields in index order
 instance (Eq (Many xs), AFoldable (Collector EmitOrdMany xs) Ordering) => Ord (Many xs) where
     compare lt rt = foldr (\o z -> case o of
                                        EQ -> z
@@ -765,6 +834,7 @@ showMany
     => Many xs -> ShowS
 showMany (Many _ m) = afoldr (.) id (Collector0 (EmitShowMany @xs (snd <$> M.toAscList m)))
 
+-- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nul" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'@
 instance AFoldable (Collector0 EmitShowMany xs) ShowS => Show (Many xs) where
     showsPrec d t = showParen (d > cons_prec) $ showMany t
       where
@@ -794,6 +864,7 @@ readMany
     => Proxy (xs :: [Type]) -> ReadPrec [(Key, WrappedAny)]
 readMany _ = afoldr (liftA2 (++)) (pure []) (Collector0 (EmitReadMany @xs (Key 0)))
 
+-- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nul" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'@
 instance (AFoldable (Collector0 EmitReadMany xs) (ReadPrec [(Key, WrappedAny)])) =>
          Read (Many xs) where
     readPrec =

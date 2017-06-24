@@ -27,7 +27,7 @@ import Data.Proxy
 import GHC.TypeLits
 
 -- | Contains a 'Many' of handlers/continuations for all the types in the 'xs' typelist.
--- This version uses __'fetch'__ to get the unique handler for the type at the 'Head' of @xs@.
+-- This uses __'fetch'__ to get the unique handler for the type at the 'Head' of @xs@.
 --
 -- Use 'cases' to construct this with 'SameLength' constraint to reduce programming confusion.
 -- However, the 'Cases' constructor is still exported to allow creating a master-of-all-'Case'.
@@ -67,8 +67,7 @@ cases = Cases
 
 -----------------------------------------------
 
--- | Contains a 'Many' of handlers/continuations for all the types in the 'xs' typelist.
--- This version uses __'fetchN'__ to get the handler by index, for the type at the 'Head' of @xs@.
+-- | A variation of 'Cases' which uses __'fetchN'__ to get the handler by index.
 -- There may be different handlers for the same type, but the handlers must be in the same order
 -- as the input @xs@ typelist.
 -- Use 'casesN' to construct this safely ensuring @n@ starts at 0.

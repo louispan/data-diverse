@@ -16,7 +16,7 @@ import Data.Kind
 import GHC.TypeLits
 
 -- | Folds output from an 'Emit'ter of values while __'reiterate'__ing the @xs@ typelist.
--- This version guaranteeds that the @Emit e '[]@ is not instantiated.
+-- This guarantees that the @Emit e '[]@ is not instantiated.
 -- Undecidable instances! But this is safe since it's a wrapper
 newtype Collector e (xs :: [Type]) r = Collector (e xs r)
 
@@ -32,8 +32,7 @@ instance ( Emit e (x ': xs) r
          AFoldable (Collector e (x ': xs)) r where
     afoldr f z (Collector e) = f (emit e) (afoldr f z (Collector (reiterate e)))
 
--- | Folds output from Emitter while __'reiterate'__ing the @xs@ typelist.
--- This version uses the @Emit e '[]@ instance.
+-- | A variation of 'Collector' which does require the @Emit e '[]@ instance for the empty typelist.
 -- Undecidable instances! But this is safe since it's a wrapper
 newtype Collector0 e (xs :: [Type]) r = Collector0 (e xs r)
 
@@ -52,8 +51,8 @@ instance ( Emit e (x ': xs) r
 
 --------------------------------------------
 
--- | Folds output from an 'Emit'ter of values while __'reiterateN'__ing the @xs@ typelist.
--- This version guaranteeds that the @Emit (e n) '[]@ is not instantiated.
+-- | A variation of 'Collector' which __'reiterateN'__s the @xs@ typelist.
+-- This version guarantees that the @Emit (e n) '[]@ is not instantiated.
 -- Undecidable instances! But this is safe since it's a wrapper
 newtype CollectorN e (n :: Nat) (xs :: [Type]) r = CollectorN (e n xs r)
 
@@ -69,8 +68,7 @@ instance ( Emit (e n) (x ': xs) r
          AFoldable (CollectorN e n (x ': xs)) r where
     afoldr f z (CollectorN e) = f (emit e) (afoldr f z (CollectorN (reiterateN e)))
 
--- | Folds output from Emitter while __'reiterateN'__ing the @xs@ typelist.
--- This version uses the @Emit e '[]@ instance.
+-- | A variation of 'Collector0' which __'reiterateN'__s the @xs@ typelist.
 -- Undecidable instances! But this is safe since it's a wrapper
 newtype CollectorN0 e (n :: Nat) (xs :: [Type]) r = CollectorN0 (e n xs r)
 

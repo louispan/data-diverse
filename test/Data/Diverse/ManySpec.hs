@@ -211,6 +211,7 @@ spec = do
         it "has getter for multiple fields with duplicates using 'narrowN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
             narrowN (Proxy @'[5, 4, 0]) x `shouldBe` Just 'A' ./ (6 :: Int) ./ (5 ::Int) ./ nul
+            narrow @[Bool, Char, Int] x `shouldBe` False ./ 'X' ./ (5 :: Int) ./ nul
 
         it "with duplicate fields has getter for multiple unique fields 'narrow'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul

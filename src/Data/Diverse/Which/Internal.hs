@@ -78,9 +78,22 @@ import Unsafe.Coerce
 -- which can only contain one of the types in the typelist.
 -- This is essentially a typed version of 'Data.Dynamic'.
 --
--- For unique types in the list of possible types, the types themselves become labels to allow easier to use constructor ('pick'), destructor ('trial'), injection ('diversify', 'reinterpret'), and catamorphism ('switch') using -XTypeApplications.
+-- The following functions are available can be used to manipulate unique types in the typelist
 --
--- For duplicate types in the list of possible types, an indexed version of constructor ('pickN'), destructor ('trialN'), inejction ('diversifyN', 'reinterpretN''), and catamorphism ('switchN') is provided.
+-- * constructor: 'pick'
+-- * destructor: 'trial'
+-- * injection: 'diversify' and 'reinterpret'
+-- * catamorphism: 'which' or 'switch'
+--
+-- These functions are type specified. This means labels are not required because the types themselves can be used to access the 'Which'.
+-- It is a compile error to use those functions for duplicate fields.
+--
+-- For duplicate types in the list of possible types, Nat-indexed version of the functions are available:
+--
+-- * constructor: 'pickN'
+-- * destructor: 'trialN'
+-- * inejction: 'diversifyN' and 'reinterpretN''
+-- * catamorphism: 'whichN' or 'switchN'
 --
 -- Encoding: The variant contains a value whose type is at the given position in the type list.
 -- This is the same encoding as <https://github.com/haskus/haskus-utils/blob/master/src/lib/Haskus/Utils/Variant.hs Haskus.Util.Variant> and <https://hackage.haskell.org/package/HList-0.4.1.0/docs/src/Data-HList-Variant.html Data.Hlist.Variant>.
@@ -135,7 +148,7 @@ pickN _ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 obvious :: Which '[a] -> a
 obvious (Which _ v) = unsafeCoerce v
 
--- | 'trial' a confession out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
+-- | 'trial' a type in a 'Which' and 'Either' get the 'Right' value or the 'Left'-over possibilities.
 --
 -- @
 -- let x = 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
@@ -153,7 +166,7 @@ trial (Which n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
                           then Left (Which (n - 1) v)
                           else Left (Which n v)
 
--- | A version of a 'Which' 'trial' which 'trial''s the first type in the type list.
+-- | A variation of a 'Which' 'trial' which 'trial''s the first type in the type list.
 --
 -- @
 -- let x = 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
@@ -165,7 +178,7 @@ trial' (Which n v) = if n == 0
            else Left (Which (n - 1) v)
 
 
--- | 'trialN' the n-th confession out of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
+-- | 'trialN' the n-th type of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
 --
 -- @
 -- let x = 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
@@ -202,7 +215,7 @@ facet :: forall x xs. (UniqueMember x xs) => Prism' (Which xs) x
 facet = prism' pick (hush . trial)
 {-# INLINE facet #-}
 
--- | A version of 'facet' specified by an @n@ Nat index
+-- | A variation of 'facet' specified by an @n@ Nat index
 --
 -- @
 -- let y = 'review' ('facetN' (Proxy \@4)) (5 :: Int) :: 'Which' '[Bool, Int, Char, Bool, Int, Char]
@@ -216,15 +229,14 @@ facetN p = prism' (pickN p) (hush . trialN p)
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversify'.
-type Diversify (tree :: [Type]) (branch :: [Type]) = (Reduce Which (Switch (CaseDiversify tree)) branch (Which tree), IsDistinct tree)
+type Diversify (tree :: [Type]) (branch :: [Type]) = Reduce Which (Switch (CaseDiversify tree branch)) branch (Which tree)
 
 -- | Convert a 'Which' to another 'Which' that may include other possibilities.
 -- That is, @branch@ is equal or is a subset of @tree@.
 --
--- It is a compile error if @tree@ doesn't contain distict fields,
--- or if its corresponding types in @branch@ are not distinct.
---
 -- This can also be used to rearrange the order of the types in the 'Which'.
+--
+-- It is a compile error if @tree@ has duplicate types with @branch@.
 --
 -- NB. forall is used to @tree@ is ordered first, so TypeApplications can be used to specify @tree@ first.
 --
@@ -234,27 +246,31 @@ type Diversify (tree :: [Type]) (branch :: [Type]) = (Reduce Which (Switch (Case
 --     c = 'diversify' \@[Bool, Int] b :: 'Which' '[Bool, Int]
 -- @
 diversify :: forall tree branch. Diversify tree branch => Which branch -> Which tree
-diversify = which (CaseDiversify @tree @branch)
+diversify = which (CaseDiversify @tree @branch @branch)
 
-data CaseDiversify (tree :: [Type]) (branch' :: [Type]) r = CaseDiversify
+data CaseDiversify (tree :: [Type]) (branch :: [Type]) (branch' :: [Type]) r = CaseDiversify
 
-instance Reiterate (CaseDiversify tree) branch' where
+instance Reiterate (CaseDiversify tree branch) branch' where
     reiterate CaseDiversify = CaseDiversify
 
-instance (UniqueMember x tree) =>
-         Case (CaseDiversify tree) (x ': branch') (Which tree) where
+-- | The @Unique x branch@ is important to get a compile error if the from @branch@ doesn't have a unique x
+instance (UniqueMember x tree, Unique x branch) =>
+         Case (CaseDiversify tree branch) (x ': branch') (Which tree) where
     case' CaseDiversify = pick
 
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversifyN'.
--- All nonempty 'Which' fulfill this contraint.
 type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) = (Reduce Which (SwitchN (CaseDiversifyN indices) 0) (KindsAtIndices indices tree) (Which tree), KindsAtIndices indices tree ~ branch)
 
--- where indices[branch_idx] = tree_idx
--- | A version of 'diversify' which uses a Nat list to specify how to reorder the fields.
+-- | A variation of 'diversify' which uses a Nat list @n@ to specify how to reorder the fields, where
 --
--- NB. forall is used to @tree@ is ordered first, so TypeApplications can be used to specify @tree@ first.
+-- @
+-- indices[branch_idx] = tree_idx@
+-- @
+--
+-- This variation allows @tree@ to contain duplicate types with @branch@ since
+-- the mapping is specified by @indicies@.
 --
 -- @
 -- let a = 'pick'' (5 :: Int) :: 'Which' '[Int]
@@ -275,15 +291,25 @@ instance MemberAt (KindAtIndex n indices) x tree =>
 
 ------------------------------------------------------------------
 
--- | Convert a Which into possibly another Which with a totally different typelist.
--- Returns either the 'Right' reinterpretation, or the 'Left' over Which type.
--- NB. forall used to specify @branch@ first, so TypeApplications can be used to specify @branch@.
+-- | A friendlier constraint synonym for 'reinterpret'.
+type Reinterpret branch tree = Reduce Which (Switch (CaseReinterpret branch tree)) tree (Either (Which (Complement tree branch)) (Which branch))
+
+-- | Convert a 'Which' into possibly another 'Which' with a totally different typelist.
+-- Returns either a 'Which' with the 'Right' value, or a 'Which' with the 'Left'over @compliment@ types.
+--
+-- It is a compile error if @branch@ or @compliment@ has duplicate types with @tree@.
+--
+-- NB. forall used to specify @branch@ first, so TypeApplications can be used to specify @branch@ first.
+--
+-- @
+--     let a = 'pick' \@[Int, Char, Bool] (5 :: Int) :: 'Which' '[Int, Char, Bool]
+--     let  b = 'reinterpret' @[String, Char] y
+--     b \`shouldBe` Left ('pick' (5 :: Int)) :: 'Which' '[Int, Bool]
+--     let c = 'reinterpret' @[String, Int] a
+--     c \`shouldBe` Right ('pick' (5 :: Int)) :: 'Which' '[String, Int]
+-- @
 reinterpret :: forall branch tree. Reinterpret branch tree => Which tree -> Either (Which (Complement tree branch)) (Which branch)
 reinterpret = which (CaseReinterpret @branch @tree @tree)
-
-type Reinterpret branch tree = (Reduce Which (Switch (CaseReinterpret branch tree)) tree (Either (Which (Complement tree branch)) (Which branch))
-         , IsDistinct branch
-         , IsDistinct tree)
 
 data CaseReinterpret (branch :: [Type]) (tree :: [Type]) (tree' :: [Type]) r = CaseReinterpret
 
@@ -293,6 +319,7 @@ instance Reiterate (CaseReinterpret branch tree) tree' where
 instance ( MaybeUniqueMember x branch
          , comp ~ Complement tree branch
          , MaybeUniqueMember x comp
+         , Unique x tree -- important to get compile error if source x is indistinct
          ) =>
          Case (CaseReinterpret branch tree) (x ': tree') (Either (Which comp) (Which branch)) where
     case' CaseReinterpret a =
@@ -304,15 +331,25 @@ instance ( MaybeUniqueMember x branch
 
 ------------------------------------------------------------------
 
--- | A limited form of 'reinterpret' where the @branch@ must be a subset of @tree@ instead of any arbitrary Which.
+-- | A friendlier constraint synonym for 'reinterpretN''.
+type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) = (Reduce Which (SwitchN (CaseReinterpretN indices) 0) tree (Maybe (Which (KindsAtIndices indices tree))), KindsAtIndices indices tree ~ branch)
+
+-- | A limited variation of 'reinterpret' which uses a Nat list @n@ to specify how to reorder the fields, where
+--
+-- @
+-- indices[branch_idx] = tree_idx@
+-- @
+--
+-- This variation allows @tree@ to contain duplicate types with @branch@
+-- since the mapping is specified by @indicies@.
+--
+-- However, unlike 'reinterpert', in this variation,
+-- @branch@ must be a subset of @tree@ instead of any arbitrary Which.
 -- Also it returns a Maybe instead of Either.
--- This is so that the @indices@ can be the same as in 'narrowN'.
--- Specify a typelist mapping of @branch@ into @tree@
--- where indices[branch_idx] = tree_idx
+--
+-- This is so that the same @indices@ can be used in 'narrowN'.
 reinterpretN' :: forall (indices :: [Nat]) branch tree proxy. (ReinterpretN indices branch tree) => proxy indices -> Which tree -> Maybe (Which branch)
 reinterpretN' _ = whichN (CaseReinterpretN @indices @0 @tree)
-
-type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) = (Reduce Which (SwitchN (CaseReinterpretN indices) 0) tree (Maybe (Which (KindsAtIndices indices tree))), KindsAtIndices indices tree ~ branch)
 
 data CaseReinterpretN (indices :: [Nat]) (n :: Nat) (tree' :: [Type]) r = CaseReinterpretN
 
@@ -328,14 +365,15 @@ instance MaybeMemberAt (PositionOf n indices) x branch => Case (CaseReinterpretN
 -- ------------------------------------------------------------------
 
 -- | Injection.
--- A Which can be 'diversify'ed to contain more types or 'reinterpret'ed into possibly another Which type.
--- Use TypeApplication to specify the containing @reinterpreted@ type of the prism.
+-- A 'Which' can be 'diversify'ed to contain more types or 'reinterpret'ed into possibly another 'Which' type.
+-- Use TypeApplication to specify the @reinterpreted@ type of the prism.
 --
--- @inject \@[Int, Bool]@
---
--- Use @_ to specify the @reinterpreted@ typelist instead.
---
--- @inject \@_ \@'[Int, String]@
+-- @
+-- let x = 'pick' (5 :: Int) :: 'Which' '[String, Int]
+--     y = 'review' ('inject' \@_ \@[Bool, Int, Char, String]) x -- 'diversify'
+-- y \`shouldBe` pick (5 :: Int) :: 'Which' '[Bool, Int, Char, String]
+-- let y' = 'preview' ('inject' \@[String, Int]) y -- 'reinterpret'
+-- y' \`shouldBe` Just (pick (5 :: Int)) :: Maybe ('Which' '[String, Int])
 inject
     :: forall branch tree.
        ( Diversify tree branch
@@ -345,6 +383,17 @@ inject
 inject = prism' diversify (hush . reinterpret)
 {-# INLINE inject #-}
 
+-- | Injection with indices mapping.
+-- A 'Which' can be 'diversifyN'ed to contain more types or 'reinterpretN'ed into possibly another 'Which' type.
+-- Use TypeApplication to specify the @indices@ and the @reinterpreted@ type of the prism.
+--
+-- @
+-- let x = 'pick' (5 :: Int) :: 'Which' '[String, Int]
+--     y = 'review' (injectN \@[3, 1] \@_ \@[Bool, Int, Char, String] Proxy) x -- 'diversifyN'
+-- y \`shouldBe` pick (5 :: Int) :: 'Which' '[Bool, Int, Char, String]
+-- let y' = 'preview' ('injectN' @[3, 1] \@[String, Int] Proxy) y -- 'reinterpertN''
+-- y' \`shouldBe` Just ('pick' (5 :: Int)) :: Maybe ('Which' '[String, Int])
+-- @
 injectN
     :: forall indices branch tree proxy.
        ( DiversifyN indices tree branch
@@ -357,7 +406,7 @@ injectN p = prism' (diversifyN p) (reinterpretN' p)
 ------------------------------------------------------------------
 
 -- | 'Switch' is an instance of 'Reduce' for which __'reiterate'__s through the possibilities in a 'Which',
--- delegating work to 'Case', ensuring termination when Which only contains one type.
+-- delegating handling to 'Case', ensuring termination when 'Which' only contains one type.
 newtype Switch c (xs :: [Type]) r = Switch (c xs r)
 
 -- | 'trial'' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterate'__
@@ -379,20 +428,36 @@ instance (Case c '[x] r) => Reduce Which (Switch c) '[x] r where
     reduce (Switch c) v = case obvious v of
             a -> case' c a
 
--- | Catamorphism for 'Which'. This is equivalent to @flip switch@.
+-- | Catamorphism for 'Which'. This is equivalent to @flip 'switch'@.
 which :: Reduce Which (Switch case') xs r => case' xs r -> Which xs -> r
 which = reduce . Switch
 
--- | A switch/case statement for 'Which'. This is equivalent to @flip which@
+-- | A switch/case statement for 'Which'. This is equivalent to @flip 'which'@
+--
 -- Use 'Case' instances like 'Data.Diverse.Cases.Cases' to apply a 'Which' of functions to a variant of values.
+--
+-- @
+-- let y = 'Data.Diverse.Which.pick' (5 :: Int) :: 'Data.Diverse.Which.Which' '[Int, Bool]
+-- 'Data.Diverse.Which.switch' y (
+--     'Data.Diverse.Cases.cases' (show \@Bool
+--         'Data.Diverse.Many../' show \@Int
+--         'Data.Diverse.Many../' 'Data.Diverse.Many.nul')) \`shouldBe` "5"
+-- @
+--
 -- Or 'Data.Diverse.CaseTypeable.CaseTypeable' to apply a polymorphic function that work on all 'Typeables'.
+--
+-- @
+-- let y = 'Data.Diverse.Which.pick' (5 :: Int) :: 'Data.Diverse.Which.Which' '[Int, Bool]
+-- 'Data.Diverse.Which.switch' y ('CaseTypeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` "Int"
+-- @
+--
 -- Or you may use your own custom instance of 'Case'.
 switch :: Reduce Which (Switch case') xs r => Which xs -> case' xs r -> r
 switch = flip which
 
 ------------------------------------------------------------------
 
--- | 'Switch' is an instance of 'Reduce' for which __'reiterateN'__s through the possibilities in a 'Which',
+-- | 'SwitchN' is a variation of 'Switch' which __'reiterateN'__s through the possibilities in a 'Which',
 -- delegating work to 'CaseN', ensuring termination when 'Which' only contains one type.
 newtype SwitchN c (n :: Nat) (xs :: [Type]) r = SwitchN (c n xs r)
 
@@ -415,26 +480,39 @@ instance (Case (c n) '[x] r) => Reduce Which (SwitchN c n) '[x] r where
     reduce (SwitchN c) v = case obvious v of
             a -> case' c a
 
--- | Catamorphism for 'Which'. This is equivalent to @flip switch@.
-
+-- | Catamorphism for 'Which'. This is equivalent to @flip 'switchN'@.
 whichN :: Reduce Which (SwitchN case' n) xs r => case' n xs r -> Which xs -> r
 whichN = reduce . SwitchN
 
--- | A switch/case statement for Which.
--- Use 'Case' instances like 'Data.Diverse.Cases.Cases' to apply a 'Which' of functions to a variant of values.
--- Or 'Data.Diverse.CaseTypeable.CaseTypeable' to apply a polymorphic function that work on all 'Typeables'.
+-- | A switch/case statement for 'Which'. This is equivalent to @flip 'whichN'@
+--
+-- Use 'Case' instances like 'Data.Diverse.Cases.CasesN' to apply a 'Which' of functions to a variant of values
+-- in index order.
+--
+-- @
+-- let y = 'pickN' \@0 Proxy (5 :: Int) :: 'Which' '[Int, Bool, Bool, Int]
+-- 'switchN' y (
+--     'Data.Diverse.Cases.casesN' (show \@Int
+--         'Data.Diverse.Many../' show \@Bool
+--         'Data.Diverse.Many../' show \@Bool
+--         'Data.Diverse.Many../' show \@Int
+--         'Data.Diverse.Many../' 'Data.Diverse.Many.nul')) \`shouldBe` "5"
+-- @
+--
 -- Or you may use your own custom instance of 'Case'.
 switchN :: Reduce Which (SwitchN case' n) xs r => Which xs -> case' n xs r -> r
 switchN = flip whichN
 
 -----------------------------------------------------------------
 
+-- | Two 'Which'es are only equal iff they both contain the equivalnet value at the same type index.
 instance (Reduce Which (Switch CaseEqWhich) (x ': xs) Bool) => Eq (Which (x ': xs)) where
     l@(Which i _) == (Which j u) =
         if i /= j
             then False
             else switch l (CaseEqWhich u)
 
+-- | @('impossible' == 'impossible') == True@
 instance Eq (Which '[]) where
     _ == _ = True
 
@@ -450,12 +528,14 @@ instance (Eq x) => Case CaseEqWhich (x ': xs) Bool where
 
 -----------------------------------------------------------------
 
+-- | A 'Which' with a type at smaller type index is considered smaller.
 instance (Reduce Which (Switch CaseEqWhich) (x ': xs) Bool, Reduce Which (Switch CaseOrdWhich) (x ': xs) Ordering) => Ord (Which (x ': xs)) where
     compare l@(Which i _) (Which j u) =
         if i /= j
             then compare i j
             else switch l (CaseOrdWhich u)
 
+-- | @('compare' 'impossible' 'impossible') == EQ@
 instance Ord (Which '[]) where
     compare _ _ = EQ
 
@@ -471,10 +551,12 @@ instance (Ord x) => Case CaseOrdWhich (x ': xs) Ordering where
 
 ------------------------------------------------------------------
 
+-- | @show ('pick'' \'A') == "pick \'A'"@
 instance (Reduce Which (Switch CaseShowWhich) (x ': xs) ShowS) => Show (Which (x ': xs)) where
     showsPrec d v = showParen (d > app_prec) ((showString "pick ") . (which CaseShowWhich v))
       where app_prec = 10
 
+-- | @read "impossible" == 'impossible'@
 instance Show (Which '[]) where
     showsPrec d _ = showParen (d > app_prec) (showString "impossible")
       where app_prec = 10
@@ -514,6 +596,7 @@ instance AFoldable (Collector EmitReadWhich (x ': xs)) (ReadPrec (Int, WrappedAn
             (n, WrappedAny v) <- step (readWhich @(x ': xs) Proxy)
             pure (Which n v)
 
+-- | @read "impossible" == 'impossible'@
 instance Read (Which '[]) where
     readPrec =
         parens $

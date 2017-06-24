@@ -13,16 +13,16 @@ import Data.Diverse.Type.Internal
 import Data.Kind
 import GHC.TypeLits
 
--- | Ensures that @x@ is a unique member of @xs@
+-- | Ensures that @x@ is a unique member of @xs@, and that 'natVal' can be used.
 type UniqueMember x xs = (Unique x xs, KnownNat (IndexOf x xs))
 
--- | Ensures that @x@ is a unique member of @xs@ if it exists
+-- | Ensures that @x@ is a unique member of @xs@ if it exists, and that 'natVal' can be used.
 type MaybeUniqueMember x xs = (Unique x xs, KnownNat (PositionOf x xs))
 
--- | Ensures that @x@ is a member of @xs@ at @n@
+-- | Ensures that @x@ is a member of @xs@ at @n@, and that 'natVal' can be used.
 type MemberAt n x xs = (KnownNat n, x ~ KindAtIndex n xs)
 
--- | Ensures that @x@ is a member of @xs@ at @n@ if it exists
+-- | Ensures that @x@ is a member of @xs@ at @n@ if it exists, and that 'natVal' can be used.
 type MaybeMemberAt n x xs = (KnownNat n, KindAtPositionIs n x xs)
 
 -- | Ensures that the type list contain unique types

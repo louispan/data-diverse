@@ -138,6 +138,19 @@ spec = do
                 y'' = diversifyN @[1,0] @[Bool, Int] Proxy y'
             switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
 
+        it "the 'diversify'ed type can contain multiple fields if they aren't in the original 'Many'" $ do
+            let y = pick @[Int, Char] (5 :: Int)
+                x = diversify @[String, String, Char, Bool, Int] y
+                -- Compile error: Char is a duplicate
+                -- z = diversify @[String, String, Char, Bool, Int, Char] y
+            x `shouldBe` pick (5 :: Int)
+
+        it "the 'diversify'ed type can't use indistinct fields from the original 'Many'" $ do
+            let y = pickN @0 @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
+                -- Compile error: Int is a duplicate
+                -- x = diversify @[String, String, Char, Bool, Int] y
+            y `shouldBe` y
+
         it "can be 'reinterpret'ed by type into a totally different Which" $ do
             let y = pick @[Int, Char] (5 :: Int)
                 a = reinterpret @[String, Bool] y
@@ -146,6 +159,19 @@ spec = do
             b `shouldBe` Left (pick (5 :: Int))
             let c = reinterpret @[String, Int] y
             c `shouldBe` Right (pick (5 :: Int))
+
+        it "the 'reinterpret' type can contain multiple fields if they aren't in the original 'Many'" $ do
+            let y = pick @[Int, Char] (5 :: Int)
+                x = reinterpret @[String, String, Char, Bool] y
+                -- Compile error: Char is a duplicate
+                -- z = reinterpret @[String, Char, Char, Bool] y
+            x `shouldBe` Left (pick (5 :: Int))
+
+        it "the 'reinterpret' type can't use indistinct fields from the original 'Many'" $ do
+            let y = pickN @0 @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
+                -- Compile error: Int is a duplicate
+                -- x = reinterpret @[String, String, Char, Bool, Int] y
+            y `shouldBe` y
 
         it "can be 'reinterpretN'ed by index into a subset Which" $ do
             let y = pick @[Char, String, Int, Bool] (5 :: Int)
