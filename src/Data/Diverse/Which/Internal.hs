@@ -433,6 +433,7 @@ instance MaybeMemberAt (PositionOf n indices) x branch => Case (CaseReinterpretN
 -- y \`shouldBe` pick (5 :: Int) :: 'Which' '[Bool, Int, Char, String]
 -- let y' = 'preview' ('inject' \@[String, Int]) y -- 'reinterpret'
 -- y' \`shouldBe` Just (pick (5 :: Int)) :: Maybe ('Which' '[String, Int])
+-- @
 inject
     :: forall branch tree.
        ( Diversify tree branch
