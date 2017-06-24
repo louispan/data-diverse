@@ -146,7 +146,7 @@ instance G.Generic (Which (x ': x' ': xs)) where
             Left v' -> G.R1 ({- G.Rec0 -} G.K1 v')
     to ({- G.D1 -} G.M1 ({- G.Rec0 -} x)) = case x of
         G.L1 ({- G.Rec0 -} G.K1 a) -> pick0 a
-        G.R1 ({- G.Rec0 -} G.K1 v) -> diversify0 Proxy v
+        G.R1 ({- G.Rec0 -} G.K1 v) -> diversify0 v
 
 -----------------------------------------------------------------------
 
@@ -316,8 +316,8 @@ instance (UniqueMember x tree, Unique x branch) =>
     case' CaseDiversify = pick
 
 -- | A simple version of 'diversify' which add another type to the front of the typelist.
-diversify0 :: proxy x -> Which xs -> Which (x ': xs)
-diversify0 _ (Which n v) = Which (n + 1) v
+diversify0 :: Which xs -> Which (x ': xs)
+diversify0 (Which n v) = Which (n + 1) v
 
 ------------------------------------------------------------------
 
@@ -335,8 +335,8 @@ type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) = (Reduce
 --
 -- @
 -- let y = 'pickOnly' (5 :: Int)
---     y' = 'diversify' \@[Int, Bool] y
---     y'' = 'diversify' \@[Bool, Int] y'
+--     y' = 'diversifyN' \@'[0] \@[Int, Bool] Proxy y
+--     y'' = 'diversifyN' \@[1,0] \@[Bool, Int] Proxy y'
 -- 'switch' y'' ('Data.Diverse.CaseTypeable.CaseTypeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Int"
 -- @
 diversifyN :: forall indices tree branch proxy. (DiversifyN indices tree branch) => proxy indices -> Which branch -> Which tree

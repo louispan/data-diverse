@@ -132,7 +132,7 @@ spec = do
                 y'' = diversify @[Bool, Int] y'
             switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
 
-        it "can be extended and rearranged by index with 'diversify'" $ do
+        it "can be extended and rearranged by index with 'diversifyN'" $ do
             let y = pickOnly (5 :: Int)
                 y' = diversifyN @'[0] @[Int, Bool] Proxy y
                 y'' = diversifyN @[1,0] @[Bool, Int] Proxy y'
