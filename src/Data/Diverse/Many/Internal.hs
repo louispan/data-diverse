@@ -79,7 +79,7 @@ module Data.Diverse.Many.Internal (
     , via -- safe construction
     , forMany
     , collect
-    -- * By Nat index offset
+    -- ** By Nat index offset
     , ViaN -- no constructor
     , viaN -- safe construction
     , forManyN
@@ -444,18 +444,18 @@ replaceN p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 
 -----------------------------------------------------------------------
 
--- | 'fetch' and 'replace' in lens form.
+-- | 'fetch' ('view' 'item') and 'replace' ('set' 'item') in 'Lens'' form.
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
--- x '^.' 'item' \@Int `shouldBe` 5
--- (x '&' 'item' \@Int .~ 6) `shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- x '^.' 'item' \@Int \`shouldBe` 5
+-- (x '&' 'item' \@Int .~ 6) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
 -- @
 item :: forall x xs. UniqueMember x xs => Lens' (Many xs) x
 item = lens fetch replace
 {-# INLINE item #-}
 
--- | 'fetchN' and 'replaceN' in lens form.
+-- | 'fetchN' ('view' 'item') and 'replaceN' ('set' 'item') in 'Lens'' form.
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' ./ nul
@@ -499,20 +499,22 @@ instance (Case c (x ': xs) r) => Emit (Via c) (x ': xs) r where
 -- of the results of running the handlers over the fields in 'Many'.
 --
 -- The 'Collector' is 'AFoldable' to combine the results.
+--
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
 --     y = show \@Int './' show \@Char './' show \@(Maybe Char) './' show \@Bool './' 'nul'
--- 'Data.Diverse.AFoldable.afoldr' (:) [] ('forMany' ('Data.Diverse.Cases.cases' y) x) \`shouldBe`
+-- 'afoldr' (:) [] ('forMany' ('Data.Diverse.Cases.cases' y) x) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
 forMany :: c xs r -> Many xs -> Collector (Via c) xs r
 forMany c x = Collector (via c x)
 
 -- | This is @flip 'forMany'@
+--
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
 --     y = show \@Int './' show \@Char './' show \@(Maybe Char) './' show \@Bool './' 'nul'
--- 'Data.Diverse.AFoldable.afoldr' (:) [] ('collect' x ('Data.Diverse.Cases.cases' y)) \`shouldBe`
+-- 'afoldr' (:) [] ('collect' x ('Data.Diverse.Cases.cases' y)) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
 collect :: Many xs -> c xs r -> Collector (Via c) xs r
@@ -546,7 +548,7 @@ instance (Case (c n) (x ': xs) r) => Emit (ViaN c n) (x ': xs) r where
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
 --     y = show \@Int './' show \@Bool './' show \@Char './' show \@(Maybe Char) './' show \@Int './' show \@(Maybe Char) './' 'nul'
--- Data.Diverse.AFoldable.afoldr' (:) [] ('forManyN' ('Data.Diverse.Cases.casesN' y) x) \`shouldBe`
+-- 'afoldr' (:) [] ('forManyN' ('Data.Diverse.Cases.casesN' y) x) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
 forManyN :: c n xs r -> Many xs -> CollectorN (ViaN c) n xs r
@@ -557,7 +559,7 @@ forManyN c x = CollectorN (viaN c x)
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
 --     y = show \@Int './' show \@Bool './' show \@Char './' show \@(Maybe Char) './' show \@Int './' show \@(Maybe Char) './' 'nul'
--- Data.Diverse.AFoldable.afoldr' (:) [] ('collectN' x ('Data.Diverse.Cases.casesN' y)) \`shouldBe`
+-- 'afoldr' (:) [] ('collectN' x ('Data.Diverse.Cases.casesN' y)) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
 collectN :: Many xs -> c n xs r -> CollectorN (ViaN c) n xs r
@@ -570,11 +572,15 @@ type Narrow (smaller :: [Type]) (larger :: [Type]) =
     (AFoldable
         ( Collector (Via (CaseNarrow smaller larger)) larger) [(Key, WrappedAny)])
 
--- | Construct a 'Many' with a smaller number of fields than the original
--- Analogous to 'fetch' getter but for multiple fields
--- Specify a typelist of fields to 'narrow' into.
+-- | Construct a 'Many' with a smaller number of fields than the original.
+-- Analogous to 'fetch' getter but for multiple fields.
 --
--- @narrow \@[Int,Bool] t@
+-- This can also be used to reorder fields in the original 'Many'.
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
+-- 'narrow' \@'[Bool, Char] x \`shouldBe` False './' \'X' './' 'nul'
+-- @
 narrow :: forall smaller larger. Narrow smaller larger => Many larger -> Many smaller
 narrow t = Many 0 (fromList' xs')
   where
@@ -582,9 +588,12 @@ narrow t = Many 0 (fromList' xs')
 
 -- | infix version of 'narrow', with a extra proxy to carry the @smaller@ type.
 --
--- @foo \^. (Proxy @'[Int, Bool])@
---
 -- Mnemonic: Like 'Control.Lens.(^.)' but with an extra '\' (narrow to the right) in front.
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
+-- x '\^.' (Proxy @'[Bool, Char]) \`shouldBe` False './' \'X' './' 'nul'
+-- @
 (\^.) :: forall smaller larger proxy. Narrow smaller larger => Many larger -> proxy smaller -> Many smaller
 (\^.) t _ = narrow t
 infixl 8 \^. -- like Control.Lens.(^.)
@@ -613,12 +622,19 @@ type NarrowN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
--- | Construct a 'Many' with a smaller number of fields than the original
--- Analogous to 'fetchN' getter but for multiple fields
--- Specify a Nat-list mapping to 'narrowN' into,
--- where indices[smaller_idx] = larger_idx
+-- | A variation of 'narrow' which uses a Nat list @n@ to specify how to reorder the fields, where
 --
--- @narrowN \@[6,2] Proxy t@
+-- @
+-- indices[branch_idx] = tree_idx@
+-- @
+--
+-- This variation allows @smaller@ or @larger@ to contain indistinct since
+-- the mapping is specified by @indicies@.
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
+-- 'narrowN' (Proxy @'[5, 4, 0]) x \`shouldBe` Just \'A' './' (6 :: Int) './' (5 ::Int) './' 'nul'
+-- @
 narrowN
     :: forall ns smaller larger proxy.
        NarrowN ns smaller larger
@@ -648,11 +664,14 @@ instance forall indices smaller n x xs. MaybeMemberAt (PositionOf n indices) x s
 type Amend smaller larger = (AFoldable (Collector (Via (CaseAmend larger)) smaller) (Key, WrappedAny)
        , IsDistinct smaller)
 
--- | Sets the subset of  'Many' in the larger 'Many'
+-- | Sets the subset of 'Many' in the larger 'Many'.
 -- Analogous to 'replace' setter but for multiple fields.
--- Specify a typelist of fields to 'amend'.
 --
--- @amend \@[Int,Bool] t1 t2@
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- 'amend' \@'[Int, Maybe Char] x ((6 :: Int) './' Just \'P' './' 'nul') \`shouldBe`
+--     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nul'
+-- @
 amend :: forall smaller larger. Amend smaller larger => Many larger -> Many smaller -> Many larger
 amend (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
   where
@@ -660,9 +679,13 @@ amend (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
 
 -- | infix version of 'amend'. Mnemonic: Like 'Control.Lens.(.~)' but with an extra '\' (narrow to the right) in front.
 --
--- @t1 \.~ t2
---
 -- Mnemonic: Like backwards 'Control.Lens.(^.)' but with an extra '\' (narrow to the right) in front.
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- (x '\~.' (6 :: Int) './' Just \'P' './' 'nul') \`shouldBe`
+--     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nul'
+-- @
 (\~.) :: forall smaller larger. Amend smaller larger => Many larger -> Many smaller -> Many larger
 (\~.) = amend
 infixl 1 \~. -- like Control.Lens.(.~)
@@ -686,12 +709,20 @@ type AmendN ns smaller larger =
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
--- | Sets the subset of  'Many' in the larger 'Many'
--- Analogous to 'replaceN' setter but for multiple fields.
--- Specify a Nat-list mapping to 'amendN' into,
--- where indices[smaller_idx] = larger_idx
+-- | A variation of 'amend' which uses a Nat list @n@ to specify how to reorder the fields, where
 --
--- @amendN \@[6,2] Proxy t1 t2@
+-- @
+-- indices[branch_idx] = tree_idx@
+-- @
+--
+-- This variation allows @smaller@ or @larger@ to contain indistinct since
+-- the mapping is specified by @indicies@.
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
+-- 'amendN' (Proxy \@'[5, 4, 0]) x (Just \'B' './' (8 :: Int) './' (4 ::Int) './' 'nul') \`shouldBe`
+--     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nul'
+-- @
 amendN :: forall ns smaller larger proxy.
        (AmendN ns smaller larger)
     => proxy ns -> Many larger -> Many smaller -> Many larger
@@ -713,18 +744,18 @@ instance (MemberAt (KindAtIndex n indices) x larger) =>
 
 -----------------------------------------------------------------------
 
--- | Projection.
--- A Many can be narrowed or have its order changed by projecting into another Many type.
+-- | 'narrow' ('view' 'project') and 'amend' ('set' 'project') in 'Lens'' form.
 --
--- @project = lens narrow amend@
+-- @
+-- 'project' = 'lens' 'narrow' 'amend'
+-- @
 --
--- Use TypeApplication to specify the @smaller@ typelist of the lens.
---
--- @project \@'[Int, String]@
---
--- Use @_ to specify the @larger@ typelist instead.
---
--- @project \@_ \@'[Int, String]@
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- x '^.' ('project' \@'[Int, Maybe Char]) \`shouldBe` (5 :: Int) './' Just \'O' './' 'nul'
+-- (x '&' ('project' \@'[Int, Maybe Char]) '.~' ((6 :: Int) './' Just 'P' './' 'nul')) \`shouldBe`
+--     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nul'
+-- @
 project
     :: forall smaller larger.
        (Narrow smaller larger, Amend smaller larger)
@@ -732,15 +763,18 @@ project
 project = lens narrow amend
 {-# INLINE project #-}
 
--- | Projection.
--- A version of 'project' using a Nat-list to specify the other Many type.
+-- | 'narrowN' ('view' 'projectN') and 'amendN' ('set' 'projectN') in 'Lens'' form.
 --
--- @projectN p = lens (narrowN p) (amendN p)@
+-- @
+-- 'projectN' = 'lens' 'narrowN' 'amendN'
+-- @
 --
--- Specify a Nat-list mapping of the indicies of the original fields.
---
--- @projectN (Proxy \@'[Int, String])@
---
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
+-- x '^.' ('projectN' \@'[5, 4, 0] Proxy) \`shouldBe` Just \'A' './' (6 :: Int) './' (5 ::Int) './' 'nul'
+-- (x '&' ('projectN' \@'[5, 4, 0] Proxy) '.~' (Just \'B' './' (8 :: Int) './' (4 ::Int) './' nul)) \`shouldBe`
+--     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nul'
+-- @
 projectN
     :: forall ns smaller larger proxy.
        (NarrowN ns smaller larger, AmendN ns smaller larger)

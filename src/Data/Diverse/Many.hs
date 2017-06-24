@@ -62,7 +62,7 @@ module Data.Diverse.Many (
     , via -- safe construction
     , forMany
     , collect
-    -- * By Nat index offset
+    -- ** By Nat index offset
     , ViaN -- no constructor
     , viaN -- safe construction
     , forManyN

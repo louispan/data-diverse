@@ -201,26 +201,31 @@ hush = either (const Nothing) Just
 
 -----------------------------------------------------------------
 
--- | A 'Which' has a prism to an the inner type.
--- That is, a value can be 'pick'ed into a Which or mabye 'trial'ed out of a Which.
---
--- Use TypeApplication to specify the inner type of the of the prism.
+-- | 'pick' ('review' 'facet') and 'trial' ('preview' 'facet') in 'Prism'' form.
 --
 -- @
--- let y = 'review' ('facet' \@Int) (5 :: Int) :: 'Which' '[Bool, Int, Char, Bool, Char]
---     x = 'preview' ('facet' \@Int) y
+-- 'facet' = 'prism'' 'pick' (either (const Nothing) Just . 'trial')
+-- @
+--
+-- @
+-- let y = 'review' ('facet' \@Int) (5 :: Int) :: 'Which' '[Bool, Int, Char, Bool, Char] -- 'pick'
+--     x = 'preview' ('facet' \@Int) y -- 'trial'
 -- x \`shouldBe` (Just 5)
 -- @
 facet :: forall x xs. (UniqueMember x xs) => Prism' (Which xs) x
 facet = prism' pick (hush . trial)
 {-# INLINE facet #-}
 
--- | A variation of 'facet' specified by an @n@ Nat index
+-- | 'pickN' ('review' 'facetN') and 'trialN' ('preview' 'facetN') in 'Prism'' form.
 --
 -- @
--- let y = 'review' ('facetN' (Proxy \@4)) (5 :: Int) :: 'Which' '[Bool, Int, Char, Bool, Int, Char]
---     x = 'preview' ('facetN' (Proxy \@4)) y
--- x `shouldBe` (Just 5)
+-- 'facetN' p = 'prism'' ('pickN' p) (either (const Nothing) Just . 'trialN' p)
+-- @
+--
+-- @
+-- let y = 'review' ('facetN' (Proxy \@4)) (5 :: Int) :: 'Which' '[Bool, Int, Char, Bool, Int, Char] -- 'pickN'
+--     x = 'preview' ('facetN' (Proxy \@4)) y -- 'trialN'
+-- x \`shouldBe` (Just 5)
 -- @
 facetN :: forall n xs x proxy. (MemberAt n x xs) => proxy n -> Prism' (Which xs) x
 facetN p = prism' (pickN p) (hush . trialN p)
@@ -364,9 +369,7 @@ instance MaybeMemberAt (PositionOf n indices) x branch => Case (CaseReinterpretN
 
 -- ------------------------------------------------------------------
 
--- | Injection.
--- A 'Which' can be 'diversify'ed to contain more types or 'reinterpret'ed into possibly another 'Which' type.
--- Use TypeApplication to specify the @reinterpreted@ type of the prism.
+-- | 'diversify' ('review' 'inject') and 'reinterpret' ('preview' 'inject') in 'Prism'' form.
 --
 -- @
 -- let x = 'pick' (5 :: Int) :: 'Which' '[String, Int]
@@ -383,9 +386,7 @@ inject
 inject = prism' diversify (hush . reinterpret)
 {-# INLINE inject #-}
 
--- | Injection with indices mapping.
--- A 'Which' can be 'diversifyN'ed to contain more types or 'reinterpretN'ed into possibly another 'Which' type.
--- Use TypeApplication to specify the @indices@ and the @reinterpreted@ type of the prism.
+-- | 'diversifyN' ('review' 'injectN') and 'reinterpretN' ('preview' 'injectN') in 'Prism'' form.
 --
 -- @
 -- let x = 'pick' (5 :: Int) :: 'Which' '[String, Int]

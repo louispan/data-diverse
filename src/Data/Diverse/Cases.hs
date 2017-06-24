@@ -76,7 +76,7 @@ newtype CasesN (fs :: [Type]) (n :: Nat) (xs :: [Type]) r = CasesN (Many fs)
 instance ReiterateN (CasesN fs) n xs where
     reiterateN (CasesN s) = CasesN s
 
--- | UndecidableIstnaces because fs appers more often.
+-- | UndecidableInstances because @fs@ appears more often.
 instance (MemberAt n (Head xs -> r) fs) => Case (CasesN fs n) xs r where
     case' (CasesN s) = fetchN (Proxy @n) s
 
