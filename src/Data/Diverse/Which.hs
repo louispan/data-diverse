@@ -7,12 +7,13 @@ module Data.Diverse.Which (
       -- ** Construction
     , impossible
     , pick
-    , pick'
+    , pick0
+    , pickOnly
     , pickN
       -- ** Destruction
     , obvious
     , trial
-    , trial'
+    , trial0
     , trialN
       -- ** Lens
     , facet
@@ -22,13 +23,14 @@ module Data.Diverse.Which (
       -- ** Injection
     , Diversify
     , diversify
+    , diversify0
     , DiversifyN
     , diversifyN
       -- ** Inverse Injection
     , Reinterpret
     , reinterpret
     , ReinterpretN
-    , reinterpretN'
+    , reinterpretN
       -- ** Lens
     , inject
     , injectN

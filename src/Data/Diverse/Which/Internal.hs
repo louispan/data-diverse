@@ -21,12 +21,13 @@ module Data.Diverse.Which.Internal (
       -- ** Construction
     , impossible
     , pick
-    , pick'
+    , pick0
+    , pickOnly
     , pickN
       -- ** Destruction
     , obvious
     , trial
-    , trial'
+    , trial0
     , trialN
       -- ** Lens
     , facet
@@ -36,13 +37,14 @@ module Data.Diverse.Which.Internal (
       -- ** Injection
     , Diversify
     , diversify
+    , diversify0
     , DiversifyN
     , diversifyN
       -- ** Inverse Injection
     , Reinterpret
     , reinterpret
     , ReinterpretN
-    , reinterpretN'
+    , reinterpretN
       -- ** Lens
     , inject
     , injectN
@@ -67,6 +69,7 @@ import Data.Diverse.Reiterate
 import Data.Diverse.Type
 import Data.Kind
 import Data.Proxy
+import qualified GHC.Generics as G
 import GHC.Prim (Any)
 import GHC.TypeLits
 import Text.ParserCombinators.ReadPrec
@@ -92,7 +95,7 @@ import Unsafe.Coerce
 --
 -- * constructor: 'pickN'
 -- * destructor: 'trialN'
--- * inejction: 'diversifyN' and 'reinterpretN''
+-- * inejction: 'diversifyN' and 'reinterpretN'
 -- * catamorphism: 'whichN' or 'switchN'
 --
 -- Encoding: The variant contains a value whose type is at the given position in the type list.
@@ -105,6 +108,52 @@ data Which (xs :: [Type]) = Which {-# UNPACK #-} !Int Any
 type role Which representational
 
 ----------------------------------------------
+
+-- | A terminating 'G.Generic' instance for no types encoded as a 'impossible'.
+-- The 'G.C1' and 'G.S1' metadata are not encoded.
+--
+-- NB. package id from running `stack exec ghc-pkg describe data-diverse`
+instance G.Generic (Which '[]) where
+  type Rep (Which '[]) = G.D1 ('G.MetaData
+                            "Which"
+                            "Data.Diverse.Which.Internal"
+                            "data-diverse-0.1.0.0-15JNBdcTY3F9aOKAG5iNge"
+                            'False) G.U1
+  from _ = {- G.D1 -} G.M1 {- G.U1 -} G.U1
+  to (G.M1 G.U1) = impossible
+
+-- | A terminating 'G.Generic' instance for one type encoded with 'pick''.
+-- The 'G.C1' and 'G.S1' metadata are not encoded.
+--
+-- NB. package id from running `stack exec ghc-pkg describe data-diverse`
+instance G.Generic (Which '[x]) where
+    type Rep (Which '[x]) = G.D1 ('G.MetaData
+                              "Which"
+                              "Data.Diverse.Which.Internal"
+                              "data-diverse-0.1.0.0-15JNBdcTY3F9aOKAG5iNge"
+                              'False) (G.Rec0 x)
+    from v = {- G.D1 -} G.M1 ({- G.Rec0 -} G.K1 (obvious v))
+    to ({- G.D1 -} G.M1 ({- G.Rec0 -} G.K1 a)) = pickOnly a
+
+-- | A 'G.Generic' instance encoded as either the 'x' value ('G.:+:') or the 'diversify0'ed remaining 'Which xs'.
+-- The 'G.C1' and 'G.S1' metadata are not encoded.
+--
+-- NB. package id from running `stack exec ghc-pkg describe data-diverse`
+instance G.Generic (Which (x ': x' ': xs)) where
+    type Rep (Which (x ': x' ': xs)) = G.D1 ('G.MetaData
+                              "Which"
+                              "Data.Diverse.Which.Internal"
+                              "data-diverse-0.1.0.0-15JNBdcTY3F9aOKAG5iNge"
+                              'False) ((G.Rec0 x) G.:+: (G.Rec0 (Which (x' ': xs))))
+    from v = {- G.D1 -} G.M1 $
+        case trial0 v of
+            Right x -> G.L1 ({- G.Rec0 -} G.K1 x)
+            Left v' -> G.R1 ({- G.Rec0 -} G.K1 v')
+    to ({- G.D1 -} G.M1 ({- G.Rec0 -} x)) = case x of
+        G.L1 ({- G.Rec0 -} G.K1 a) -> pick0 a
+        G.R1 ({- G.Rec0 -} G.K1 v) -> diversify0 Proxy v
+
+-----------------------------------------------------------------------
 
 -- | A 'Which' with no alternatives. You can't do anything with 'impossible'
 -- except Eq, Read, and Show it.
@@ -126,10 +175,18 @@ pick = Which (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
 -- | A variation of 'pick' into a 'Which' of a single type.
 --
 -- @
--- 'pick'' \'A' :: Which '[Char]
+-- 'pickOnly' \'A' :: Which '[Char]
 -- @
-pick' :: x -> Which '[x]
-pick' = pick
+pickOnly :: x -> Which '[x]
+pickOnly = pick0
+
+-- | A variation of 'pick' into a 'Which' where @x@ is the first type.
+--
+-- @
+-- 'pick0' \'A' :: Which '[Char, Int, Bool]
+-- @
+pick0 :: x -> Which (x ': xs)
+pick0 = Which 0 . unsafeCoerce
 
 -- | Lift a value into a 'Which' of possibly other (possibley indistinct) types, where the value is the @n@-th type.
 --
@@ -166,14 +223,14 @@ trial (Which n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
                           then Left (Which (n - 1) v)
                           else Left (Which n v)
 
--- | A variation of a 'Which' 'trial' which 'trial''s the first type in the type list.
+-- | A variation of a 'Which' 'trial' which 'trial's the first type in the type list.
 --
 -- @
 -- let x = 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
--- 'trial'' x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Bool, Char, Maybe String]
+-- 'trial0' x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Bool, Char, Maybe String]
 -- @
-trial' :: Which (x ': xs) -> Either (Which xs) x
-trial' (Which n v) = if n == 0
+trial0 :: Which (x ': xs) -> Either (Which xs) x
+trial0 (Which n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Which (n - 1) v)
 
@@ -263,6 +320,10 @@ instance (UniqueMember x tree, Unique x branch) =>
          Case (CaseDiversify tree branch) (x ': branch') (Which tree) where
     case' CaseDiversify = pick
 
+-- | A simple version of 'diversify' which add another type to the front of the typelist.
+diversify0 :: proxy x -> Which xs -> Which (x ': xs)
+diversify0 _ (Which n v) = Which (n + 1) v
+
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversifyN'.
@@ -336,7 +397,7 @@ instance ( MaybeUniqueMember x branch
 
 ------------------------------------------------------------------
 
--- | A friendlier constraint synonym for 'reinterpretN''.
+-- | A friendlier constraint synonym for 'reinterpretN'.
 type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) = (Reduce Which (SwitchN (CaseReinterpretN indices) 0) tree (Maybe (Which (KindsAtIndices indices tree))), KindsAtIndices indices tree ~ branch)
 
 -- | A limited variation of 'reinterpret' which uses a Nat list @n@ to specify how to reorder the fields, where
@@ -353,8 +414,8 @@ type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) = (Redu
 -- Also it returns a Maybe instead of Either.
 --
 -- This is so that the same @indices@ can be used in 'narrowN'.
-reinterpretN' :: forall (indices :: [Nat]) branch tree proxy. (ReinterpretN indices branch tree) => proxy indices -> Which tree -> Maybe (Which branch)
-reinterpretN' _ = whichN (CaseReinterpretN @indices @0 @tree)
+reinterpretN :: forall (indices :: [Nat]) branch tree proxy. (ReinterpretN indices branch tree) => proxy indices -> Which tree -> Maybe (Which branch)
+reinterpretN _ = whichN (CaseReinterpretN @indices @0 @tree)
 
 data CaseReinterpretN (indices :: [Nat]) (n :: Nat) (tree' :: [Type]) r = CaseReinterpretN
 
@@ -401,7 +462,7 @@ injectN
        , ReinterpretN indices branch tree
        )
     => proxy indices -> Prism' (Which tree) (Which branch)
-injectN p = prism' (diversifyN p) (reinterpretN' p)
+injectN p = prism' (diversifyN p) (reinterpretN p)
 {-# INLINE injectN #-}
 
 ------------------------------------------------------------------
@@ -410,14 +471,14 @@ injectN p = prism' (diversifyN p) (reinterpretN' p)
 -- delegating handling to 'Case', ensuring termination when 'Which' only contains one type.
 newtype Switch c (xs :: [Type]) r = Switch (c xs r)
 
--- | 'trial'' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterate'__
+-- | 'trial0' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterate'__
 -- trying the next type in the type list.
 -- This code will be efficiently compiled into a single case statement in GHC 8.2.1
 -- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
 instance (Case c (x ': x' ': xs) r, Reduce Which (Switch c) (x' ': xs) r, Reiterate c (x : x' : xs)) =>
          Reduce Which (Switch c) (x ': x' ': xs) r where
     reduce (Switch c) v =
-        case trial' v of
+        case trial0 v of
             Right a -> case' c a
             Left v' -> reduce (Switch (reiterate c)) v'
     {-# INLINE reduce #-}
@@ -462,14 +523,14 @@ switch = flip which
 -- delegating work to 'CaseN', ensuring termination when 'Which' only contains one type.
 newtype SwitchN c (n :: Nat) (xs :: [Type]) r = SwitchN (c n xs r)
 
--- | 'trial'' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterateN'__
+-- | 'trial0' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterateN'__
 -- trying the next type in the type list.
 -- This code will be efficiently compiled into a single case statement in GHC 8.2.1
 -- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
 instance (Case (c n) (x ': x' ': xs) r, Reduce Which (SwitchN c (n + 1)) (x' ': xs) r, ReiterateN c n (x : x' : xs)) =>
          Reduce Which (SwitchN c n) (x ': x' ': xs) r where
     reduce (SwitchN c) v =
-        case trial' v of
+        case trial0 v of
             Right a -> case' c a
             Left v' -> reduce (SwitchN (reiterateN c)) v'
     {-# INLINE reduce #-}

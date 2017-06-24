@@ -57,9 +57,9 @@ spec = do
                 x = hush $ trial @Int y
             x `shouldBe` (Just 5)
 
-        it "can be constructed conveniently with 'pick'' and destructed with 'trial'" $ do
-            let y = pick' (5 :: Int)
-                x = hush $ trial' y
+        it "can be constructed conveniently with 'pick'' and destructed with 'trial0'" $ do
+            let y = pickOnly (5 :: Int)
+                x = hush $ trial0 y
             x `shouldBe` (Just 5)
 
         it "can be constructed by index with 'pickN' and destructed with 'trialN" $ do
@@ -99,7 +99,7 @@ spec = do
 
             trial @Int c `shouldBe` Right 5
             trialN @2 Proxy c `shouldBe` Right 5
-            trial' c `shouldBe` Left d
+            trial0 c `shouldBe` Left d
             trialN @0 Proxy c `shouldBe` Left d
 
             trial @Int d `shouldBe` Right 5
@@ -109,11 +109,11 @@ spec = do
             trial @Int e `shouldBe` Right 5
             trialN @1 Proxy e `shouldBe` Right 5
             trialN @0 Proxy e `shouldBe` Left f
-            trial' e `shouldBe` Left f
+            trial0 e `shouldBe` Left f
 
             trial @Int f `shouldBe` Right 5
             trial @Int f `shouldNotBe` Left impossible
-            trial' f `shouldBe` Right 5
+            trial0 f `shouldBe` Right 5
             obvious f `shouldBe` 5
 
         it "can be constructed and destructed by type with 'facet'" $ do
@@ -127,13 +127,13 @@ spec = do
             x `shouldBe` (Just 5)
 
         it "can be extended and rearranged by type with 'diversify'" $ do
-            let y = pick' (5 :: Int)
+            let y = pickOnly (5 :: Int)
                 y' = diversify @[Int, Bool] y
                 y'' = diversify @[Bool, Int] y'
             switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
 
         it "can be extended and rearranged by index with 'diversify'" $ do
-            let y = pick' (5 :: Int)
+            let y = pickOnly (5 :: Int)
                 y' = diversifyN @'[0] @[Int, Bool] Proxy y
                 y'' = diversifyN @[1,0] @[Bool, Int] Proxy y'
             switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
@@ -181,8 +181,8 @@ spec = do
 
         it "can be 'reinterpretN'ed by index into a subset Which" $ do
             let y = pick @[Char, String, Int, Bool] (5 :: Int)
-                a = reinterpretN' @[2, 0] @[Int, Char] Proxy y
-                a' = reinterpretN' @[3, 0] @[Bool, Char] Proxy y
+                a = reinterpretN @[2, 0] @[Int, Char] Proxy y
+                a' = reinterpretN @[3, 0] @[Bool, Char] Proxy y
             a `shouldBe` Just (pick (5 :: Int))
             a' `shouldBe` Nothing
 
@@ -238,5 +238,5 @@ spec = do
             -- let a = trial @Int impossible
             -- let a = trialN (Proxy @0) impossible
             -- let a = reinterpret @[Int, Bool] impossible
-            -- let a = reinterpretN' (Proxy @'[0]) impossible
+            -- let a = reinterpretN (Proxy @'[0]) impossible
             impossible `shouldBe` impossible
