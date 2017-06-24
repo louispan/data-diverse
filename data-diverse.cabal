@@ -6,7 +6,7 @@ description:         "Data.Diverse.Many" is an extensible record for any size en
                      Provides getters, setters, projection, injection, fold, and catamorphisms;
                      accessed by type or index.
                      Refer to [ManySpec.hs](https://github.com/louispan/data-diverse/blob/master/test/Data/Diverse/ManySpec.hs) and [WhichSpec.hs](https://github.com/louispan/data-diverse/blob/master/test/Data/Diverse/WhichSpec.hs) for example usages.
-homepage:            https://github.com/louispan/data-distinct#readme
+homepage:            https://github.com/louispan/data-diverse#readme
 license:             BSD3
 license-file:        LICENSE
 author:              Louis Pan
