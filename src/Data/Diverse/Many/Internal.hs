@@ -93,6 +93,7 @@ import Data.Diverse.AFoldable
 import Data.Diverse.Case
 import Data.Diverse.Collector
 import Data.Diverse.Emit
+import Data.Diverse.PackageId
 import Data.Diverse.Reiterate
 import Data.Diverse.Type
 import Data.Kind
@@ -153,26 +154,22 @@ type role Many representational
 -----------------------------------------------------------------------
 
 -- | A terminating 'G.Generic' instance encoded as a 'nul'.
---
--- NB. package id from running `stack exec ghc-pkg describe data-diverse`
 instance G.Generic (Many '[]) where
     type Rep (Many '[]) = G.D1 ('G.MetaData
                               "Many"
                               "Data.Diverse.Many.Internal"
-                              "data-diverse-0.1.0.0-15JNBdcTY3F9aOKAG5iNge"
+                              PackageId
                               'False) G.U1
     from _ = {- G.D1 -} G.M1 {- G.U1 -} G.U1
     to (G.M1 G.U1) = nul
 
 -- | A 'G.Generic' instance encoded as the 'front' value 'G.:*:' with the 'aft' 'Many'.
 -- The 'G.C1' and 'G.S1' metadata are not encoded.
---
--- NB. package id from running `stack exec ghc-pkg describe data-diverse`
 instance G.Generic (Many (x ': xs)) where
     type Rep (Many (x ': xs)) = G.D1 ('G.MetaData
                               "Many"
                               "Data.Diverse.Many.Internal"
-                              "data-diverse-0.1.0.0-15JNBdcTY3F9aOKAG5iNge"
+                              PackageId
                               'False) ((G.Rec0 x) G.:*: (G.Rec0 (Many xs)))
     from r = {- G.D1 -} G.M1 (({- G.Rec0 -} G.K1 (front r)) G.:*: ({- G.Rec0 -} G.K1 (aft r)))
     to ({- G.D1 -} G.M1 (({- G.Rec0 -} G.K1 a) G.:*: ({- G.Rec0 -} G.K1 b))) = a ./ b

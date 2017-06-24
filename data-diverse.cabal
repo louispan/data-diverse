@@ -29,6 +29,7 @@ library
                        Data.Diverse.Emit
                        Data.Diverse.Many
                        Data.Diverse.Many.Internal
+                       Data.Diverse.PackageId
                        Data.Diverse.Reduce
                        Data.Diverse.Reiterate
                        Data.Diverse.Type
