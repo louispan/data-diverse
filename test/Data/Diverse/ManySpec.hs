@@ -54,15 +54,11 @@ spec = do
 
         it "can converted to and from a tuple" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
-                y' = ((5 :: Int), False, 'X', Just 'O')
-                y = toMany' y'
-                y2 = review _Many' y'
-                x' = fromMany' x
-                x2' = view _Many' x
-            x `shouldBe` y
-            x `shouldBe` y2
-            x' `shouldBe` y'
-            x2' `shouldBe` y'
+                t = ((5 :: Int), False, 'X', Just 'O')
+            x `shouldBe` toMany' t
+            x `shouldBe` review _Many' t
+            t `shouldBe` fromMany' x
+            t `shouldBe` view _Many' x
 
         it "can construct using 'single', 'nul', 'prefix', 'postfix', 'append'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
