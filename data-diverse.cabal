@@ -3,7 +3,8 @@ version:             0.1.0.0
 synopsis:            Polymorphic variants and extensible records, efficient for any size.
 description:         Polymorhpic variant of possibilities encoded as (Int, Any).
                      Reasonably efficient extensible record for any size encoded as (Int, Map Int Any).
-                     Avoid clunky labels by using the the fields types with -XTypeApplications for getter/setter/projection/injection/fold/catamorphism functions.
+                     Provides getter/setter/projection/injection/fold/catamorphism functions,
+                     accessed by type or index.
                      Refer to test/WhichSpec.hs and test/ManySpec.hs for example usages.
 homepage:            https://github.com/louispan/data-distinct#readme
 license:             BSD3
@@ -52,6 +53,7 @@ test-suite data-diverse-test
   build-depends:       base
                      , data-diverse
                      , hspec >= 2 && < 3
+                     , hspec-discover >= 2 && < 3
                      , lens >= 4 && < 5
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-language:    Haskell2010

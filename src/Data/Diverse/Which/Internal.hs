@@ -450,9 +450,7 @@ readWhich
 readWhich _ = afoldr (<|>) empty (Collector (EmitReadWhich @xs 0))
 
 -- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
-instance ( IsDistinct (x ': xs)
-         , AFoldable (Collector EmitReadWhich (x ': xs)) (ReadPrec (Int, WrappedAny))
-         ) =>
+instance AFoldable (Collector EmitReadWhich (x ': xs)) (ReadPrec (Int, WrappedAny)) =>
          Read (Which (x ': xs)) where
     readPrec =
         parens $

@@ -121,7 +121,7 @@ newtype NewRightOffset = NewRightOffset { unNewRightOffset :: Int }
 -- | A Many is an anonymous product type (also know as polymorphic record), with the ability to contain
 -- an arbitrary number of fields.
 --
--- When it has fields of distinct types, extra functions applied via TypeApplications
+-- When it has fields of unique types, extra functions applied via TypeApplications
 -- become available to be used:
 --
 -- * 'fetch' and 'replace' getter/setter functions
@@ -129,7 +129,7 @@ newtype NewRightOffset = NewRightOffset { unNewRightOffset :: Int }
 --
 -- This means labels are not required, since the type itself (with type annotations or -XTypeApplications)
 -- can be used to get and set fields in the Many.
--- It is a compile error to use those functions if there are duplicate fields.
+-- It is a compile error to use those functions for duplicate fields.
 -- For duplicate fields, there are indexed version of the gettter/setter functions.
 --
 -- This encoding stores the fields as Any in a Map, where the key is index + offset of the type in the typelist.
@@ -166,6 +166,8 @@ _Many = iso fromMany toMany
 -- | @_Many' = iso fromMany' toMany'@
 _Many' :: IsMany Tagged xs a => Iso' (Many xs) a
 _Many' = iso fromMany' toMany'
+
+-- These instances add about 7 seconds to the compile time!
 
 instance IsMany Tagged '[] () where
     toMany _ = nul
@@ -792,9 +794,7 @@ readMany
     => Proxy (xs :: [Type]) -> ReadPrec [(Key, WrappedAny)]
 readMany _ = afoldr (liftA2 (++)) (pure []) (Collector0 (EmitReadMany @xs (Key 0)))
 
-instance ( IsDistinct xs
-         , AFoldable (Collector0 EmitReadMany xs) (ReadPrec [(Key, WrappedAny)])
-         ) =>
+instance (AFoldable (Collector0 EmitReadMany xs) (ReadPrec [(Key, WrappedAny)])) =>
          Read (Many xs) where
     readPrec =
         parens $
