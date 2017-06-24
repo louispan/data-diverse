@@ -1,11 +1,11 @@
 name:                data-diverse
 version:             0.1.0.0
-synopsis:            Polymorphic variants and extensible records, efficient for any size.
-description:         Polymorhpic variant of possibilities encoded as (Int, Any).
-                     Reasonably efficient extensible record for any size encoded as (Int, Map Int Any).
-                     Provides getter/setter/projection/injection/fold/catamorphism functions,
+synopsis:            Extensible records and polymorphic variants.
+description:         "Data.Diverse.Many" is an extensible record for any size encoded as (Int, Map Int Any).
+                     "Data.Diverse.Which" polymorphic variant of possibilities encoded as (Int, Any).
+                     Provides getters, setters, projection, injection, fold, and catamorphisms;
                      accessed by type or index.
-                     Refer to test/WhichSpec.hs and test/ManySpec.hs for example usages.
+                     Refer to [ManySpec.hs](https://github.com/louispan/data-diverse/blob/master/test/Data/Diverse/ManySpec.hs) and [WhichSpec.hs](https://github.com/louispan/data-diverse/blob/master/test/Data/Diverse/WhichSpec.hs) for example usages.
 homepage:            https://github.com/louispan/data-distinct#readme
 license:             BSD3
 license-file:        LICENSE
