@@ -160,12 +160,18 @@ spec = do
             let c = reinterpret @[String, Int] y
             c `shouldBe` Right (pick (5 :: Int))
 
-        it "the 'reinterpret' type can contain multiple fields if they aren't in the original 'Many'" $ do
+        it "the 'reinterpret' type can contain indistinct fields if they aren't in the original 'Many'" $ do
             let y = pick @[Int, Char] (5 :: Int)
                 x = reinterpret @[String, String, Char, Bool] y
                 -- Compile error: Char is a duplicate
                 -- z = reinterpret @[String, Char, Char, Bool] y
             x `shouldBe` Left (pick (5 :: Int))
+
+        it "the 'reinterpret'ed from type can't indistinct fields'" $ do
+            let y = pickN @0 @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
+                -- Compile error: Int is a duplicate
+                -- x = reinterpret @[String, String, Char, Bool] y
+            y `shouldBe` y
 
         it "the 'reinterpret' type can't use indistinct fields from the original 'Many'" $ do
             let y = pickN @0 @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int

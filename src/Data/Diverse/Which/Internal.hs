@@ -319,7 +319,7 @@ instance Reiterate (CaseReinterpret branch tree) tree' where
 instance ( MaybeUniqueMember x branch
          , comp ~ Complement tree branch
          , MaybeUniqueMember x comp
-         , Unique x tree -- important to get compile error if source x is indistinct
+         , Unique x tree -- Compile error to ensure reinterpret only works with unique fields
          ) =>
          Case (CaseReinterpret branch tree) (x ': tree') (Either (Which comp) (Which branch)) where
     case' CaseReinterpret a =

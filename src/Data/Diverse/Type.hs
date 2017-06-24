@@ -25,6 +25,12 @@ type MemberAt n x xs = (KnownNat n, x ~ KindAtIndex n xs)
 -- | Ensures that @x@ is a member of @xs@ at @n@ if it exists, and that 'natVal' can be used.
 type MaybeMemberAt n x xs = (KnownNat n, KindAtPositionIs n x xs)
 
+-- | Ensures x is a unique member in @xs@ iff it exists in @ys@
+type family UniqueIfExists ys x xs :: Constraint where
+    UniqueIfExists '[] x xs = ()
+    UniqueIfExists (y ': ys) y xs = Unique y xs
+    UniqueIfExists (y ': ys) x xs = UniqueIfExists ys x xs
+
 -- | Ensures that the type list contain unique types
 type IsDistinct (xs :: [k]) = IsDistinctImpl xs xs
 

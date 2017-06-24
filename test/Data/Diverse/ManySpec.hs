@@ -211,7 +211,12 @@ spec = do
         it "has getter for multiple fields with duplicates using 'narrowN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
             narrowN (Proxy @'[5, 4, 0]) x `shouldBe` Just 'A' ./ (6 :: Int) ./ (5 ::Int) ./ nul
-            narrow @[Bool, Char, Int] x `shouldBe` False ./ 'X' ./ (5 :: Int) ./ nul
+
+        it "can't narrow into types from indistinct fields" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            -- Compile error: Int is a duplicate
+            -- narrow @[Bool, Char, Int] x `shouldBe` False ./ 'X' ./ (5 :: Int) ./ nul
+            x `shouldBe` x
 
         it "with duplicate fields has getter for multiple unique fields 'narrow'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
@@ -227,6 +232,13 @@ spec = do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
             amendN (Proxy @'[5, 4, 0]) x (Just 'B' ./ (8 :: Int) ./ (4 ::Int) ./ nul) `shouldBe`
                 (4 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (8 :: Int) ./ Just 'B' ./ nul
+
+        it "can't amend into types from indistinct fields" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            -- Compile error: Int is a duplicate
+            -- amend @ '[Bool, Char, Int] x (True ./ 'B' ./ (8 :: Int) ./ nul) `shouldBe`
+            --     (5 :: Int) ./ True ./ 'B' ./ Just 'O' ./ (8 :: Int) ./ Just 'A' ./ nul
+            x `shouldBe` x
 
         it "with duplicate fields has setter for unique fields 'amend'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul

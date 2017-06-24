@@ -568,7 +568,7 @@ collectN = flip forManyN
 -- | A friendlier type constraint synomyn for 'narrow'
 type Narrow (smaller :: [Type]) (larger :: [Type]) =
     (AFoldable
-        ( Collector (Via (CaseNarrow smaller)) larger) [(Key, WrappedAny)])
+        ( Collector (Via (CaseNarrow smaller larger)) larger) [(Key, WrappedAny)])
 
 -- | Construct a 'Many' with a smaller number of fields than the original
 -- Analogous to 'fetch' getter but for multiple fields
@@ -578,7 +578,7 @@ type Narrow (smaller :: [Type]) (larger :: [Type]) =
 narrow :: forall smaller larger. Narrow smaller larger => Many larger -> Many smaller
 narrow t = Many 0 (fromList' xs')
   where
-    xs' = afoldr (++) [] (forMany (CaseNarrow @smaller @larger) t)
+    xs' = afoldr (++) [] (forMany (CaseNarrow @smaller @larger @larger) t)
 
 -- | infix version of 'narrow', with a extra proxy to carry the @smaller@ type.
 --
@@ -590,14 +590,14 @@ narrow t = Many 0 (fromList' xs')
 infixl 8 \^. -- like Control.Lens.(^.)
 
 -- | For each type x in @larger@, generate the (k, v) in @smaller@ (if it exists)
-data CaseNarrow (smaller :: [Type]) (xs :: [Type]) r = CaseNarrow
+data CaseNarrow (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) r = CaseNarrow
 
-instance Reiterate (CaseNarrow smaller) (x ': xs) where
+instance Reiterate (CaseNarrow smaller larger) (x ': xs) where
     reiterate CaseNarrow = CaseNarrow
 
 -- | For each type x in larger, find the index in ys, and create an (incrementing key, value)
-instance forall smaller x xs. MaybeUniqueMember x smaller =>
-         Case (CaseNarrow smaller) (x ': xs) [(Key, WrappedAny)] where
+instance forall smaller larger x xs. (UniqueIfExists smaller x larger, MaybeUniqueMember x smaller) =>
+         Case (CaseNarrow smaller larger) (x ': xs) [(Key, WrappedAny)] where
     case' _ v =
         case i of
             0 -> []
