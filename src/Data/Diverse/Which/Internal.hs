@@ -316,7 +316,7 @@ instance (UniqueMember x tree, Unique x branch) =>
     case' CaseDiversify = pick
 
 -- | A simple version of 'diversify' which add another type to the front of the typelist.
-diversify0 :: Which xs -> Which (x ': xs)
+diversify0 :: forall x xs. Which xs -> Which (x ': xs)
 diversify0 (Which n v) = Which (n + 1) v
 
 ------------------------------------------------------------------
