@@ -11,12 +11,16 @@ module Data.Diverse.ManySpec (main, spec) where
 import Control.Lens
 import Data.Diverse
 import Data.Typeable
+import Data.Tagged
 import Test.Hspec
 
 -- `main` is here so that this module can be run from GHCi on its own.  It is
 -- not needed for automatic spec discovery.
 main :: IO ()
 main = hspec spec
+
+data Foo
+data Bar
 
 spec :: Spec
 spec = do
@@ -122,6 +126,10 @@ spec = do
             fetch @Char x `shouldBe` 'X'
             x .^. (Proxy @Char) `shouldBe` 'X'
 
+        it "can 'fetch' usng tagged labels" $ do
+            let y = (5 :: Int) ./ False ./ Tagged @Foo 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            fetch @(Tagged Foo _) y `shouldBe` Tagged @Foo 'X'
+
         it "has setter for unique fields using 'replace'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
             replace @Int x 6 `shouldBe` (6 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
@@ -165,6 +173,16 @@ spec = do
                 (5 :: Int) ./ True ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
             replace @Char y 'Y' `shouldBe`
                 (5 :: Int) ./ False ./ 'Y' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+
+        it "can 'replace' usng tagged labels" $ do
+            let y = (5 :: Int) ./ False ./ Tagged @Foo 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            replace @(Tagged Foo _) y (Tagged @Foo 'Y') `shouldBe`
+                (5 :: Int) ./ False ./ Tagged @Foo 'Y' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+
+        it "can 'replace'' polymorphically usng tagged labels" $ do
+            let y = (5 :: Int) ./ False ./ Tagged @Foo 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            replace' @(Tagged Foo Char) Proxy y (Tagged @Bar 'Y') `shouldBe`
+                (5 :: Int) ./ False ./ Tagged @Bar 'Y' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
 
         it "has getter/setter lens using 'item'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul

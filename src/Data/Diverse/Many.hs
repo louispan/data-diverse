@@ -33,8 +33,10 @@ module Data.Diverse.Many (
     , fetchN
     -- ** Setter for single field
     , replace
+    , replace'
     , (.~.)
     , replaceN
+    , replaceN'
     -- ** Lens for a single field
     , item
     , itemN
@@ -58,7 +60,7 @@ module Data.Diverse.Many (
 
     -- * Destruction
     -- ** By type
-    , Via -- no constructor
+    , Via -- no constructor 
     , via -- safe construction
     , forMany
     , collect

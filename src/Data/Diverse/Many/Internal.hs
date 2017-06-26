@@ -50,8 +50,10 @@ module Data.Diverse.Many.Internal (
     , fetchN
     -- ** Setter for single field
     , replace
+    , replace'
     , (.~.)
     , replaceN
+    , replaceN'
     -- ** Lens for a single field
     , item
     , itemN
@@ -443,6 +445,16 @@ replace :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
 replace (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
+-- | Polymorphic setter by unique type. Set the field with type @x@, and replace with type @y@
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- 'replace'' \@Int Proxy x (Just True) \`shouldBe` Just True './' False './' \'X' './' Just \'O' './' 'nul'
+-- @
+replace' :: forall x y xs. UniqueMember x xs => Proxy x -> Many xs -> y -> Many (Replace x y xs)
+replace' _ (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
+  where i = fromInteger (natVal @(IndexOf x xs) Proxy)
+
 -- | infix version of 'replace'
 --
 -- Mnemonic: Like a back to front 'Control.Lens.(.~)' with an extra @.@ in front.
@@ -467,6 +479,17 @@ replaceN :: forall n x xs proxy. MemberAt n x xs => proxy n -> Many xs -> x -> M
 replaceN p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal p)
 
+
+-- | Setter by index. Set the value of the field at index type-level Nat @n@
+--
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- 'replaceN' \@0 Proxy x 7 `shouldBe`
+-- @
+replaceN' :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
+replaceN' p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
+  where i = fromInteger (natVal p)
+
 -----------------------------------------------------------------------
 
 -- | 'fetch' ('view' 'item') and 'replace' ('set' 'item') in 'Lens'' form.
@@ -476,8 +499,8 @@ replaceN p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 -- x '^.' 'item' \@Int \`shouldBe` 5
 -- (x '&' 'item' \@Int .~ 6) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
 -- @
-item :: forall x xs. UniqueMember x xs => Lens' (Many xs) x
-item = lens fetch replace
+item :: forall x y xs. UniqueMember x xs => Lens (Many xs) (Many (Replace x y xs)) x y
+item = lens fetch (replace' @x @y Proxy)
 {-# INLINE item #-}
 
 -- | 'fetchN' ('view' 'item') and 'replaceN' ('set' 'item') in 'Lens'' form.
@@ -487,8 +510,8 @@ item = lens fetch replace
 -- x '^.' 'itemN' (Proxy \@0) \`shouldBe` 5
 -- (x '&' 'itemN' (Proxy @0) '.~' 6) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
 -- @
-itemN ::  forall n x xs proxy. MemberAt n x xs => proxy n -> Lens' (Many xs) x
-itemN p = lens (fetchN p) (replaceN p)
+itemN ::  forall n x y xs proxy. MemberAt n x xs => proxy n -> Lens (Many xs) (Many (ReplaceIndex n y xs)) x y
+itemN p = lens (fetchN p) (replaceN' @n @x @y p)
 {-# INLINE itemN #-}
 
 -----------------------------------------------------------------------

@@ -73,6 +73,18 @@ type family KindAtIndexImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) ::
     KindAtIndexImpl i ctx 0 (x ': xs) = x
     KindAtIndexImpl i ctx n (x ': xs) = KindAtIndexImpl i ctx (n - 1) xs
 
+-- | Labelled access into the list
+type family KindAtLabelImpl (l :: k1) (ctx :: [k2]) (xs :: [k2]) :: k2 where
+    KindAtLabelImpl l ctx '[] = TypeError ('Text "Label ‘"
+                                       ':<>: 'ShowType l
+                                       ':<>: 'Text "’"
+                                       ':<>: 'Text " is not found in "
+                                       ':<>: 'Text "‘"
+                                       ':<>: 'ShowType ctx
+                                       ':<>: 'Text "’")
+    KindAtLabelImpl l ctx (tagged l x ': xs) = tagged l x
+    KindAtLabelImpl l ctx (x ': xs) = KindAtLabelImpl l ctx xs
+
 -- | Ensures two typelists are the same length
 type family SameLengthImpl (ctx :: [k1]) (cty :: [k2]) (xs :: [k1]) (yx :: [k2]) :: Constraint where
     SameLengthImpl as bs '[] '[] = ()
@@ -96,3 +108,15 @@ type family WithoutIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: [
                                        ':<>: 'Text "’")
     WithoutIndexImpl i ctx 0 (x ': xs) = xs
     WithoutIndexImpl i ctx n (x ': xs) = x ': WithoutIndexImpl i ctx (n - 1) xs
+
+-- | The typelist @xs@ without the type at Nat @n@ replaced by @y@. @n@ must be within bounds of @xs@
+type family ReplaceIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (y :: k) (xs :: [k]) :: [k] where
+    ReplaceIndexImpl i ctx n y '[] = TypeError ('Text "Index ‘"
+                                       ':<>: 'ShowType i
+                                       ':<>: 'Text "’"
+                                       ':<>: 'Text " is out of bounds of "
+                                       ':<>: 'Text "‘"
+                                       ':<>: 'ShowType ctx
+                                       ':<>: 'Text "’")
+    ReplaceIndexImpl i ctx 0 y (x ': xs) = y ': xs
+    ReplaceIndexImpl i ctx n y (x ': xs) = x ': ReplaceIndexImpl i ctx (n - 1) y xs

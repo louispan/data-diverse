@@ -53,6 +53,9 @@ type PositionOf (x :: k) (xs :: [k]) = PositionOfImpl 0 x xs
 -- | Get the type at an index
 type KindAtIndex (n :: Nat) (xs :: [k]) = KindAtIndexImpl n xs n xs
 
+-- | Get the type at a label
+type KindAtLabel (l :: k1) (xs :: [k2]) = KindAtLabelImpl l xs xs
+
 -- | It's actually ok for the position to be zero, but if it's not zero then the types must match
 type family KindAtPositionIs (n :: Nat) (x :: k) (xs :: [k]) :: Constraint where
     KindAtPositionIs 0 x xs = ()
@@ -63,14 +66,23 @@ type family KindsAtIndices (ns :: [Nat]) (xs :: [k]) :: [k] where
     KindsAtIndices '[] xs = '[]
     KindsAtIndices (n ': ns) xs = KindAtIndex n xs ': KindsAtIndices ns xs
 
--- | The typelist @xs@ without @x@. It is okay for @x@ not to exist in @xs@
+-- | The typelist @xs@ without first @x@. It is okay for @x@ not to exist in @xs@
 type family Without (x :: k) (xs :: [k]) :: [k] where
     Without x '[] = '[]
-    Without x (x ': xs) = Without x xs
+    Without x (x ': xs) = xs
     Without x (y ': xs) = y ': Without x xs
+
+-- | The typelist @xs@ with the first @x@ replaced by @y@. It is okay for @x@ not to exist in @xs@
+type family Replace (x :: k) (y :: k) (xs :: [k]) :: [k] where
+    Replace x y '[] = '[]
+    Replace x y (x ': xs) = y ': xs
+    Replace x y (z ': xs) = z ': Replace x y xs
 
 -- | The typelist @xs@ without the type at Nat @n@. @n@ must be within bounds of @xs@
 type WithoutIndex (n :: Nat) (xs :: [k]) = WithoutIndexImpl n xs n xs
+
+-- | The typelist @xs@ without the type at Nat @n@ replaced by @y@. @n@ must be within bounds of @xs@
+type ReplaceIndex (n :: Nat) (y :: k) (xs :: [k]) = ReplaceIndexImpl n xs n y xs
 
 -- | Gets the ength of a typelist
 type family Length (xs :: [k]) :: Nat where
