@@ -29,14 +29,11 @@ module Data.Diverse.Many (
     -- * Single field
     -- ** Getter for single field
     , fetch
-    , (.^.)
     , fetchN
     -- ** Setter for single field
     , replace
     , replace'
-    , (.~.)
     , replaceN
-    , replaceN'
     -- ** Lens for a single field
     , item
     , itemN
@@ -45,7 +42,6 @@ module Data.Diverse.Many (
     -- ** Getter for multiple fields
     , Narrow
     , narrow
-    , (\^.)
     , NarrowN
     , narrowN
     -- ** Setter for multiple fields
@@ -53,7 +49,6 @@ module Data.Diverse.Many (
     , amend
     , Amend'
     , amend'
-    , (\~.)
     , AmendN
     , amendN
     -- ** Lens for multiple fields
@@ -62,7 +57,7 @@ module Data.Diverse.Many (
 
     -- * Destruction
     -- ** By type
-    , Via -- no constructor 
+    , Via -- no constructor
     , via -- safe construction
     , forMany
     , collect

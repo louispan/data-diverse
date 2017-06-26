@@ -95,13 +95,9 @@ spec = do
         it "has getter for unique fields using 'fetch'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
             fetch @Int x `shouldBe` 5
-            x .^. (Proxy @Int) `shouldBe` 5
             fetch @Bool x `shouldBe` False
-            x .^. (Proxy @Bool) `shouldBe` False
             fetch @Char x `shouldBe` 'X'
-            x .^. (Proxy @Char) `shouldBe` 'X'
             fetch @(Maybe Char) x `shouldBe` Just 'O'
-            x .^. (Proxy @(Maybe Char))`shouldBe` Just 'O'
 
         it "has getter for for unique fields using 'fetchN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
@@ -122,9 +118,7 @@ spec = do
         it "with duplicate fields can still use 'fetch' for unique fields" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
             fetch @Bool x `shouldBe` False
-            x .^. (Proxy @Bool) `shouldBe` False
             fetch @Char x `shouldBe` 'X'
-            x .^. (Proxy @Char) `shouldBe` 'X'
 
         it "can 'fetch' usng tagged labels" $ do
             let y = (5 :: Int) ./ False ./ Tagged @Foo 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
@@ -133,13 +127,15 @@ spec = do
         it "has setter for unique fields using 'replace'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
             replace @Int x 6 `shouldBe` (6 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
-            (x .~. (6 :: Int)) `shouldBe` (6 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
             replace x True `shouldBe` (5 :: Int) ./ True ./ 'X' ./ Just 'O' ./ nul
-            (x .~. True) `shouldBe` (5 :: Int) ./ True ./ 'X' ./ Just 'O' ./ nul
             replace x 'O' `shouldBe` (5 :: Int) ./ False ./ 'O' ./ Just 'O' ./ nul
-            (x .~. 'O') `shouldBe` (5 :: Int) ./ False ./ 'O' ./ Just 'O' ./ nul
             replace x (Just 'P') `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nul
-            (x .~. (Just 'P')) `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nul
+
+        it "has polymorphic setter for unique fields using 'replace'" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
+            replace' @Int Proxy x 'Z' `shouldBe` 'Z' ./ False ./ 'X' ./ Just 'O' ./ nul
+            replace' @Bool Proxy x 'Z' `shouldBe` (5 :: Int) ./ 'Z' ./ 'X' ./ Just 'O' ./ nul
+            replace' @(Maybe Char) Proxy x 'Z' `shouldBe` (5 :: Int) ./ False ./ 'X' ./ 'Z' ./ nul
 
         it "has setter for unique fields using 'replaceN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
@@ -151,6 +147,16 @@ spec = do
                 (5 :: Int) ./ False ./ 'Y' ./ Just 'O' ./ nul
             replaceN @3 Proxy x (Just 'P') `shouldBe`
                 (5 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nul
+
+        it "has polymorhpic setter using 'replaceN'" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
+            replaceN @0 Proxy x True `shouldBe`
+                True ./ False ./ 'X' ./ Just 'O' ./ nul
+            let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            replaceN @1 Proxy y 'Y' `shouldBe`
+                (5 :: Int) ./ 'Y' ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            replaceN @5 Proxy y 'Y' `shouldBe`
+                (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ 'Y' ./ nul
 
         it "has setter for duplicate fields using 'replaceN'" $ do
             let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
@@ -184,18 +190,21 @@ spec = do
             replace' @(Tagged Foo Char) Proxy y (Tagged @Bar 'Y') `shouldBe`
                 (5 :: Int) ./ False ./ Tagged @Bar 'Y' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
 
-        it "has getter/setter lens using 'item'" $ do
+        it "has polymorphic getter/setter lens using 'item'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
             x ^. item @Int `shouldBe` 5
             (x & item @Int .~ 6) `shouldBe` (6 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
             x ^. item @Bool `shouldBe` False
             (x & item @Bool .~ True) `shouldBe` (5 :: Int) ./ True ./ 'X' ./ Just 'O' ./ nul
             x ^. item @Char `shouldBe` 'X'
-            (x & item @Char .~ 'O') `shouldBe` (5 :: Int) ./ False ./ 'O' ./ Just 'O' ./ nul
             x ^. item @(Maybe Char) `shouldBe` Just 'O'
             (x & item @(Maybe Char) .~ Just 'P') `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nul
+            (x & item @Int .~ 'Z') `shouldBe` 'Z' ./ False ./ 'X' ./ Just 'O' ./ nul
+            (x & item @Bool .~ 'Z') `shouldBe` (5 :: Int) ./ 'Z' ./ 'X' ./ Just 'O' ./ nul
+            (x & item @Char .~ True) `shouldBe` (5 :: Int) ./ False ./ True ./ Just 'O' ./ nul
+            (x & item @(Maybe Char) .~ 'P') `shouldBe` (5 :: Int) ./ False ./ 'X' ./ 'P' ./ nul
 
-        it "has getter/setter lens for duplicate fields using 'itemN'" $ do
+        it "has polymorphic getter/setter lens for duplicate fields using 'itemN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
             x ^. itemN (Proxy @0) `shouldBe` 5
             (x & itemN (Proxy @0) .~ 6) `shouldBe` (6 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
@@ -209,11 +218,16 @@ spec = do
             (x & itemN (Proxy @4) .~ 7) `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (7 :: Int) ./ Just 'A' ./ nul
             x ^. itemN (Proxy @5) `shouldBe` Just 'A'
             (x & itemN (Proxy @5) .~ Just 'B') `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'B' ./ nul
+            (x & itemN (Proxy @0) .~ "Foo") `shouldBe` "Foo" ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            (x & itemN (Proxy @1) .~ "Foo") `shouldBe` (5 :: Int) ./ "Foo" ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            (x & itemN (Proxy @2) .~ "Foo") `shouldBe` (5 :: Int) ./ False ./ "Foo" ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            (x & itemN (Proxy @3) .~ "Foo") `shouldBe` (5 :: Int) ./ False ./ 'X' ./ "Foo" ./ (6 :: Int) ./ Just 'A' ./ nul
+            (x & itemN (Proxy @4) .~ "Foo") `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ "Foo" ./ Just 'A' ./ nul
+            (x & itemN (Proxy @5) .~ "Foo") `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ "Foo" ./ nul
 
         it "has getter for multiple fields using 'narrow'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
             narrow @'[Int, Maybe Char] x `shouldBe` (5 :: Int) ./ Just 'O' ./ nul
-            x \^. (Proxy @'[Int, Maybe Char]) `shouldBe` (5 :: Int) ./ Just 'O' ./ nul
 
         it "can reorder fields using 'narrow' or 'narrowN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
@@ -235,17 +249,24 @@ spec = do
         it "with duplicate fields has getter for multiple unique fields 'narrow'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
             narrow @'[Bool, Char] x `shouldBe` False ./ 'X' ./ nul
-            x \^. (Proxy @'[Bool, Char]) `shouldBe` False ./ 'X' ./ nul
 
         it "has setter for multiple fields using 'amend'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
             amend @'[Int, Maybe Char] x ((6 :: Int) ./ Just 'P' ./ nul) `shouldBe` (6 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nul
-            (x \~. (6 :: Int) ./ Just 'P' ./ nul) `shouldBe` (6 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nul
+
+        it "has polymorphc setter for multiple fields using 'amend'" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
+            amend' @'[Int, Maybe Char] Proxy x ("Foo" ./ "Bar" ./ nul) `shouldBe` "Foo" ./ False ./ 'X' ./ "Bar" ./ nul
 
         it "has setter for multiple fields with duplicates using 'amendN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
             amendN (Proxy @'[5, 4, 0]) x (Just 'B' ./ (8 :: Int) ./ (4 ::Int) ./ nul) `shouldBe`
                 (4 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (8 :: Int) ./ Just 'B' ./ nul
+
+        it "has polymorphic setter for multiple fields with duplicates using 'amendN'" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
+            amendN @'[5, 4, 0] Proxy x ("Foo" ./ Just 'B' ./ 'Z' ./ nul) `shouldBe`
+                'Z' ./ False ./ 'X' ./ Just 'O' ./ Just 'B' ./ "Foo" ./ nul
 
         it "can't amend into types from indistinct fields" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
@@ -259,17 +280,21 @@ spec = do
             amend @ '[Bool, Char] x (True ./ 'B' ./ nul) `shouldBe`
                 (5 :: Int) ./ True ./ 'B' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
 
-        it "has getter/setter lens for multiple fields using 'project'" $ do
+        it "has polymorphic getter/setter lens for multiple fields using 'project'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
             x ^. (project @'[Int, Maybe Char]) `shouldBe` (5 :: Int) ./ Just 'O' ./ nul
             (x & (project @'[Int, Maybe Char]) .~ ((6 :: Int) ./ Just 'P' ./ nul)) `shouldBe`
                 (6 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nul
+            (x & (project @'[Int, Maybe Char]) .~ ("Foo" ./ Just "Bar" ./ nul)) `shouldBe`
+                "Foo" ./ False ./ 'X' ./ Just "Bar" ./ nul
 
-        it "has getter/setter lens for multiple fields with duplicates using 'projectN'" $ do
+        it "has polymorphic getter/setter lens for multiple fields with duplicates using 'projectN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
             x ^. (projectN @'[5, 4, 0] Proxy) `shouldBe` Just 'A' ./ (6 :: Int) ./ (5 ::Int) ./ nul
             (x & (projectN @'[5, 4, 0] Proxy) .~ (Just 'B' ./ (8 :: Int) ./ (4 ::Int) ./ nul)) `shouldBe`
                 (4 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (8 :: Int) ./ Just 'B' ./ nul
+            (x & (projectN @'[5, 4, 0] Proxy) .~ (Just "Foo" ./ (8 :: Int) ./ "Bar" ./ nul)) `shouldBe`
+                "Bar" ./ False ./ 'X' ./ Just 'O' ./ (8 :: Int) ./ Just "Foo" ./ nul
 
         it "can be folded with 'Many' handlers using 'forMany' or 'collect'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul

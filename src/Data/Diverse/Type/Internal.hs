@@ -142,6 +142,26 @@ type family ReplacesImpl (xs' :: [k]) (ys' :: [k]) (xs :: [k]) (ys :: [k]) (zs :
                                        ':<>: 'ShowType ys'
                                        ':<>: 'Text "’")
 
+-- | The type @x@ replaced by an @y@ if an @n@ matches @i@.
+type family ReplaceIfIndex (ns :: [Nat]) (ys :: [k]) (i :: Nat) (x :: k) :: k where
+    ReplaceIfIndex '[] ys i x = x
+    ReplaceIfIndex ns '[] i x = x
+    ReplaceIfIndex (n ': ns) (y ': ys) n x = y
+    ReplaceIfIndex (n ': ns) (y ': ys) i x = ReplaceIfIndex ns ys i x
+
+-- | The typelist @xs@ replaced by @ys@ at the indices @ns@. @ns@ and @ys@ must be the same length. @ns@ must be within bounds of @xs@
+type family ReplacesIndexImpl (i :: Nat) (ns :: [Nat]) (ys :: [k]) (xs :: [k]) :: [k] where
+    ReplacesIndexImpl i ns ys '[] = '[]
+    ReplacesIndexImpl i '[] '[] xs = xs
+    ReplacesIndexImpl i ns ys (x ': xs) = ReplaceIfIndex ns ys i x ': ReplacesIndexImpl (i + 1) ns ys xs
+    ReplacesIndexImpl i ns ys xs = TypeError ('Text "ReplacesIndex error: ‘"
+                                       ':<>: 'ShowType ns
+                                       ':<>: 'Text "’"
+                                       ':<>: 'Text " must be the same size as "
+                                       ':<>: 'Text "‘"
+                                       ':<>: 'ShowType ys
+                                       ':<>: 'Text "’")
+
 -- | Zips up @xs@ and @ys@, which must be the same length
 type family ZipImpl (xs' :: [k]) (ys' :: [k]) (xs :: [k]) (ys :: [k]) :: [k] where
     ZipImpl xs' ys' '[] '[] = '[]

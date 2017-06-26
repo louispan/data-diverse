@@ -46,14 +46,11 @@ module Data.Diverse.Many.Internal (
     -- * Single field
     -- ** Getter for single field
     , fetch
-    , (.^.)
     , fetchN
     -- ** Setter for single field
     , replace
     , replace'
-    , (.~.)
     , replaceN
-    , replaceN'
     -- ** Lens for a single field
     , item
     , itemN
@@ -62,7 +59,6 @@ module Data.Diverse.Many.Internal (
     -- ** Getter for multiple fields
     , Narrow
     , narrow
-    , (\^.)
     , NarrowN
     , narrowN
     -- ** Setter for multiple fields
@@ -70,7 +66,6 @@ module Data.Diverse.Many.Internal (
     , amend
     , Amend'
     , amend'
-    , (\~.)
     , AmendN
     , amendN
     -- ** Lens for multiple fields
@@ -414,18 +409,6 @@ fetch :: forall x xs. UniqueMember x xs => Many xs -> x
 fetch (Many o m) = unsafeCoerce (m M.! (Key (o + i)))
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
--- | infix version of 'fetch', with a extra proxy to carry the destination type.
---
--- Mnemonic: Like 'Control.Lens.(^.)' but with an extra @.@ in front.
---
--- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
--- x '.^.' (Proxy \@Int) \`shouldBe` 5
--- @
-(.^.) :: forall x xs proxy. UniqueMember x xs => Many xs -> proxy x -> x
-(.^.) v _ = fetch v
-infixl 8 .^. -- like Control.Lens.(^.)
-
 --------------------------------------------------
 
 -- | Getter by index. Get the value of the field at index type-level Nat @n@
@@ -457,39 +440,16 @@ replace' :: forall x y xs. UniqueMember x xs => Proxy x -> Many xs -> y -> Many 
 replace' _ (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
--- | infix version of 'replace'
---
--- Mnemonic: Like a back to front 'Control.Lens.(.~)' with an extra @.@ in front.
---
--- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
--- (x '.~.' (6 :: Int)) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
--- @
-(.~.) :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
-(.~.) = replace
-infixl 1 .~. -- like Control.Lens.(.~)
-
 --------------------------------------------------
 
--- | Setter by index. Set the value of the field at index type-level Nat @n@
+-- | Polymorphic Setter by index. Set the value of the field at index type-level Nat @n@
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
 -- 'replaceN' \@0 Proxy x 7 `shouldBe`
 -- @
-replaceN :: forall n x xs proxy. MemberAt n x xs => proxy n -> Many xs -> x -> Many xs
+replaceN :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
 replaceN p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
-  where i = fromInteger (natVal p)
-
-
--- | Setter by index. Set the value of the field at index type-level Nat @n@
---
--- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
--- 'replaceN' \@0 Proxy x 7 `shouldBe`
--- @
-replaceN' :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
-replaceN' p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal p)
 
 -----------------------------------------------------------------------
@@ -513,7 +473,7 @@ item = lens fetch (replace' @x @y Proxy)
 -- (x '&' 'itemN' (Proxy @0) '.~' 6) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
 -- @
 itemN ::  forall n x y xs proxy. MemberAt n x xs => proxy n -> Lens (Many xs) (Many (ReplaceIndex n y xs)) x y
-itemN p = lens (fetchN p) (replaceN' @n @x @y p)
+itemN p = lens (fetchN p) (replaceN @n @x @y p)
 {-# INLINE itemN #-}
 
 -----------------------------------------------------------------------
@@ -640,18 +600,6 @@ narrow t = Many 0 (fromList' xs')
   where
     xs' = afoldr (++) [] (Collector (via (CaseNarrow @smaller @larger @larger) t))
 
--- | infix version of 'narrow', with a extra proxy to carry the @smaller@ type.
---
--- Mnemonic: Like 'Control.Lens.(^.)' but with an extra '\' (narrow to the right) in front.
---
--- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
--- x '\^.' (Proxy @'[Bool, Char]) \`shouldBe` False './' \'X' './' 'nul'
--- @
-(\^.) :: forall smaller larger proxy. Narrow smaller larger => Many larger -> proxy smaller -> Many smaller
-(\^.) t _ = narrow t
-infixl 8 \^. -- like Control.Lens.(^.)
-
 -- | For each type x in @larger@, generate the (k, v) in @smaller@ (if it exists)
 data CaseNarrow (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) r = CaseNarrow
 
@@ -731,19 +679,6 @@ amend (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
   where
     xs' = afoldr (:) [] (forMany (CaseAmend @larger @smaller lo) t)
 
--- | infix version of 'amend'. Mnemonic: Like 'Control.Lens.(.~)' but with an extra '\' (narrow to the right) in front.
---
--- Mnemonic: Like backwards 'Control.Lens.(^.)' but with an extra '\' (narrow to the right) in front.
---
--- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
--- (x '\~.' (6 :: Int) './' Just \'P' './' 'nul') \`shouldBe`
---     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nul'
--- @
-(\~.) :: forall smaller larger. Amend smaller larger => Many larger -> Many smaller -> Many larger
-(\~.) = amend
-infixl 1 \~. -- like Control.Lens.(.~)
-
 newtype CaseAmend (larger :: [Type]) (xs :: [Type]) r = CaseAmend Int
 
 instance Reiterate (CaseAmend larger) (x ': xs) where
@@ -766,7 +701,7 @@ amend' _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
   where
     xs' = afoldr (:) [] (Collector (via' @smaller Proxy (CaseAmend' @larger @(Zip smaller smaller') lo) t))
 
--- | Hack, we are cheating here and saying that the @y@ can be unsafeCoerced into a type of @(x, y)@
+-- | We are cheating here and saying that the @y@ can be unsafeCoerced into a type of @(x, y)@
 -- but we only every coerce from 'Any' back into @y@in the @caseAny (CaseAmend' lo) v@ below.
 via' :: Proxy xs -> c (Zip xs ys) r -> Many ys -> Via c (Zip xs ys) r
 via' _ c (Many _ m) = Via (c, snd <$> M.toAscList m)
@@ -785,12 +720,12 @@ instance UniqueMember x larger => Case (CaseAmend' larger) ((x, y) ': zs) (Key, 
 -----------------------------------------------------------------------
 
 -- | A friendlier type constraint synomyn for 'amendN'
-type AmendN ns smaller larger =
-    ( AFoldable (CollectorN (ViaN (CaseAmendN ns larger)) 0 smaller) (Key, WrappedAny)
+type AmendN ns smaller smaller' larger =
+    ( AFoldable (CollectorN (ViaN (CaseAmendN ns larger)) 0 (Zip smaller smaller')) (Key, WrappedAny)
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
--- | A variation of 'amend' which uses a Nat list @n@ to specify how to reorder the fields, where
+-- | A polymorphic variation of 'amend' which uses a Nat list @n@ to specify how to reorder the fields, where
 --
 -- @
 -- indices[branch_idx] = tree_idx@
@@ -804,21 +739,26 @@ type AmendN ns smaller larger =
 -- 'amendN' (Proxy \@'[5, 4, 0]) x (Just \'B' './' (8 :: Int) './' (4 ::Int) './' 'nul') \`shouldBe`
 --     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nul'
 -- @
-amendN :: forall ns smaller larger proxy.
-       (AmendN ns smaller larger)
-    => proxy ns -> Many larger -> Many smaller -> Many larger
+amendN :: forall ns smaller smaller' larger proxy.
+       (AmendN ns smaller smaller' larger)
+    => proxy ns -> Many larger -> Many smaller' -> Many (ReplacesIndex ns smaller' larger)
 amendN _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
   where
-    xs' = afoldr (:) [] (forManyN (CaseAmendN @ns @larger @0 @smaller lo) t)
+    xs' = afoldr (:) [] (CollectorN (viaN' @smaller Proxy (CaseAmendN @ns @larger @0 @(Zip smaller smaller') lo) t))
 
-newtype CaseAmendN (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseAmendN Int
+-- | We are cheating here and saying that the @y@ can be unsafeCoerced into a type of @(x, y)@
+-- but we only every coerce from 'Any' back into @y@in the @caseAny (CaseAmend' lo) v@ below.
+viaN' :: Proxy xs -> c n (Zip xs ys) r -> Many ys -> ViaN c n (Zip xs ys) r
+viaN' _ c (Many _ m) = ViaN (c, snd <$> M.toAscList m)
 
-instance ReiterateN (CaseAmendN indices larger) n (x ': xs) where
+newtype CaseAmendN (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (zs :: [Type]) r = CaseAmendN Int
+
+instance ReiterateN (CaseAmendN indices larger) n (z ': zs) where
     reiterateN (CaseAmendN lo) = CaseAmendN lo
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt (KindAtIndex n indices) x larger) =>
-         Case (CaseAmendN indices larger n) (x ': xs) (Key, WrappedAny) where
+         Case (CaseAmendN indices larger n) ((x, y) ': zs) (Key, WrappedAny) where
     caseAny (CaseAmendN lo) v = (Key (lo + i), WrappedAny v)
       where
         i = fromInteger (natVal @(KindAtIndex n indices) Proxy)
@@ -857,9 +797,9 @@ project = lens narrow (amend' @smaller @smaller' Proxy)
 --     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nul'
 -- @
 projectN
-    :: forall ns smaller larger proxy.
-       (NarrowN ns smaller larger, AmendN ns smaller larger)
-    => proxy ns -> Lens' (Many larger) (Many smaller)
+    :: forall ns smaller smaller' larger proxy.
+       (NarrowN ns smaller larger, AmendN ns smaller smaller' larger)
+    => proxy ns -> Lens (Many larger) (Many (ReplacesIndex ns smaller' larger)) (Many smaller) (Many smaller')
 projectN p = lens (narrowN p) (amendN p)
 {-# INLINE projectN #-}
 

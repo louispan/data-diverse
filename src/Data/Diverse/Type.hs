@@ -85,6 +85,9 @@ type WithoutIndex (n :: Nat) (xs :: [k]) = WithoutIndexImpl n xs n xs
 -- | The typelist @xs@ without the type at Nat @n@ replaced by @y@. @n@ must be within bounds of @xs@
 type ReplaceIndex (n :: Nat) (y :: k) (xs :: [k]) = ReplaceIndexImpl n xs n y xs
 
+-- | The typelist @xs@ replaced by @ys@ at the indices @ns@. @ns@ and @ys@ must be the same length. @ns@ must be within bounds of @xs@
+type ReplacesIndex (ns :: [Nat]) (ys :: [k]) (xs :: [k]) = ReplacesIndexImpl 0 ns ys xs
+
 -- | Gets the ength of a typelist
 type family Length (xs :: [k]) :: Nat where
     Length '[] = 0
