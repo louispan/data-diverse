@@ -20,7 +20,7 @@ type family PositionOfImpl (i :: Nat) (x :: k) (xs :: [k]) :: Nat where
 type family IndexOfImpl (ctx :: [k]) (x :: k) (xs :: [k]) :: Nat where
    IndexOfImpl ctx x (x ': xs) = 0
    IndexOfImpl ctx y (x ': xs) = 1 + IndexOfImpl ctx y xs
-   IndexOfImpl ctx y '[] = TypeError ('Text "‘"
+   IndexOfImpl ctx y '[] = TypeError ('Text "IndexOf error: ‘"
                                       ':<>: 'ShowType y
                                       ':<>: 'Text "’"
                                       ':<>: 'Text " is not a member of "
@@ -41,7 +41,7 @@ type family DistinctImpl (ctx :: [k]) (y :: k) (ys :: [k]) :: [k] where
 -- | Errors if a type exists in a typelist
 type family MissingImpl (ctx :: [k]) (y :: k) (xs :: [k]) :: Constraint where
     MissingImpl ctx y '[] = ()
-    MissingImpl ctx x (x ': xs) = TypeError ('Text "‘"
+    MissingImpl ctx x (x ': xs) = TypeError ('Text "Missing error: ‘"
                                              ':<>: 'ShowType x
                                              ':<>: 'Text "’"
                                              ':<>: 'Text " is a duplicate in "
@@ -63,7 +63,7 @@ type family UniqueImpl (ctx :: [k]) (x :: k) (xs :: [k]) :: Constraint where
 
 -- | Indexed access into the list
 type family KindAtIndexImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: k where
-    KindAtIndexImpl i ctx 0 '[] = TypeError ('Text "Index ‘"
+    KindAtIndexImpl i ctx 0 '[] = TypeError ('Text "KindAtIndex error: Index ‘"
                                        ':<>: 'ShowType i
                                        ':<>: 'Text "’"
                                        ':<>: 'Text " is out of bounds of "
@@ -75,7 +75,7 @@ type family KindAtIndexImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) ::
 
 -- | Labelled access into the list
 type family KindAtLabelImpl (l :: k1) (ctx :: [k2]) (xs :: [k2]) :: k2 where
-    KindAtLabelImpl l ctx '[] = TypeError ('Text "Label ‘"
+    KindAtLabelImpl l ctx '[] = TypeError ('Text "KindAtLabel error: Label ‘"
                                        ':<>: 'ShowType l
                                        ':<>: 'Text "’"
                                        ':<>: 'Text " is not found in "
@@ -89,7 +89,7 @@ type family KindAtLabelImpl (l :: k1) (ctx :: [k2]) (xs :: [k2]) :: k2 where
 type family SameLengthImpl (ctx :: [k1]) (cty :: [k2]) (xs :: [k1]) (yx :: [k2]) :: Constraint where
     SameLengthImpl as bs '[] '[] = ()
     SameLengthImpl as bs (x ': xs) (y ': ys) = SameLengthImpl as bs xs ys
-    SameLengthImpl as bs xs ys = TypeError ('Text "‘"
+    SameLengthImpl as bs xs ys = TypeError ('Text "SameLength error: ‘"
                                             ':<>: 'ShowType as
                                             ':<>: 'Text "’"
                                             ':<>: 'Text " is not the same length as "
@@ -99,7 +99,7 @@ type family SameLengthImpl (ctx :: [k1]) (cty :: [k2]) (xs :: [k1]) (yx :: [k2])
 
 -- | The typelist @xs@ without the type at Nat @n@. @n@ must be within bounds of @xs@
 type family WithoutIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: [k] where
-    WithoutIndexImpl i ctx n '[] = TypeError ('Text "Index ‘"
+    WithoutIndexImpl i ctx n '[] = TypeError ('Text "WithoutIndex error: Index ‘"
                                        ':<>: 'ShowType i
                                        ':<>: 'Text "’"
                                        ':<>: 'Text " is out of bounds of "
@@ -111,7 +111,7 @@ type family WithoutIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: [
 
 -- | The typelist @xs@ without the type at Nat @n@ replaced by @y@. @n@ must be within bounds of @xs@
 type family ReplaceIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (y :: k) (xs :: [k]) :: [k] where
-    ReplaceIndexImpl i ctx n y '[] = TypeError ('Text "Index ‘"
+    ReplaceIndexImpl i ctx n y '[] = TypeError ('Text "ReplaceIndex error: Index ‘"
                                        ':<>: 'ShowType i
                                        ':<>: 'Text "’"
                                        ':<>: 'Text " is out of bounds of "
@@ -120,3 +120,36 @@ type family ReplaceIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (y :: k) (xs :: 
                                        ':<>: 'Text "’")
     ReplaceIndexImpl i ctx 0 y (x ': xs) = y ': xs
     ReplaceIndexImpl i ctx n y (x ': xs) = x ': ReplaceIndexImpl i ctx (n - 1) y xs
+
+-- | The typelist @xs@ with the first @x@ replaced by @y@. It is okay for @x@ not to exist in @xs@
+type family ReplaceImpl (x :: k) (y :: k) (xs :: [k]) :: [k] where
+    ReplaceImpl x y '[] = '[]
+    ReplaceImpl x y (x ': xs) = y ': xs
+    ReplaceImpl x y (z ': xs) = z ': ReplaceImpl x y xs
+
+-- | The typelist @zs@ with the first @xs@ replaced by @ys@.
+-- @xs@ must be the same size as @ys@
+type family ReplacesImpl (xs' :: [k]) (ys' :: [k]) (xs :: [k]) (ys :: [k]) (zs :: [k]) :: [k] where
+    ReplacesImpl xs' ys' xs ys '[] = '[]
+    ReplacesImpl xs' ys' '[] '[] (z ': zs) = z ': ReplacesImpl xs' ys' xs' ys' zs
+    ReplacesImpl xs' ys' (x ': xs) (y ': ys) (x ': zs) = y ': ReplacesImpl xs' ys' xs' ys' zs
+    ReplacesImpl xs' ys' (x ': xs) (y ': ys) (z ': zs) = ReplacesImpl xs' ys' xs ys (z ': zs)
+    ReplacesImpl xs' ys' xs ys zs = TypeError ('Text "Replaces error: ‘"
+                                       ':<>: 'ShowType xs'
+                                       ':<>: 'Text "’"
+                                       ':<>: 'Text " must be the same size as "
+                                       ':<>: 'Text "‘"
+                                       ':<>: 'ShowType ys'
+                                       ':<>: 'Text "’")
+
+-- | Zips up @xs@ and @ys@, which must be the same length
+type family ZipImpl (xs' :: [k]) (ys' :: [k]) (xs :: [k]) (ys :: [k]) :: [k] where
+    ZipImpl xs' ys' '[] '[] = '[]
+    ZipImpl xs' ys' (x ': xs) (y ': ys) = (x, y) ': ZipImpl xs' ys' xs ys
+    ZipImpl xs' ys' xs ys = TypeError ('Text "Zip error: ‘"
+                              ':<>: 'ShowType xs'
+                              ':<>: 'Text "’"
+                              ':<>: 'Text " must be the same size as "
+                              ':<>: 'Text "‘"
+                              ':<>: 'ShowType ys'
+                              ':<>: 'Text "’")

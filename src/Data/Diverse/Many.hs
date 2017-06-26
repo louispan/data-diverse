@@ -51,6 +51,8 @@ module Data.Diverse.Many (
     -- ** Setter for multiple fields
     , Amend
     , amend
+    , Amend'
+    , amend'
     , (\~.)
     , AmendN
     , amendN

@@ -327,7 +327,7 @@ type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) = (Reduce
 -- | A variation of 'diversify' which uses a Nat list @n@ to specify how to reorder the fields, where
 --
 -- @
--- indices[branch_idx] = tree_idx@
+-- indices[branch_idx] = tree_idx
 -- @
 --
 -- This variation allows @tree@ to contain duplicate types with @branch@ since
@@ -399,7 +399,7 @@ type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) = (Redu
 -- | A limited variation of 'reinterpret' which uses a Nat list @n@ to specify how to reorder the fields, where
 --
 -- @
--- indices[branch_idx] = tree_idx@
+-- indices[branch_idx] = tree_idx
 -- @
 --
 -- This variation allows @tree@ to contain duplicate types with @branch@

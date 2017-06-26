@@ -68,6 +68,8 @@ module Data.Diverse.Many.Internal (
     -- ** Setter for multiple fields
     , Amend
     , amend
+    , Amend'
+    , amend'
     , (\~.)
     , AmendN
     , amendN
@@ -520,6 +522,8 @@ itemN p = lens (fetchN p) (replaceN' @n @x @y p)
 fromList' :: Ord k => [(k, WrappedAny)] -> M.Map k Any
 fromList' xs = M.fromList (coerce xs)
 
+-----------------------------------------------------------------------
+
 -- | Wraps a 'Case' into an instance of 'Emit', 'reiterate'ing and feeding 'Case' with the value from the 'Many'
 -- and 'emit'ting the results.
 --
@@ -537,10 +541,12 @@ instance Reiterate c (x ': xs) => Reiterate (Via c) (x ': xs) where
     reiterate (Via (c, xxs)) = Via (reiterate c, Partial.tail xxs)
 
 instance (Case c (x ': xs) r) => Emit (Via c) (x ': xs) r where
-    emit (Via (c, xxs)) = case' c (unsafeCoerce v)
+    emit (Via (c, xxs)) = caseAny c v
       where
        -- use of front here is safe as we are guaranteed the length from the typelist
        v = Partial.head xxs
+
+-----------------------------------------------------------------------
 
 -- | Folds any 'Many', even with indistinct types.
 -- Given __distinct__ handlers for the fields in 'Many', create a 'Collector'
@@ -582,7 +588,7 @@ instance ReiterateN c n (x ': xs) => ReiterateN (ViaN c) n (x ': xs) where
     reiterateN (ViaN (c, xxs)) = ViaN (reiterateN c, Partial.tail xxs)
 
 instance (Case (c n) (x ': xs) r) => Emit (ViaN c n) (x ': xs) r where
-    emit (ViaN (c, xxs)) = case' c (unsafeCoerce v)
+    emit (ViaN (c, xxs)) = caseAny c v
       where
        -- use of front here is safe as we are guaranteed the length from the typelist
        v = Partial.head xxs
@@ -632,7 +638,7 @@ type Narrow (smaller :: [Type]) (larger :: [Type]) =
 narrow :: forall smaller larger. Narrow smaller larger => Many larger -> Many smaller
 narrow t = Many 0 (fromList' xs')
   where
-    xs' = afoldr (++) [] (forMany (CaseNarrow @smaller @larger @larger) t)
+    xs' = afoldr (++) [] (Collector (via (CaseNarrow @smaller @larger @larger) t))
 
 -- | infix version of 'narrow', with a extra proxy to carry the @smaller@ type.
 --
@@ -655,10 +661,10 @@ instance Reiterate (CaseNarrow smaller larger) (x ': xs) where
 -- | For each type x in larger, find the index in ys, and create an (incrementing key, value)
 instance forall smaller larger x xs. (UniqueIfExists smaller x larger, MaybeUniqueMember x smaller) =>
          Case (CaseNarrow smaller larger) (x ': xs) [(Key, WrappedAny)] where
-    case' _ v =
+    caseAny _ v =
         case i of
             0 -> []
-            i' -> [(Key (i' - 1), WrappedAny (unsafeCoerce v))]
+            i' -> [(Key (i' - 1), WrappedAny v)]
       where
         i = fromInteger (natVal @(PositionOf x smaller) Proxy)
 
@@ -699,10 +705,10 @@ instance ReiterateN (CaseNarrowN indices smaller) n (x ': xs) where
 -- | For each type x in @larger@, find the index in ys, and create an (incrementing key, value)
 instance forall indices smaller n x xs. MaybeMemberAt (PositionOf n indices) x smaller =>
          Case (CaseNarrowN indices smaller n) (x ': xs) [(Key, WrappedAny)] where
-    case' _ v =
+    caseAny _ v =
         case i of
             0 -> []
-            i' -> [(Key (i' - 1), WrappedAny (unsafeCoerce v))]
+            i' -> [(Key (i' - 1), WrappedAny v)]
       where
         i = fromInteger (natVal @(PositionOf n indices) Proxy)
 
@@ -745,7 +751,34 @@ instance Reiterate (CaseAmend larger) (x ': xs) where
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
 instance UniqueMember x larger => Case (CaseAmend larger) (x ': xs) (Key, WrappedAny) where
-    case' (CaseAmend lo) v = (Key (lo + i), WrappedAny (unsafeCoerce v))
+    caseAny (CaseAmend lo) v = (Key (lo + i), WrappedAny v)
+      where
+        i = fromInteger (natVal @(IndexOf x larger) Proxy)
+
+-----------------------------------------------------------------------
+
+-- | A friendlier type constraint synomyn for 'amend''
+type Amend' smaller smaller' larger = (AFoldable (Collector (Via (CaseAmend' larger)) (Zip smaller smaller')) (Key, WrappedAny), IsDistinct smaller)
+
+amend' :: forall smaller smaller' larger. Amend' smaller smaller' larger
+    => Proxy smaller -> Many larger -> Many smaller' -> Many (Replaces smaller smaller' larger)
+amend' _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
+  where
+    xs' = afoldr (:) [] (Collector (via' @smaller Proxy (CaseAmend' @larger @(Zip smaller smaller') lo) t))
+
+-- | Hack, we are cheating here and saying that the @y@ can be unsafeCoerced into a type of @(x, y)@
+-- but we only every coerce from 'Any' back into @y@in the @caseAny (CaseAmend' lo) v@ below.
+via' :: Proxy xs -> c (Zip xs ys) r -> Many ys -> Via c (Zip xs ys) r
+via' _ c (Many _ m) = Via (c, snd <$> M.toAscList m)
+
+newtype CaseAmend' (larger :: [Type]) (zs :: [Type]) r = CaseAmend' Int
+
+instance Reiterate (CaseAmend' larger) (z ': zs) where
+    reiterate (CaseAmend' lo) = CaseAmend' lo
+
+-- | for each y in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
+instance UniqueMember x larger => Case (CaseAmend' larger) ((x, y) ': zs) (Key, WrappedAny) where
+    caseAny (CaseAmend' lo) v = (Key (lo + i), WrappedAny v)
       where
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
 
@@ -786,7 +819,7 @@ instance ReiterateN (CaseAmendN indices larger) n (x ': xs) where
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt (KindAtIndex n indices) x larger) =>
          Case (CaseAmendN indices larger n) (x ': xs) (Key, WrappedAny) where
-    case' (CaseAmendN lo) v = (Key (lo + i), WrappedAny (unsafeCoerce v))
+    caseAny (CaseAmendN lo) v = (Key (lo + i), WrappedAny v)
       where
         i = fromInteger (natVal @(KindAtIndex n indices) Proxy)
 
@@ -805,10 +838,10 @@ instance (MemberAt (KindAtIndex n indices) x larger) =>
 --     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nul'
 -- @
 project
-    :: forall smaller larger.
-       (Narrow smaller larger, Amend smaller larger)
-    => Lens' (Many larger) (Many smaller)
-project = lens narrow amend
+    :: forall smaller smaller' larger.
+       (Narrow smaller larger, Amend' smaller smaller' larger)
+    => Lens (Many larger) (Many (Replaces smaller smaller' larger)) (Many smaller) (Many smaller')
+project = lens narrow (amend' @smaller @smaller' Proxy)
 {-# INLINE project #-}
 
 -- | 'narrowN' ('view' 'projectN') and 'amendN' ('set' 'projectN') in 'Lens'' form.
