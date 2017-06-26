@@ -34,9 +34,12 @@ module Data.Diverse.Many (
     , replace
     , replace'
     , replaceN
+    , replaceN'
     -- ** Lens for a single field
     , item
+    , item'
     , itemN
+    , itemN'
 
     -- * Multiple fields
     -- ** Getter for multiple fields
@@ -51,9 +54,13 @@ module Data.Diverse.Many (
     , amend'
     , AmendN
     , amendN
+    , AmendN'
+    , amendN'
     -- ** Lens for multiple fields
     , project
+    , project'
     , projectN
+    , projectN'
 
     -- * Destruction
     -- ** By type

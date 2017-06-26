@@ -51,9 +51,12 @@ module Data.Diverse.Many.Internal (
     , replace
     , replace'
     , replaceN
+    , replaceN'
     -- ** Lens for a single field
     , item
+    , item'
     , itemN
+    , itemN'
 
     -- * Multiple fields
     -- ** Getter for multiple fields
@@ -68,9 +71,13 @@ module Data.Diverse.Many.Internal (
     , amend'
     , AmendN
     , amendN
+    , AmendN'
+    , amendN'
     -- ** Lens for multiple fields
     , project
+    , project'
     , projectN
+    , projectN'
 
     -- * Destruction
     -- ** By type
@@ -442,14 +449,19 @@ replace' _ (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 
 --------------------------------------------------
 
--- | Polymorphic Setter by index. Set the value of the field at index type-level Nat @n@
+-- | Setter by index. Set the value of the field at index type-level Nat @n@
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
 -- 'replaceN' \@0 Proxy x 7 `shouldBe`
 -- @
-replaceN :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
+replaceN :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many xs
 replaceN p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
+  where i = fromInteger (natVal p)
+
+-- | Polymorphic version of 'replaceN'
+replaceN' :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
+replaceN' p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
   where i = fromInteger (natVal p)
 
 -----------------------------------------------------------------------
@@ -461,9 +473,14 @@ replaceN p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 -- x '^.' 'item' \@Int \`shouldBe` 5
 -- (x '&' 'item' \@Int .~ 6) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
 -- @
-item :: forall x y xs. UniqueMember x xs => Lens (Many xs) (Many (Replace x y xs)) x y
-item = lens fetch (replace' @x @y Proxy)
+item :: forall x xs. UniqueMember x xs => Lens' (Many xs) x
+item = lens fetch replace
 {-# INLINE item #-}
+
+-- | Polymorphic version of 'item'
+item' :: forall x y xs. UniqueMember x xs => Lens (Many xs) (Many (Replace x y xs)) x y
+item' = lens fetch (replace' @x @y Proxy)
+{-# INLINE item' #-}
 
 -- | 'fetchN' ('view' 'item') and 'replaceN' ('set' 'item') in 'Lens'' form.
 --
@@ -472,9 +489,15 @@ item = lens fetch (replace' @x @y Proxy)
 -- x '^.' 'itemN' (Proxy \@0) \`shouldBe` 5
 -- (x '&' 'itemN' (Proxy @0) '.~' 6) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
 -- @
-itemN ::  forall n x y xs proxy. MemberAt n x xs => proxy n -> Lens (Many xs) (Many (ReplaceIndex n y xs)) x y
-itemN p = lens (fetchN p) (replaceN @n @x @y p)
+itemN ::  forall n x xs proxy. MemberAt n x xs => proxy n -> Lens' (Many xs) x
+itemN p = lens (fetchN p) (replaceN p)
 {-# INLINE itemN #-}
+
+
+-- | Polymorphic version of 'itemN'
+itemN' ::  forall n x y xs proxy. MemberAt n x xs => proxy n -> Lens (Many xs) (Many (ReplaceIndex n y xs)) x y
+itemN' p = lens (fetchN p) (replaceN' @n @x @y p)
+{-# INLINE itemN' #-}
 
 -----------------------------------------------------------------------
 
@@ -718,14 +741,13 @@ instance UniqueMember x larger => Case (CaseAmend' larger) ((x, y) ': zs) (Key, 
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
 
 -----------------------------------------------------------------------
-
 -- | A friendlier type constraint synomyn for 'amendN'
-type AmendN ns smaller smaller' larger =
-    ( AFoldable (CollectorN (ViaN (CaseAmendN ns larger)) 0 (Zip smaller smaller')) (Key, WrappedAny)
+type AmendN ns smaller larger =
+    ( AFoldable (CollectorN (ViaN (CaseAmendN ns larger)) 0 smaller) (Key, WrappedAny)
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
--- | A polymorphic variation of 'amend' which uses a Nat list @n@ to specify how to reorder the fields, where
+-- | A variation of 'amend' which uses a Nat list @n@ to specify how to reorder the fields, where
 --
 -- @
 -- indices[branch_idx] = tree_idx@
@@ -739,27 +761,55 @@ type AmendN ns smaller smaller' larger =
 -- 'amendN' (Proxy \@'[5, 4, 0]) x (Just \'B' './' (8 :: Int) './' (4 ::Int) './' 'nul') \`shouldBe`
 --     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nul'
 -- @
-amendN :: forall ns smaller smaller' larger proxy.
-       (AmendN ns smaller smaller' larger)
-    => proxy ns -> Many larger -> Many smaller' -> Many (ReplacesIndex ns smaller' larger)
+amendN :: forall ns smaller larger proxy.
+       (AmendN ns smaller larger)
+    => proxy ns -> Many larger -> Many smaller -> Many larger
 amendN _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
   where
-    xs' = afoldr (:) [] (CollectorN (viaN' @smaller Proxy (CaseAmendN @ns @larger @0 @(Zip smaller smaller') lo) t))
+    xs' = afoldr (:) [] (forManyN (CaseAmendN @ns @larger @0 @smaller lo) t)
+
+-----------------------------------------------------------------------
+
+newtype CaseAmendN (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseAmendN Int
+
+instance ReiterateN (CaseAmendN indices larger) n (x ': xs) where
+    reiterateN (CaseAmendN lo) = CaseAmendN lo
+
+-- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
+instance (MemberAt (KindAtIndex n indices) x larger) =>
+         Case (CaseAmendN indices larger n) (x ': xs) (Key, WrappedAny) where
+    caseAny (CaseAmendN lo) v = (Key (lo + i), WrappedAny v)
+      where
+        i = fromInteger (natVal @(KindAtIndex n indices) Proxy)
+
+-- | A friendlier type constraint synomyn for 'amendN'
+type AmendN' ns smaller smaller' larger =
+    ( AFoldable (CollectorN (ViaN (CaseAmendN' ns larger)) 0 (Zip smaller smaller')) (Key, WrappedAny)
+    , smaller ~ KindsAtIndices ns larger
+    , IsDistinct ns)
+
+-- | A polymorphic variation of 'amendN'
+amendN' :: forall ns smaller smaller' larger proxy.
+       (AmendN' ns smaller smaller' larger)
+    => proxy ns -> Many larger -> Many smaller' -> Many (ReplacesIndex ns smaller' larger)
+amendN' _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
+  where
+    xs' = afoldr (:) [] (CollectorN (viaN' @smaller Proxy (CaseAmendN' @ns @larger @0 @(Zip smaller smaller') lo) t))
 
 -- | We are cheating here and saying that the @y@ can be unsafeCoerced into a type of @(x, y)@
 -- but we only every coerce from 'Any' back into @y@in the @caseAny (CaseAmend' lo) v@ below.
 viaN' :: Proxy xs -> c n (Zip xs ys) r -> Many ys -> ViaN c n (Zip xs ys) r
 viaN' _ c (Many _ m) = ViaN (c, snd <$> M.toAscList m)
 
-newtype CaseAmendN (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (zs :: [Type]) r = CaseAmendN Int
+newtype CaseAmendN' (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (zs :: [Type]) r = CaseAmendN' Int
 
-instance ReiterateN (CaseAmendN indices larger) n (z ': zs) where
-    reiterateN (CaseAmendN lo) = CaseAmendN lo
+instance ReiterateN (CaseAmendN' indices larger) n (z ': zs) where
+    reiterateN (CaseAmendN' lo) = CaseAmendN' lo
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt (KindAtIndex n indices) x larger) =>
-         Case (CaseAmendN indices larger n) ((x, y) ': zs) (Key, WrappedAny) where
-    caseAny (CaseAmendN lo) v = (Key (lo + i), WrappedAny v)
+         Case (CaseAmendN' indices larger n) ((x, y) ': zs) (Key, WrappedAny) where
+    caseAny (CaseAmendN' lo) v = (Key (lo + i), WrappedAny v)
       where
         i = fromInteger (natVal @(KindAtIndex n indices) Proxy)
 
@@ -778,11 +828,19 @@ instance (MemberAt (KindAtIndex n indices) x larger) =>
 --     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nul'
 -- @
 project
+    :: forall smaller larger.
+       (Select smaller larger, Amend smaller larger)
+    => Lens' (Many larger) (Many smaller)
+project = lens select amend
+{-# INLINE project #-}
+
+-- | Polymorphic version of project'
+project'
     :: forall smaller smaller' larger.
        (Select smaller larger, Amend' smaller smaller' larger)
     => Lens (Many larger) (Many (Replaces smaller smaller' larger)) (Many smaller) (Many smaller')
-project = lens select (amend' @smaller @smaller' Proxy)
-{-# INLINE project #-}
+project' = lens select (amend' @smaller @smaller' Proxy)
+{-# INLINE project' #-}
 
 -- | 'selectN' ('view' 'projectN') and 'amendN' ('set' 'projectN') in 'Lens'' form.
 --
@@ -797,11 +855,19 @@ project = lens select (amend' @smaller @smaller' Proxy)
 --     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nul'
 -- @
 projectN
-    :: forall ns smaller smaller' larger proxy.
-       (SelectN ns smaller larger, AmendN ns smaller smaller' larger)
-    => proxy ns -> Lens (Many larger) (Many (ReplacesIndex ns smaller' larger)) (Many smaller) (Many smaller')
+    :: forall ns smaller larger proxy.
+       (SelectN ns smaller larger, AmendN ns smaller larger)
+    => proxy ns -> Lens' (Many larger) (Many smaller)
 projectN p = lens (selectN p) (amendN p)
 {-# INLINE projectN #-}
+
+-- | Polymorphic version of 'projectN'
+projectN'
+    :: forall ns smaller smaller' larger proxy.
+       (SelectN ns smaller larger, AmendN' ns smaller smaller' larger)
+    => proxy ns -> Lens (Many larger) (Many (ReplacesIndex ns smaller' larger)) (Many smaller) (Many smaller')
+projectN' p = lens (selectN p) (amendN' p)
+{-# INLINE projectN' #-}
 
 -----------------------------------------------------------------------
 
