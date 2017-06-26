@@ -57,10 +57,10 @@ module Data.Diverse.Many.Internal (
 
     -- * Multiple fields
     -- ** Getter for multiple fields
-    , Narrow
-    , narrow
-    , NarrowN
-    , narrowN
+    , Select
+    , select
+    , SelectN
+    , selectN
     -- ** Setter for multiple fields
     , Amend
     , amend
@@ -123,7 +123,7 @@ newtype NewRightOffset = NewRightOffset { unNewRightOffset :: Int }
 -- The following functions are available can be used to manipulate unique fields
 --
 -- * getter/setter for single field: 'fetch' and 'replace'
--- * getter/setter for multiple fields: 'narrow' and 'amend'
+-- * getter/setter for multiple fields: 'select' and 'amend'
 -- * folds: 'forMany' or 'collect'
 --
 -- These functions are type specified. This means labels are not required because the types themselves can be used to access the 'Many.
@@ -132,7 +132,7 @@ newtype NewRightOffset = NewRightOffset { unNewRightOffset :: Int }
 -- For duplicate fields, Nat-indexed versions of the functions are available:
 --
 -- * getter/setter for single field: 'fetchN' and 'replaceN'
--- * getter/setter for multiple fields: 'narrowN' and 'amendN'
+-- * getter/setter for multiple fields: 'selectN' and 'amendN'
 -- * folds: 'forManyN' or 'collectN'
 --
 -- Encoding: The record is encoded as (Offset, Map Int Any).
@@ -581,10 +581,10 @@ collectN = flip forManyN
 
 -----------------------------------------------------------------------
 
--- | A friendlier type constraint synomyn for 'narrow'
-type Narrow (smaller :: [Type]) (larger :: [Type]) =
+-- | A friendlier type constraint synomyn for 'select'
+type Select (smaller :: [Type]) (larger :: [Type]) =
     (AFoldable
-        ( Collector (Via (CaseNarrow smaller larger)) larger) [(Key, WrappedAny)])
+        ( Collector (Via (CaseSelect smaller larger)) larger) [(Key, WrappedAny)])
 
 -- | Construct a 'Many' with a smaller number of fields than the original.
 -- Analogous to 'fetch' getter but for multiple fields.
@@ -593,22 +593,22 @@ type Narrow (smaller :: [Type]) (larger :: [Type]) =
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
--- 'narrow' \@'[Bool, Char] x \`shouldBe` False './' \'X' './' 'nul'
+-- 'select' \@'[Bool, Char] x \`shouldBe` False './' \'X' './' 'nul'
 -- @
-narrow :: forall smaller larger. Narrow smaller larger => Many larger -> Many smaller
-narrow t = Many 0 (fromList' xs')
+select :: forall smaller larger. Select smaller larger => Many larger -> Many smaller
+select t = Many 0 (fromList' xs')
   where
-    xs' = afoldr (++) [] (Collector (via (CaseNarrow @smaller @larger @larger) t))
+    xs' = afoldr (++) [] (Collector (via (CaseSelect @smaller @larger @larger) t))
 
 -- | For each type x in @larger@, generate the (k, v) in @smaller@ (if it exists)
-data CaseNarrow (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) r = CaseNarrow
+data CaseSelect (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) r = CaseSelect
 
-instance Reiterate (CaseNarrow smaller larger) (x ': xs) where
-    reiterate CaseNarrow = CaseNarrow
+instance Reiterate (CaseSelect smaller larger) (x ': xs) where
+    reiterate CaseSelect = CaseSelect
 
 -- | For each type x in larger, find the index in ys, and create an (incrementing key, value)
 instance forall smaller larger x xs. (UniqueIfExists smaller x larger, MaybeUniqueMember x smaller) =>
-         Case (CaseNarrow smaller larger) (x ': xs) [(Key, WrappedAny)] where
+         Case (CaseSelect smaller larger) (x ': xs) [(Key, WrappedAny)] where
     caseAny _ v =
         case i of
             0 -> []
@@ -618,13 +618,13 @@ instance forall smaller larger x xs. (UniqueIfExists smaller x larger, MaybeUniq
 
 -----------------------------------------------------------------------
 
--- | A friendlier type constraint synomyn for 'narrowN'
-type NarrowN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
-    ( AFoldable (CollectorN (ViaN (CaseNarrowN ns smaller)) 0 larger) [(Key, WrappedAny)]
+-- | A friendlier type constraint synomyn for 'selectN'
+type SelectN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
+    ( AFoldable (CollectorN (ViaN (CaseSelectN ns smaller)) 0 larger) [(Key, WrappedAny)]
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
--- | A variation of 'narrow' which uses a Nat list @n@ to specify how to reorder the fields, where
+-- | A variation of 'select' which uses a Nat list @n@ to specify how to reorder the fields, where
 --
 -- @
 -- indices[branch_idx] = tree_idx@
@@ -635,24 +635,24 @@ type NarrowN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
--- 'narrowN' (Proxy @'[5, 4, 0]) x \`shouldBe` Just \'A' './' (6 :: Int) './' (5 ::Int) './' 'nul'
+-- 'selectN' (Proxy @'[5, 4, 0]) x \`shouldBe` Just \'A' './' (6 :: Int) './' (5 ::Int) './' 'nul'
 -- @
-narrowN
+selectN
     :: forall ns smaller larger proxy.
-       NarrowN ns smaller larger
+       SelectN ns smaller larger
     => proxy ns -> Many larger -> Many smaller
-narrowN _ xs = Many 0 (fromList' xs')
+selectN _ xs = Many 0 (fromList' xs')
   where
-    xs' = afoldr (++) [] (forManyN (CaseNarrowN @ns @smaller @0 @larger) xs)
+    xs' = afoldr (++) [] (forManyN (CaseSelectN @ns @smaller @0 @larger) xs)
 
-data CaseNarrowN (indices :: [Nat]) (smaller :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseNarrowN
+data CaseSelectN (indices :: [Nat]) (smaller :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseSelectN
 
-instance ReiterateN (CaseNarrowN indices smaller) n (x ': xs) where
-    reiterateN CaseNarrowN = CaseNarrowN
+instance ReiterateN (CaseSelectN indices smaller) n (x ': xs) where
+    reiterateN CaseSelectN = CaseSelectN
 
 -- | For each type x in @larger@, find the index in ys, and create an (incrementing key, value)
 instance forall indices smaller n x xs. MaybeMemberAt (PositionOf n indices) x smaller =>
-         Case (CaseNarrowN indices smaller n) (x ': xs) [(Key, WrappedAny)] where
+         Case (CaseSelectN indices smaller n) (x ': xs) [(Key, WrappedAny)] where
     caseAny _ v =
         case i of
             0 -> []
@@ -765,10 +765,10 @@ instance (MemberAt (KindAtIndex n indices) x larger) =>
 
 -----------------------------------------------------------------------
 
--- | 'narrow' ('view' 'project') and 'amend' ('set' 'project') in 'Lens'' form.
+-- | 'select' ('view' 'project') and 'amend' ('set' 'project') in 'Lens'' form.
 --
 -- @
--- 'project' = 'lens' 'narrow' 'amend'
+-- 'project' = 'lens' 'select' 'amend'
 -- @
 --
 -- @
@@ -779,15 +779,15 @@ instance (MemberAt (KindAtIndex n indices) x larger) =>
 -- @
 project
     :: forall smaller smaller' larger.
-       (Narrow smaller larger, Amend' smaller smaller' larger)
+       (Select smaller larger, Amend' smaller smaller' larger)
     => Lens (Many larger) (Many (Replaces smaller smaller' larger)) (Many smaller) (Many smaller')
-project = lens narrow (amend' @smaller @smaller' Proxy)
+project = lens select (amend' @smaller @smaller' Proxy)
 {-# INLINE project #-}
 
--- | 'narrowN' ('view' 'projectN') and 'amendN' ('set' 'projectN') in 'Lens'' form.
+-- | 'selectN' ('view' 'projectN') and 'amendN' ('set' 'projectN') in 'Lens'' form.
 --
 -- @
--- 'projectN' = 'lens' 'narrowN' 'amendN'
+-- 'projectN' = 'lens' 'selectN' 'amendN'
 -- @
 --
 -- @
@@ -798,9 +798,9 @@ project = lens narrow (amend' @smaller @smaller' Proxy)
 -- @
 projectN
     :: forall ns smaller smaller' larger proxy.
-       (NarrowN ns smaller larger, AmendN ns smaller smaller' larger)
+       (SelectN ns smaller larger, AmendN ns smaller smaller' larger)
     => proxy ns -> Lens (Many larger) (Many (ReplacesIndex ns smaller' larger)) (Many smaller) (Many smaller')
-projectN p = lens (narrowN p) (amendN p)
+projectN p = lens (selectN p) (amendN p)
 {-# INLINE projectN #-}
 
 -----------------------------------------------------------------------

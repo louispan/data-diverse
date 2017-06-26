@@ -225,30 +225,30 @@ spec = do
             (x & itemN (Proxy @4) .~ "Foo") `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ "Foo" ./ Just 'A' ./ nul
             (x & itemN (Proxy @5) .~ "Foo") `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ "Foo" ./ nul
 
-        it "has getter for multiple fields using 'narrow'" $ do
+        it "has getter for multiple fields using 'select'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
-            narrow @'[Int, Maybe Char] x `shouldBe` (5 :: Int) ./ Just 'O' ./ nul
+            select @'[Int, Maybe Char] x `shouldBe` (5 :: Int) ./ Just 'O' ./ nul
 
-        it "can reorder fields using 'narrow' or 'narrowN'" $ do
+        it "can reorder fields using 'select' or 'selectN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
-            narrow @'[Bool, Int, Maybe Char] x `shouldBe` False ./ (5 :: Int) ./ Just 'O' ./ nul
+            select @'[Bool, Int, Maybe Char] x `shouldBe` False ./ (5 :: Int) ./ Just 'O' ./ nul
             let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
-            narrowN (Proxy @'[5, 4, 0, 1, 3, 2]) y `shouldBe`
+            selectN (Proxy @'[5, 4, 0, 1, 3, 2]) y `shouldBe`
                 Just 'A' ./ (6 :: Int) ./ (5 ::Int) ./ False ./ Just 'O' ./ 'X' ./ nul
 
-        it "has getter for multiple fields with duplicates using 'narrowN'" $ do
+        it "has getter for multiple fields with duplicates using 'selectN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
-            narrowN (Proxy @'[5, 4, 0]) x `shouldBe` Just 'A' ./ (6 :: Int) ./ (5 ::Int) ./ nul
+            selectN (Proxy @'[5, 4, 0]) x `shouldBe` Just 'A' ./ (6 :: Int) ./ (5 ::Int) ./ nul
 
-        it "can't narrow into types from indistinct fields" $ do
+        it "can't select into types from indistinct fields" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
             -- Compile error: Int is a duplicate
-            -- narrow @[Bool, Char, Int] x `shouldBe` False ./ 'X' ./ (5 :: Int) ./ nul
+            -- select @[Bool, Char, Int] x `shouldBe` False ./ 'X' ./ (5 :: Int) ./ nul
             x `shouldBe` x
 
-        it "with duplicate fields has getter for multiple unique fields 'narrow'" $ do
+        it "with duplicate fields has getter for multiple unique fields 'select'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul
-            narrow @'[Bool, Char] x `shouldBe` False ./ 'X' ./ nul
+            select @'[Bool, Char] x `shouldBe` False ./ 'X' ./ nul
 
         it "has setter for multiple fields using 'amend'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nul
@@ -295,6 +295,7 @@ spec = do
                 (4 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (8 :: Int) ./ Just 'B' ./ nul
             (x & (projectN @'[5, 4, 0] Proxy) .~ (Just "Foo" ./ (8 :: Int) ./ "Bar" ./ nul)) `shouldBe`
                 "Bar" ./ False ./ 'X' ./ Just 'O' ./ (8 :: Int) ./ Just "Foo" ./ nul
+
 
         it "can be folded with 'Many' handlers using 'forMany' or 'collect'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nul

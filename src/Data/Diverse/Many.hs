@@ -40,10 +40,10 @@ module Data.Diverse.Many (
 
     -- * Multiple fields
     -- ** Getter for multiple fields
-    , Narrow
-    , narrow
-    , NarrowN
-    , narrowN
+    , Select
+    , select
+    , SelectN
+    , selectN
     -- ** Setter for multiple fields
     , Amend
     , amend
