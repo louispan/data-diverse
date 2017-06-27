@@ -326,3 +326,4 @@ spec = do
                 ret = ["5", "False", "'X'", "Just 'O'", "6", "Just 'A'"]
             afoldr (:) [] (collectN x (casesN y)) `shouldBe` ret
             afoldr (:) [] (forManyN (casesN y) x) `shouldBe` ret
+
