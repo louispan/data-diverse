@@ -29,13 +29,12 @@ library
                        Data.Diverse.Emit
                        Data.Diverse.Many
                        Data.Diverse.Many.Internal
-                       Data.Diverse.PackageId
                        Data.Diverse.Reduce
                        Data.Diverse.Reiterate
                        Data.Diverse.Type
-                       Data.Diverse.Type.Internal
                        Data.Diverse.Which
                        Data.Diverse.Which.Internal
+  other-modules:       Data.Diverse.Type.Internal
   build-depends:       base >= 4.7 && < 5
                      , containers >= 0.5 && < 0.6
                      , ghc-prim >= 0.5 && < 1

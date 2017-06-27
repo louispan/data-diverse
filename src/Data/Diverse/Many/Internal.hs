@@ -99,7 +99,6 @@ import Data.Diverse.AFoldable
 import Data.Diverse.Case
 import Data.Diverse.Collector
 import Data.Diverse.Emit
-import Data.Diverse.PackageId
 import Data.Diverse.Reiterate
 import Data.Diverse.Type
 import Data.Kind
@@ -161,24 +160,16 @@ type role Many representational
 
 -- | A terminating 'G.Generic' instance encoded as a 'nul'.
 instance G.Generic (Many '[]) where
-    type Rep (Many '[]) = G.D1 ('G.MetaData
-                              "Many"
-                              "Data.Diverse.Many.Internal"
-                              PackageId
-                              'False) G.U1
-    from _ = {- G.D1 -} G.M1 {- G.U1 -} G.U1
-    to (G.M1 G.U1) = nul
+    type Rep (Many '[]) =  G.U1
+    from _ = {- G.U1 -} G.U1
+    to G.U1 = nul
 
 -- | A 'G.Generic' instance encoded as the 'front' value 'G.:*:' with the 'aft' 'Many'.
 -- The 'G.C1' and 'G.S1' metadata are not encoded.
 instance G.Generic (Many (x ': xs)) where
-    type Rep (Many (x ': xs)) = G.D1 ('G.MetaData
-                              "Many"
-                              "Data.Diverse.Many.Internal"
-                              PackageId
-                              'False) ((G.Rec0 x) G.:*: (G.Rec0 (Many xs)))
-    from r = {- G.D1 -} G.M1 (({- G.Rec0 -} G.K1 (front r)) G.:*: ({- G.Rec0 -} G.K1 (aft r)))
-    to ({- G.D1 -} G.M1 (({- G.Rec0 -} G.K1 a) G.:*: ({- G.Rec0 -} G.K1 b))) = a ./ b
+    type Rep (Many (x ': xs)) = (G.Rec0 x) G.:*: (G.Rec0 (Many xs))
+    from r = ({- G.Rec0 -} G.K1 (front r)) G.:*: ({- G.Rec0 -} G.K1 (aft r))
+    to (({- G.Rec0 -} G.K1 a) G.:*: ({- G.Rec0 -} G.K1 b)) = a ./ b
 
 -----------------------------------------------------------------------
 

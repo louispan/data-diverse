@@ -64,7 +64,6 @@ import Data.Diverse.AFoldable
 import Data.Diverse.Case
 import Data.Diverse.Collector
 import Data.Diverse.Emit
-import Data.Diverse.PackageId
 import Data.Diverse.Reduce
 import Data.Diverse.Reiterate
 import Data.Diverse.Type
@@ -113,38 +112,25 @@ type role Which representational
 -- | A terminating 'G.Generic' instance for no types encoded as a 'impossible'.
 -- The 'G.C1' and 'G.S1' metadata are not encoded.
 instance G.Generic (Which '[]) where
-  type Rep (Which '[]) = G.D1 ('G.MetaData
-                            "Which"
-                            "Data.Diverse.Which.Internal"
-                            PackageId
-                            'False) G.U1
-  from _ = {- G.D1 -} G.M1 {- G.U1 -} G.U1
-  to (G.M1 G.U1) = impossible
+  type Rep (Which '[]) = G.U1
+  from _ = {- G.U1 -} G.U1
+  to G.U1 = impossible
 
 -- | A terminating 'G.Generic' instance for one type encoded with 'pick''.
 -- The 'G.C1' and 'G.S1' metadata are not encoded.
 instance G.Generic (Which '[x]) where
-    type Rep (Which '[x]) = G.D1 ('G.MetaData
-                              "Which"
-                              "Data.Diverse.Which.Internal"
-                              PackageId
-                              'False) (G.Rec0 x)
-    from v = {- G.D1 -} G.M1 ({- G.Rec0 -} G.K1 (obvious v))
-    to ({- G.D1 -} G.M1 ({- G.Rec0 -} G.K1 a)) = pickOnly a
+    type Rep (Which '[x]) = G.Rec0 x
+    from v = {- G.Rec0 -} G.K1 (obvious v)
+    to ({- G.Rec0 -} G.K1 a) = pickOnly a
 
 -- | A 'G.Generic' instance encoded as either the 'x' value ('G.:+:') or the 'diversify0'ed remaining 'Which xs'.
 -- The 'G.C1' and 'G.S1' metadata are not encoded.
 instance G.Generic (Which (x ': x' ': xs)) where
-    type Rep (Which (x ': x' ': xs)) = G.D1 ('G.MetaData
-                              "Which"
-                              "Data.Diverse.Which.Internal"
-                              PackageId
-                              'False) ((G.Rec0 x) G.:+: (G.Rec0 (Which (x' ': xs))))
-    from v = {- G.D1 -} G.M1 $
-        case trial0 v of
+    type Rep (Which (x ': x' ': xs)) = (G.Rec0 x) G.:+: (G.Rec0 (Which (x' ': xs)))
+    from v = case trial0 v of
             Right x -> G.L1 ({- G.Rec0 -} G.K1 x)
             Left v' -> G.R1 ({- G.Rec0 -} G.K1 v')
-    to ({- G.D1 -} G.M1 ({- G.Rec0 -} x)) = case x of
+    to {- G.Rec0 -} x = case x of
         G.L1 ({- G.Rec0 -} G.K1 a) -> pick0 a
         G.R1 ({- G.Rec0 -} G.K1 v) -> diversify0 v
 

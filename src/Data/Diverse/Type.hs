@@ -88,11 +88,6 @@ type ReplaceIndex (n :: Nat) (y :: k) (xs :: [k]) = ReplaceIndexImpl n xs n y xs
 -- | The typelist @xs@ replaced by @ys@ at the indices @ns@. @ns@ and @ys@ must be the same length. @ns@ must be within bounds of @xs@
 type ReplacesIndex (ns :: [Nat]) (ys :: [k]) (xs :: [k]) = ReplacesIndexImpl 0 ns ys xs
 
--- | Gets the ength of a typelist
-type family Length (xs :: [k]) :: Nat where
-    Length '[] = 0
-    Length (x ': xs) = 1 + Length xs
-
 -- | Get the typelist without the 'Head' type
 type family Tail (xs :: [k]) :: [k] where
     Tail '[] = TypeError ('Text "Tail error: empty type list")
