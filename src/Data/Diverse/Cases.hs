@@ -62,7 +62,7 @@ instance UniqueMember (Head xs -> r) fs => Case (Cases fs) xs r where
 -- This function imposes additional @SameLength@ constraints than when using the 'Cases' constructor directly.
 -- It is better practice to use 'cases' to prevent programming confusion with dead code.
 -- However, the 'Cases' constructor is still exported to allow creating a master-of-all-'Case'.
-cases :: SameLength fs (Distinct xs) => Many fs -> (Cases fs) xs r
+cases :: SameLength fs (Nub xs) => Many fs -> (Cases fs) xs r
 cases = Cases
 
 -----------------------------------------------

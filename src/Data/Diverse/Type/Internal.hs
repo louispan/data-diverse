@@ -31,12 +31,12 @@ type family IndexOfImpl (ctx :: [k]) (x :: k) (xs :: [k]) :: Nat where
 -- | Searches for y in ys
 -- if not found, than use y, and repeat search with next (y ': ys) in ctx
 -- else if found, then don't use y, then repeat search with next (y ': ys) in ctx
-type family DistinctImpl (ctx :: [k]) (y :: k) (ys :: [k]) :: [k] where
-    DistinctImpl '[] y '[] = y ': '[]
-    DistinctImpl '[] y (y ': xs) = '[]
-    DistinctImpl (x ': xs) y '[] = y ': DistinctImpl xs x xs
-    DistinctImpl (x ': xs) y (y ': ys) = DistinctImpl xs x xs
-    DistinctImpl ctx y (x ': xs) = DistinctImpl ctx y xs
+type family NubImpl (ctx :: [k]) (y :: k) (ys :: [k]) :: [k] where
+    NubImpl '[] y '[] = y ': '[]
+    NubImpl '[] y (y ': xs) = '[]
+    NubImpl (x ': xs) y '[] = y ': NubImpl xs x xs
+    NubImpl (x ': xs) y (y ': ys) = NubImpl xs x xs
+    NubImpl ctx y (x ': xs) = NubImpl ctx y xs
 
 -- | Errors if a type exists in a typelist
 type family MissingImpl (ctx :: [k]) (y :: k) (xs :: [k]) :: Constraint where

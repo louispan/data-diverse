@@ -35,9 +35,9 @@ type family UniqueIfExists ys x xs :: Constraint where
 type IsDistinct (xs :: [k]) = IsDistinctImpl xs xs
 
 -- | Return the list of distinct types in a typelist
-type family Distinct (xs :: [k]) :: [k] where
-    Distinct '[] = '[]
-    Distinct (x ': xs) = DistinctImpl xs x xs
+type family Nub (xs :: [k]) :: [k] where
+    Nub '[] = '[]
+    Nub (x ': xs) = NubImpl xs x xs
 
 -- | Ensures that @x@ only ever appears once in @xs@
 type Unique (x :: k) (xs :: [k]) = UniqueImpl xs x xs
@@ -130,13 +130,3 @@ type family Init (xs :: [k]) :: [k] where
 
 -- | Takes two lists which must be the same length and returns a list of corresponding pairs.
 type Zip (xs :: [k]) (ys :: [k]) = ZipImpl xs ys xs ys
-
-type family Unzip (xs :: [(a, b)]) :: ([k], [k]) where
-    Unzip '[] = '( '[], '[])
-    Unzip ('(a, b) ': xs) = '(a ': First (Unzip xs), b ': Second (Unzip xs))
-
-type family First (x :: (k, k)) :: k where
-    First '(a, b) = a
-
-type family Second (x :: (k, k)) :: k where
-    Second '(a, b) = b
