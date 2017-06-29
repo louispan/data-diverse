@@ -101,6 +101,7 @@ import Data.Diverse.Collector
 import Data.Diverse.Emit
 import Data.Diverse.Reiterate
 import Data.Diverse.Type
+import Data.Foldable
 import Data.Kind
 import qualified Data.Map.Strict as M
 import Data.Proxy
@@ -117,12 +118,6 @@ import Unsafe.Coerce
 -- I like to highlight them as partial by using them in the namespace Partial.head
 -- These usages in this module are safe due to size guarantees provided by the typelist.
 import Prelude as Partial
-
-newtype Key = Key Int deriving (Eq, Ord, Show)
-newtype LeftOffset = LeftOffset Int
-newtype LeftSize = LeftSize Int
-newtype RightOffset = RightOffset Int
-newtype NewRightOffset = NewRightOffset { unNewRightOffset :: Int }
 
 -- | A Many is an anonymous product type (also know as polymorphic record), with no limit on the number of fields.
 --
@@ -151,11 +146,21 @@ newtype NewRightOffset = NewRightOffset { unNewRightOffset :: Int }
 --
 -- The constructor will guarantee the correct number and types of the elements.
 -- The constructor is only exported in the "Data.Diverse.Many.Internal" module
-data Many (xs :: [Type]) = Many {-# UNPACK #-} !Int (M.Map Key Any)
+data Many (xs :: [Type]) = Many {-# UNPACK #-} !Int (M.Map Int Any)
+{-# NOINLINE Many #-}
 
 -- | Inferred role is phantom which is incorrect
 type role Many representational
 
+-- | Many stored as a list. This is useful when folding over 'Many' efficienty
+-- so that the conversion to List is only done once
+data ManyList (xs :: [Type]) = ManyList [Any]
+
+toManyList :: Many xs -> ManyList xs
+toManyList (Many _ m) = ManyList (snd <$> M.toAscList m)
+
+fromManyList :: ManyList xs -> Many xs
+fromManyList (ManyList xs) = Many 0 (M.fromList (zip [(0 :: Int)..] xs))
 -----------------------------------------------------------------------
 
 -- | A terminating 'G.Generic' instance encoded as a 'nul'.
@@ -288,16 +293,15 @@ instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l
 -- So we need to adjust the existing index on the RightMap by
 -- \OldRightKey -> RightIndex + LeftOffset + LeftSize (as above)
 -- \OldRightKey -> OldRightKey - RightOffset + LeftOffset + LeftSize
-rightKeyForSnoc :: LeftOffset -> LeftSize -> RightOffset -> Key -> Key
-rightKeyForSnoc (LeftOffset lo) (LeftSize ld) (RightOffset ro) (Key rk) =
-    Key (rk - ro + lo + ld)
+rightKeyForSnoc :: Int -> Int -> Int -> Int -> Int
+rightKeyForSnoc lo ld ro rk = rk - ro + lo + ld
 
 -- | When appending two maps together, get the function to modify the RightMap's offset
 -- when adding LeftMap into RightMap.
 -- The existing contents of RightMap will not be changed.
 -- NewRightOffset = OldRightOffset - LeftSize
-rightOffsetForCons :: LeftSize -> RightOffset -> NewRightOffset
-rightOffsetForCons (LeftSize ld) (RightOffset ro) = NewRightOffset (ro - ld)
+rightOffsetForCons :: Int -> Int -> Int
+rightOffsetForCons ld ro = ro - ld
 
 -- | When appending two maps together, get the function to 'M.mapKeys' the LeftMap
 -- when adding LeftMap into RightMap.
@@ -308,8 +312,8 @@ rightOffsetForCons (LeftSize ld) (RightOffset ro) = NewRightOffset (ro - ld)
 -- So we need to adjust the existing index on the LeftMap by
 -- \OldLeftKey -> LeftIndex + NewRightOffset (as above)
 -- \OldLeftKey -> OldLeftKey - LeftOffset + NewRightOffset (as above)
-leftKeyForCons :: LeftOffset -> NewRightOffset -> Key -> Key
-leftKeyForCons (LeftOffset lo) (NewRightOffset ro) (Key lk) = Key (lk - lo + ro)
+leftKeyForCons :: Int -> Int -> Int -> Int
+leftKeyForCons lo ro lk = lk - lo + ro
 
 -- | Analogous to 'Prelude.null'. Named 'nul' to avoid conflicting with 'Prelude.null'.
 nul :: Many '[]
@@ -318,18 +322,18 @@ infixr 5 `nul` -- to be the same as 'prefix'
 
 -- | Create a Many from a single value. Analogous to 'M.singleton'
 single :: x -> Many '[x]
-single v = Many 0 (M.singleton (Key 0) (unsafeCoerce v))
+single v = Many 0 (M.singleton 0 (unsafeCoerce v))
 
 -- | Add an element to the left of a Many.
 -- Not named @cons@ to avoid conflict with 'Control.Lens.cons'
 prefix :: x -> Many xs -> Many (x ': xs)
-prefix x (Many ro rm) = Many (unNewRightOffset nro)
+prefix x (Many ro rm) = Many nro
     (M.insert
-        (leftKeyForCons (LeftOffset 0) nro (Key 0))
+        (leftKeyForCons 0 nro 0)
         (unsafeCoerce x)
         rm)
   where
-    nro = rightOffsetForCons (LeftSize 1) (RightOffset ro)
+    nro = rightOffsetForCons 1 ro
 infixr 5 `prefix`
 
 -- | Infix version of 'prefix'.
@@ -343,7 +347,7 @@ infixr 5 ./ -- like Data.List.(:)
 -- Not named 'snoc' to avoid conflict with 'Control.Lens.snoc'
 postfix :: Many xs -> y -> Many (Append xs '[y])
 postfix (Many lo lm) y = Many lo
-    (M.insert (rightKeyForSnoc (LeftOffset lo) (LeftSize (M.size lm)) (RightOffset 0) (Key 0))
+    (M.insert (rightKeyForSnoc lo (M.size lm) 0 0)
         (unsafeCoerce y)
         lm)
 infixl 5 `postfix`
@@ -363,14 +367,14 @@ append :: Many xs -> Many ys -> Many (Append xs ys)
 append (Many lo lm) (Many ro rm) = if ld >= rd
     then Many
          lo
-         (lm `M.union` (M.mapKeys (rightKeyForSnoc (LeftOffset lo) (LeftSize ld) (RightOffset ro)) rm))
+         (lm `M.union` (M.mapKeys (rightKeyForSnoc lo ld ro) rm))
     else Many
-         (unNewRightOffset nro)
-         ((M.mapKeys (leftKeyForCons (LeftOffset lo) nro) lm) `M.union` rm)
+         nro
+         ((M.mapKeys (leftKeyForCons lo nro) lm) `M.union` rm)
   where
     ld = M.size lm
     rd = M.size rm
-    nro = rightOffsetForCons (LeftSize ld) (RightOffset ro)
+    nro = rightOffsetForCons ld ro
 infixr 5 `append` -- like Data.List (++)
 
 -----------------------------------------------------------------------
@@ -380,6 +384,9 @@ infixr 5 `append` -- like Data.List (++)
 front :: Many (x ': xs) -> x
 front (Many _ m) = unsafeCoerce (snd . Partial.head $ M.toAscList m)
 
+front' :: ManyList (x ': xs) -> x
+front' (ManyList xs) = unsafeCoerce (Partial.head xs)
+
 -- | Extract the 'back' element of a Many, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.last'
 back :: Many (x ': xs) -> Last (x ': xs)
@@ -388,12 +395,15 @@ back (Many _ m) = unsafeCoerce (snd . Partial.head $ M.toDescList m)
 -- | Extract the elements after the front of a Many, which guaranteed to be non-empty.
 -- Analogous to 'Partial.tail'
 aft :: Many (x ': xs) -> Many xs
-aft (Many o m) = Many (o + 1) (M.delete (Key o) m)
+aft (Many o m) = Many (o + 1) (M.delete o m)
+
+aft' :: ManyList (x ': xs) -> ManyList xs
+aft' (ManyList xs) = ManyList (Partial.tail xs)
 
 -- | Return all the elements of a Many except the 'back' one, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.init'
 fore :: Many (x ': xs) -> Many (Init (x ': xs))
-fore (Many o m) = Many o (M.delete (Key (o + M.size m - 1)) m)
+fore (Many o m) = Many o (M.delete (o + M.size m - 1) m)
 
 --------------------------------------------------
 
@@ -404,7 +414,7 @@ fore (Many o m) = Many o (M.delete (Key (o + M.size m - 1)) m)
 -- 'fetch' \@Int x \`shouldBe` 5
 -- @
 fetch :: forall x xs. UniqueMember x xs => Many xs -> x
-fetch (Many o m) = unsafeCoerce (m M.! (Key (o + i)))
+fetch (Many o m) = unsafeCoerce (m M.! (o + i))
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
 --------------------------------------------------
@@ -413,7 +423,7 @@ fetch (Many o m) = unsafeCoerce (m M.! (Key (o + i)))
 --
 -- @getchN (Proxy \@2) t@
 fetchN :: forall n x xs proxy. MemberAt n x xs => proxy n -> Many xs -> x
-fetchN p (Many o m) = unsafeCoerce (m M.! (Key (o + i)))
+fetchN p (Many o m) = unsafeCoerce (m M.! (o + i))
   where i = fromInteger (natVal p)
 
 --------------------------------------------------
@@ -425,7 +435,7 @@ fetchN p (Many o m) = unsafeCoerce (m M.! (Key (o + i)))
 -- 'replace' \@Int x 6 \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
 -- @
 replace :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
-replace (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
+replace (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
 -- | Polymorphic setter by unique type. Set the field with type @x@, and replace with type @y@
@@ -435,7 +445,7 @@ replace (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 -- 'replace'' \@Int Proxy x (Just True) \`shouldBe` Just True './' False './' \'X' './' Just \'O' './' 'nul'
 -- @
 replace' :: forall x y xs. UniqueMember x xs => Proxy x -> Many xs -> y -> Many (Replace x y xs)
-replace' _ (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
+replace' _ (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
 
 --------------------------------------------------
@@ -447,12 +457,12 @@ replace' _ (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
 -- 'replaceN' \@0 Proxy x 7 `shouldBe`
 -- @
 replaceN :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many xs
-replaceN p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
+replaceN p (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
   where i = fromInteger (natVal p)
 
 -- | Polymorphic version of 'replaceN'
 replaceN' :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
-replaceN' p (Many o m) v = Many o (M.insert (Key (o + i)) (unsafeCoerce v) m)
+replaceN' p (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
   where i = fromInteger (natVal p)
 
 -----------------------------------------------------------------------
@@ -598,7 +608,7 @@ collectN = flip forManyN
 -- | A friendlier type constraint synomyn for 'select'
 type Select (smaller :: [Type]) (larger :: [Type]) =
     (AFoldable
-        ( Collector (Via (CaseSelect smaller larger)) larger) [(Key, WrappedAny)])
+        ( Collector (Via (CaseSelect smaller larger)) larger) [(Int, WrappedAny)])
 
 -- | Construct a 'Many' with a smaller number of fields than the original.
 -- Analogous to 'fetch' getter but for multiple fields.
@@ -622,11 +632,11 @@ instance Reiterate (CaseSelect smaller larger) (x ': xs) where
 
 -- | For each type x in larger, find the index in ys, and create an (incrementing key, value)
 instance forall smaller larger x xs. (UniqueIfExists smaller x larger, MaybeUniqueMember x smaller) =>
-         Case (CaseSelect smaller larger) (x ': xs) [(Key, WrappedAny)] where
+         Case (CaseSelect smaller larger) (x ': xs) [(Int, WrappedAny)] where
     caseAny _ v =
         case i of
             0 -> []
-            i' -> [(Key (i' - 1), WrappedAny v)]
+            i' -> [(i' - 1, WrappedAny v)]
       where
         i = fromInteger (natVal @(PositionOf x smaller) Proxy)
 
@@ -634,7 +644,7 @@ instance forall smaller larger x xs. (UniqueIfExists smaller x larger, MaybeUniq
 
 -- | A friendlier type constraint synomyn for 'selectN'
 type SelectN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
-    ( AFoldable (CollectorN (ViaN (CaseSelectN ns smaller)) 0 larger) [(Key, WrappedAny)]
+    ( AFoldable (CollectorN (ViaN (CaseSelectN ns smaller)) 0 larger) [(Int, WrappedAny)]
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
@@ -666,18 +676,18 @@ instance ReiterateN (CaseSelectN indices smaller) n (x ': xs) where
 
 -- | For each type x in @larger@, find the index in ys, and create an (incrementing key, value)
 instance forall indices smaller n x xs. MaybeMemberAt (PositionOf n indices) x smaller =>
-         Case (CaseSelectN indices smaller n) (x ': xs) [(Key, WrappedAny)] where
+         Case (CaseSelectN indices smaller n) (x ': xs) [(Int, WrappedAny)] where
     caseAny _ v =
         case i of
             0 -> []
-            i' -> [(Key (i' - 1), WrappedAny v)]
+            i' -> [(i' - 1, WrappedAny v)]
       where
         i = fromInteger (natVal @(PositionOf n indices) Proxy)
 
 -----------------------------------------------------------------------
 
 -- | A friendlier type constraint synomyn for 'amend'
-type Amend smaller larger = (AFoldable (Collector (Via (CaseAmend larger)) smaller) (Key, WrappedAny)
+type Amend smaller larger = (AFoldable (Collector (Via (CaseAmend larger)) smaller) (Int, WrappedAny)
        , IsDistinct smaller)
 
 -- | Sets the subset of 'Many' in the larger 'Many'.
@@ -699,15 +709,15 @@ instance Reiterate (CaseAmend larger) (x ': xs) where
     reiterate (CaseAmend lo) = CaseAmend lo
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
-instance UniqueMember x larger => Case (CaseAmend larger) (x ': xs) (Key, WrappedAny) where
-    caseAny (CaseAmend lo) v = (Key (lo + i), WrappedAny v)
+instance UniqueMember x larger => Case (CaseAmend larger) (x ': xs) (Int, WrappedAny) where
+    caseAny (CaseAmend lo) v = (lo + i, WrappedAny v)
       where
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
 
 -----------------------------------------------------------------------
 
 -- | A friendlier type constraint synomyn for 'amend''
-type Amend' smaller smaller' larger = (AFoldable (Collector (Via (CaseAmend' larger)) (Zip smaller smaller')) (Key, WrappedAny), IsDistinct smaller)
+type Amend' smaller smaller' larger = (AFoldable (Collector (Via (CaseAmend' larger)) (Zip smaller smaller')) (Int, WrappedAny), IsDistinct smaller)
 
 amend' :: forall smaller smaller' larger. Amend' smaller smaller' larger
     => Proxy smaller -> Many larger -> Many smaller' -> Many (Replaces smaller smaller' larger)
@@ -726,15 +736,15 @@ instance Reiterate (CaseAmend' larger) (z ': zs) where
     reiterate (CaseAmend' lo) = CaseAmend' lo
 
 -- | for each y in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
-instance UniqueMember x larger => Case (CaseAmend' larger) ((x, y) ': zs) (Key, WrappedAny) where
-    caseAny (CaseAmend' lo) v = (Key (lo + i), WrappedAny v)
+instance UniqueMember x larger => Case (CaseAmend' larger) ((x, y) ': zs) (Int, WrappedAny) where
+    caseAny (CaseAmend' lo) v = (lo + i, WrappedAny v)
       where
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
 
 -----------------------------------------------------------------------
 -- | A friendlier type constraint synomyn for 'amendN'
 type AmendN ns smaller larger =
-    ( AFoldable (CollectorN (ViaN (CaseAmendN ns larger)) 0 smaller) (Key, WrappedAny)
+    ( AFoldable (CollectorN (ViaN (CaseAmendN ns larger)) 0 smaller) (Int, WrappedAny)
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
@@ -768,14 +778,14 @@ instance ReiterateN (CaseAmendN indices larger) n (x ': xs) where
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt (KindAtIndex n indices) x larger) =>
-         Case (CaseAmendN indices larger n) (x ': xs) (Key, WrappedAny) where
-    caseAny (CaseAmendN lo) v = (Key (lo + i), WrappedAny v)
+         Case (CaseAmendN indices larger n) (x ': xs) (Int, WrappedAny) where
+    caseAny (CaseAmendN lo) v = (lo + i, WrappedAny v)
       where
         i = fromInteger (natVal @(KindAtIndex n indices) Proxy)
 
 -- | A friendlier type constraint synomyn for 'amendN'
 type AmendN' ns smaller smaller' larger =
-    ( AFoldable (CollectorN (ViaN (CaseAmendN' ns larger)) 0 (Zip smaller smaller')) (Key, WrappedAny)
+    ( AFoldable (CollectorN (ViaN (CaseAmendN' ns larger)) 0 (Zip smaller smaller')) (Int, WrappedAny)
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
@@ -799,8 +809,8 @@ instance ReiterateN (CaseAmendN' indices larger) n (z ': zs) where
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt (KindAtIndex n indices) x larger) =>
-         Case (CaseAmendN' indices larger n) ((x, y) ': zs) (Key, WrappedAny) where
-    caseAny (CaseAmendN' lo) v = (Key (lo + i), WrappedAny v)
+         Case (CaseAmendN' indices larger n) ((x, y) ': zs) (Int, WrappedAny) where
+    caseAny (CaseAmendN' lo) v = (lo + i, WrappedAny v)
       where
         i = fromInteger (natVal @(KindAtIndex n indices) Proxy)
 
@@ -862,33 +872,88 @@ projectN' p = lens (selectN p) (amendN' p)
 
 -----------------------------------------------------------------------
 
--- | Stores the left & right Many and a list of Any which must be the same length and types in xs typelist.
-newtype EmitEqMany (xs :: [Type]) r = EmitEqMany ([Any], [Any])
+-- -- | Stores the left & right Many and a list of Any which must be the same length and types in xs typelist.
+-- newtype EmitEqMany (xs :: [Type]) r = EmitEqMany ([Any], [Any])
 
-instance Reiterate EmitEqMany (x ': xs) where
-    -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (EmitEqMany (ls, rs)) = EmitEqMany (Partial.tail ls, Partial.tail rs)
+-- instance Reiterate EmitEqMany (x ': xs) where
+--     -- use of tail here is safe as we are guaranteed the length from the typelist
+--     reiterate (EmitEqMany (ls, rs)) = EmitEqMany (Partial.tail ls, Partial.tail rs)
 
-instance Eq x => Emit EmitEqMany (x ': xs) Bool where
-    emit (EmitEqMany (ls, rs)) = l == r
-      where
-        -- use of front here is safe as we are guaranteed the length from the typelist
-        l = unsafeCoerce (Partial.head ls) :: x
-        r = unsafeCoerce (Partial.head rs) :: x
+-- instance Eq x => Emit EmitEqMany (x ': xs) Bool where
+--     emit (EmitEqMany (ls, rs)) = l == r
+--       where
+--         -- use of front here is safe as we are guaranteed the length from the typelist
+--         l = unsafeCoerce (Partial.head ls) :: x
+--         r = unsafeCoerce (Partial.head rs) :: x
 
-eqMany
-    :: forall xs.
-       AFoldable (Collector EmitEqMany xs) Bool
-    => Many xs -> Many xs -> [Bool]
-eqMany (Many _ lm) (Many _ rm) = afoldr (:) []
-    (Collector (EmitEqMany @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
+-- -- This version take too long to compile
+-- eqMany
+--     :: forall xs.
+--        AFoldable (Collector EmitEqMany xs) Bool
+--     => Many xs -> Many xs -> [Bool]
+-- eqMany (Many _ lm) (Many _ rm) = afoldr (:) []
+--     (Collector (EmitEqMany @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
+
+-- -- | Two 'Many's are equal if all their fields equal
+-- instance AFoldable (Collector EmitEqMany xs) Bool => Eq (Many xs) where
+--     lt == rt = foldl' (\e z -> bool False z e) True eqs
+--       where
+--         eqs = eqMany lt rt
+
+-- This version is 9 seconds to compile
+instance Eq (ManyList '[]) where
+    _ == _ = True
+    {-# NOINLINE (==) #-}
+
+instance (Eq x, Eq (ManyList xs)) => Eq (ManyList (x ': xs)) where
+    ls == rs = case front' ls == front' rs of
+        False -> False
+        _ -> (aft' ls) == (aft' rs)
+    -- GHC compilation is SLOW if INLINE is on... too many type instances?
+    {-# NOINLINE (==) #-}
+
 
 -- | Two 'Many's are equal if all their fields equal
-instance AFoldable (Collector EmitEqMany xs) Bool => Eq (Many xs) where
-    lt == rt = foldr (\e z -> bool False z e) True eqs
-      where
-        eqs = eqMany lt rt
+instance Eq (ManyList xs) => Eq (Many xs) where
+    lt == rt = toManyList lt == toManyList rt
+    {-# NOINLINE (==) #-}
 
+
+instance Show (ManyList '[]) where
+    showsPrec d _ = showParen (d > cons_prec) $ showString "nul"
+      where
+        cons_prec = 5 -- infixr 5 prefix
+
+instance (Show x, Show (ManyList xs)) => Show (ManyList (x ': xs)) where
+    showsPrec d ls@(ManyList xs) =
+        showParen (d > cons_prec) $
+        showsPrec (cons_prec + 1) v .
+        showString " ./ " .
+        showsPrec cons_prec (aft' ls)
+      where
+        cons_prec = 5 -- infixr 5 prefix
+        -- use of front here is safe as we are guaranteed the length from the typelist
+        v = unsafeCoerce (Partial.head xs) :: x
+    -- GHC compilation is SLOW if INLINE is on... too many type instances?
+    {-# NOINLINE showsPrec #-}
+
+-- | Two 'Many's are equal if all their fields equal
+instance Show (ManyList xs) => Show (Many xs) where
+    showsPrec d xs = showsPrec d (toManyList xs)
+    {-# NOINLINE showsPrec #-}
+
+
+
+-- The below version is twice as slow to compile!
+-- eqMany
+--     :: forall xs. Many xs -> Many xs -> Collector EmitEqMany xs Bool
+-- eqMany (Many _ lm) (Many _ rm) = Collector (EmitEqMany @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm))
+
+-- -- | Two 'Many's are equal if all their fields equal
+-- instance AFoldable (Collector EmitEqMany xs) Bool => Eq (Many xs) where
+--     lt == rt = afoldr (\e z -> bool False z e) True eqs
+--       where
+--         eqs = eqMany lt rt
 -----------------------------------------------------------------------
 
 -- | Stores the left & right Many and a list of Any which must be the same length and types in xs typelist.
@@ -922,49 +987,49 @@ instance (Eq (Many xs), AFoldable (Collector EmitOrdMany xs) Ordering) => Ord (M
 
 -----------------------------------------------------------------------
 
--- | Internally uses [Any] like Via, except also handle the empty type list.
-newtype EmitShowMany (xs :: [Type]) r = EmitShowMany [Any]
+-- -- | Internally uses [Any] like Via, except also handle the empty type list.
+-- newtype EmitShowMany (xs :: [Type]) r = EmitShowMany [Any]
 
-instance Reiterate EmitShowMany (x ': xs) where
-    -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (EmitShowMany xxs) = EmitShowMany (Partial.tail xxs)
+-- instance Reiterate EmitShowMany (x ': xs) where
+--     -- use of tail here is safe as we are guaranteed the length from the typelist
+--     reiterate (EmitShowMany xxs) = EmitShowMany (Partial.tail xxs)
 
-instance Emit EmitShowMany '[] ShowS where
-    emit _ = showString "nul"
+-- instance Emit EmitShowMany '[] ShowS where
+--     emit _ = showString "nul"
 
 
-instance Show x => Emit EmitShowMany (x ': xs) ShowS where
-    emit (EmitShowMany xxs) = showsPrec (cons_prec + 1) v . showString " ./ "
-      where
-        -- use of front here is safe as we are guaranteed the length from the typelist
-        v = unsafeCoerce (Partial.head xxs) :: x
-        cons_prec = 5 -- infixr 5 cons
+-- instance Show x => Emit EmitShowMany (x ': xs) ShowS where
+--     emit (EmitShowMany xxs) = showsPrec (cons_prec + 1) v . showString " ./ "
+--       where
+--         -- use of front here is safe as we are guaranteed the length from the typelist
+--         v = unsafeCoerce (Partial.head xxs) :: x
+--         cons_prec = 5 -- infixr 5 cons
 
-showMany
-    :: forall xs.
-       AFoldable (Collector0 EmitShowMany xs) ShowS
-    => Many xs -> ShowS
-showMany (Many _ m) = afoldr (.) id (Collector0 (EmitShowMany @xs (snd <$> M.toAscList m)))
+-- showMany
+--     :: forall xs.
+--        AFoldable (Collector0 EmitShowMany xs) ShowS
+--     => Many xs -> ShowS
+-- showMany (Many _ m) = afoldr (.) id (Collector0 (EmitShowMany @xs (snd <$> M.toAscList m)))
 
--- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nul" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'@
-instance AFoldable (Collector0 EmitShowMany xs) ShowS => Show (Many xs) where
-    showsPrec d t = showParen (d > cons_prec) $ showMany t
-      where
-        cons_prec = 5 -- infixr 5 cons
+-- -- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nul" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'@
+-- instance AFoldable (Collector0 EmitShowMany xs) ShowS => Show (Many xs) where
+--     showsPrec d t = showParen (d > cons_prec) $ showMany t
+--       where
+--         cons_prec = 5 -- infixr 5 cons
 
 -----------------------------------------------------------------------
 
-newtype EmitReadMany (xs :: [Type]) r = EmitReadMany Key
+newtype EmitReadMany (xs :: [Type]) r = EmitReadMany Int
 
 instance Reiterate EmitReadMany (x ': xs) where
-    reiterate (EmitReadMany (Key i)) = EmitReadMany (Key (i + 1))
+    reiterate (EmitReadMany i) = EmitReadMany (i + 1)
 
-instance Emit EmitReadMany '[] (ReadPrec [(Key, WrappedAny)]) where
+instance Emit EmitReadMany '[] (ReadPrec [(Int, WrappedAny)]) where
     emit (EmitReadMany _) = do
         lift $ L.expect (Ident "nul")
         pure []
 
-instance Read x => Emit EmitReadMany (x ': xs) (ReadPrec [(Key, WrappedAny)]) where
+instance Read x => Emit EmitReadMany (x ': xs) (ReadPrec [(Int, WrappedAny)]) where
     emit (EmitReadMany i) = do
         a <- readPrec @x
         lift $ L.expect (Symbol "./")
@@ -972,12 +1037,12 @@ instance Read x => Emit EmitReadMany (x ': xs) (ReadPrec [(Key, WrappedAny)]) wh
 
 readMany
     :: forall xs.
-       AFoldable (Collector0 EmitReadMany xs) (ReadPrec [(Key, WrappedAny)])
-    => Proxy (xs :: [Type]) -> ReadPrec [(Key, WrappedAny)]
-readMany _ = afoldr (liftA2 (++)) (pure []) (Collector0 (EmitReadMany @xs (Key 0)))
+       AFoldable (Collector0 EmitReadMany xs) (ReadPrec [(Int, WrappedAny)])
+    => Proxy (xs :: [Type]) -> ReadPrec [(Int, WrappedAny)]
+readMany _ = afoldr (liftA2 (++)) (pure []) (Collector0 (EmitReadMany @xs 0))
 
 -- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nul" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'@
-instance (AFoldable (Collector0 EmitReadMany xs) (ReadPrec [(Key, WrappedAny)])) =>
+instance (AFoldable (Collector0 EmitReadMany xs) (ReadPrec [(Int, WrappedAny)])) =>
          Read (Many xs) where
     readPrec =
         parens $
