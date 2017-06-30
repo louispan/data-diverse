@@ -147,14 +147,19 @@ import Prelude as Partial
 -- The constructor will guarantee the correct number and types of the elements.
 -- The constructor is only exported in the "Data.Diverse.Many.Internal" module
 data Many (xs :: [Type]) = Many {-# UNPACK #-} !Int (M.Map Int Any)
-{-# NOINLINE Many #-}
 
--- | Inferred role is phantom which is incorrect
+-- Inferred role is phantom which is incorrect
+-- representational means:
+-- @
+-- Coercible '[Int] '[IntLike] => Coercible (Many '[Int]) (Many '[IntLike])
+-- @
 type role Many representational
 
 -- | Many stored as a list. This is useful when folding over 'Many' efficienty
 -- so that the conversion to List is only done once
 data ManyList (xs :: [Type]) = ManyList [Any]
+
+type role ManyList representational
 
 toManyList :: Many xs -> ManyList xs
 toManyList (Many _ m) = ManyList (snd <$> M.toAscList m)
@@ -335,6 +340,9 @@ prefix x (Many ro rm) = Many nro
   where
     nro = rightOffsetForCons 1 ro
 infixr 5 `prefix`
+
+prefix' :: x -> ManyList xs -> ManyList (x ': xs)
+prefix' x (ManyList xs) = ManyList (unsafeCoerce x : xs)
 
 -- | Infix version of 'prefix'.
 --
@@ -872,38 +880,8 @@ projectN' p = lens (selectN p) (amendN' p)
 
 -----------------------------------------------------------------------
 
--- -- | Stores the left & right Many and a list of Any which must be the same length and types in xs typelist.
--- newtype EmitEqMany (xs :: [Type]) r = EmitEqMany ([Any], [Any])
-
--- instance Reiterate EmitEqMany (x ': xs) where
---     -- use of tail here is safe as we are guaranteed the length from the typelist
---     reiterate (EmitEqMany (ls, rs)) = EmitEqMany (Partial.tail ls, Partial.tail rs)
-
--- instance Eq x => Emit EmitEqMany (x ': xs) Bool where
---     emit (EmitEqMany (ls, rs)) = l == r
---       where
---         -- use of front here is safe as we are guaranteed the length from the typelist
---         l = unsafeCoerce (Partial.head ls) :: x
---         r = unsafeCoerce (Partial.head rs) :: x
-
--- -- This version take too long to compile
--- eqMany
---     :: forall xs.
---        AFoldable (Collector EmitEqMany xs) Bool
---     => Many xs -> Many xs -> [Bool]
--- eqMany (Many _ lm) (Many _ rm) = afoldr (:) []
---     (Collector (EmitEqMany @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
-
--- -- | Two 'Many's are equal if all their fields equal
--- instance AFoldable (Collector EmitEqMany xs) Bool => Eq (Many xs) where
---     lt == rt = foldl' (\e z -> bool False z e) True eqs
---       where
---         eqs = eqMany lt rt
-
--- This version is 9 seconds to compile
 instance Eq (ManyList '[]) where
     _ == _ = True
-    {-# NOINLINE (==) #-}
 
 instance (Eq x, Eq (ManyList xs)) => Eq (ManyList (x ': xs)) where
     ls == rs = case front' ls == front' rs of
@@ -912,12 +890,11 @@ instance (Eq x, Eq (ManyList xs)) => Eq (ManyList (x ': xs)) where
     -- GHC compilation is SLOW if INLINE is on... too many type instances?
     {-# NOINLINE (==) #-}
 
-
 -- | Two 'Many's are equal if all their fields equal
 instance Eq (ManyList xs) => Eq (Many xs) where
     lt == rt = toManyList lt == toManyList rt
-    {-# NOINLINE (==) #-}
 
+-----------------------------------------------------------------------
 
 instance Show (ManyList '[]) where
     showsPrec d _ = showParen (d > cons_prec) $ showString "nul"
@@ -940,115 +917,44 @@ instance (Show x, Show (ManyList xs)) => Show (ManyList (x ': xs)) where
 -- | Two 'Many's are equal if all their fields equal
 instance Show (ManyList xs) => Show (Many xs) where
     showsPrec d xs = showsPrec d (toManyList xs)
-    {-# NOINLINE showsPrec #-}
 
-
-
--- The below version is twice as slow to compile!
--- eqMany
---     :: forall xs. Many xs -> Many xs -> Collector EmitEqMany xs Bool
--- eqMany (Many _ lm) (Many _ rm) = Collector (EmitEqMany @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm))
-
--- -- | Two 'Many's are equal if all their fields equal
--- instance AFoldable (Collector EmitEqMany xs) Bool => Eq (Many xs) where
---     lt == rt = afoldr (\e z -> bool False z e) True eqs
---       where
---         eqs = eqMany lt rt
 -----------------------------------------------------------------------
 
--- | Stores the left & right Many and a list of Any which must be the same length and types in xs typelist.
-newtype EmitOrdMany (xs :: [Type]) r = EmitOrdMany ([Any], [Any])
+instance Ord (ManyList '[]) where
+    compare _ _ = EQ
 
-instance Reiterate EmitOrdMany (x ': xs) where
-    -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (EmitOrdMany (ls, rs)) = EmitOrdMany (Partial.tail ls, Partial.tail rs)
-
-instance Ord x => Emit EmitOrdMany (x ': xs) Ordering where
-    emit (EmitOrdMany (ls, rs)) = compare l r
-      where
-        -- use of front here is safe as we are guaranteed the length from the typelist
-        l = unsafeCoerce (Partial.head ls) :: x
-        r = unsafeCoerce (Partial.head rs) :: x
-
-ordMany
-    :: forall xs.
-       AFoldable (Collector EmitOrdMany xs) Ordering
-    => Many xs -> Many xs -> [Ordering]
-ordMany (Many _ lm) (Many _ rm) = afoldr (:) []
-    (Collector (EmitOrdMany @xs (snd <$> M.toAscList lm, snd <$> M.toAscList rm)))
+instance (Ord x, Ord (ManyList xs)) => Ord (ManyList (x ': xs)) where
+    compare ls rs = case compare (front' ls) (front' rs) of
+        LT -> LT
+        GT -> GT
+        EQ -> compare (aft' ls) (aft' rs)
+    -- GHC compilation is SLOW if INLINE is on... too many type instances?
+    {-# NOINLINE compare #-}
 
 -- | Two 'Many's are ordered by 'compare'ing their fields in index order
-instance (Eq (Many xs), AFoldable (Collector EmitOrdMany xs) Ordering) => Ord (Many xs) where
-    compare lt rt = foldr (\o z -> case o of
-                                       EQ -> z
-                                       o' -> o') EQ ords
-      where
-        ords = ordMany lt rt
+instance Ord (ManyList xs) => Ord (Many xs) where
+    compare xs ys = compare (toManyList xs) (toManyList ys)
 
 -----------------------------------------------------------------------
 
--- -- | Internally uses [Any] like Via, except also handle the empty type list.
--- newtype EmitShowMany (xs :: [Type]) r = EmitShowMany [Any]
-
--- instance Reiterate EmitShowMany (x ': xs) where
---     -- use of tail here is safe as we are guaranteed the length from the typelist
---     reiterate (EmitShowMany xxs) = EmitShowMany (Partial.tail xxs)
-
--- instance Emit EmitShowMany '[] ShowS where
---     emit _ = showString "nul"
-
-
--- instance Show x => Emit EmitShowMany (x ': xs) ShowS where
---     emit (EmitShowMany xxs) = showsPrec (cons_prec + 1) v . showString " ./ "
---       where
---         -- use of front here is safe as we are guaranteed the length from the typelist
---         v = unsafeCoerce (Partial.head xxs) :: x
---         cons_prec = 5 -- infixr 5 cons
-
--- showMany
---     :: forall xs.
---        AFoldable (Collector0 EmitShowMany xs) ShowS
---     => Many xs -> ShowS
--- showMany (Many _ m) = afoldr (.) id (Collector0 (EmitShowMany @xs (snd <$> M.toAscList m)))
-
--- -- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nul" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'@
--- instance AFoldable (Collector0 EmitShowMany xs) ShowS => Show (Many xs) where
---     showsPrec d t = showParen (d > cons_prec) $ showMany t
---       where
---         cons_prec = 5 -- infixr 5 cons
-
------------------------------------------------------------------------
-
-newtype EmitReadMany (xs :: [Type]) r = EmitReadMany Int
-
-instance Reiterate EmitReadMany (x ': xs) where
-    reiterate (EmitReadMany i) = EmitReadMany (i + 1)
-
-instance Emit EmitReadMany '[] (ReadPrec [(Int, WrappedAny)]) where
-    emit (EmitReadMany _) = do
+instance Read (ManyList '[]) where
+    readPrec = parens $ do
         lift $ L.expect (Ident "nul")
-        pure []
+        pure $ ManyList []
 
-instance Read x => Emit EmitReadMany (x ': xs) (ReadPrec [(Int, WrappedAny)]) where
-    emit (EmitReadMany i) = do
+instance (Read x, Read (ManyList xs)) => Read (ManyList (x ': xs)) where
+    readPrec = parens $ do
         a <- readPrec @x
         lift $ L.expect (Symbol "./")
-        pure [(i, WrappedAny (unsafeCoerce a))]
-
-readMany
-    :: forall xs.
-       AFoldable (Collector0 EmitReadMany xs) (ReadPrec [(Int, WrappedAny)])
-    => Proxy (xs :: [Type]) -> ReadPrec [(Int, WrappedAny)]
-readMany _ = afoldr (liftA2 (++)) (pure []) (Collector0 (EmitReadMany @xs 0))
+        as <- readPrec @(ManyList xs)
+        pure $ prefix' a as
+    {-# NOINLINE readPrec #-}
 
 -- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nul" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'@
-instance (AFoldable (Collector0 EmitReadMany xs) (ReadPrec [(Int, WrappedAny)])) =>
-         Read (Many xs) where
-    readPrec =
-        parens $
-        prec 10 $ do
-            xs <- readMany @xs Proxy
-            pure (Many 0 (fromList' xs))
+instance Read (ManyList xs) => Read (Many xs) where
+    readPrec = do
+        xs <- readPrec @(ManyList xs)
+        pure $ fromManyList xs
 
 -- | 'WrappedAny' avoids the following:
 -- Illegal type synonym family application in instance: Any
