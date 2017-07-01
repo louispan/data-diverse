@@ -35,8 +35,11 @@ spec = do
 
         it "is a Read and Show" $ do
             let s = "5 ./ False ./ 'X' ./ Just 'O' ./ nul"
+                s' = "5 ./ False ./ 'X' ./ (Just 'O' ./ (nul))"
                 x = read s :: Many '[Int, Bool, Char, Maybe Char]
+                x' = read s' :: Many '[Int, Bool, Char, Maybe Char]
             show x `shouldBe` s
+            show x' `shouldBe` s
 
         it "is a Eq" $ do
             let s = "5 ./ False ./ 'X' ./ Just 'O' ./ nul"
