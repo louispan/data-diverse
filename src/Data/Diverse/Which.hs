@@ -9,14 +9,17 @@ module Data.Diverse.Which (
     , pick
     , pick0
     , pickOnly
+    , pickL
     , pickN
       -- ** Destruction
     , obvious
     , trial
     , trial0
+    , trialL
     , trialN
       -- ** Lens
     , facet
+    , facetL
     , facetN
 
       -- * Multiple types

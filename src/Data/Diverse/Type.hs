@@ -17,10 +17,13 @@ import GHC.TypeLits
 type UniqueMember x xs = (Unique x xs, KnownNat (IndexOf x xs))
 
 -- | Ensures that @x@ is a unique member of @xs@, and that 'natVal' can be used.
+type UniqueMemberAt n x xs = (Unique x xs, KnownNat n, n ~ IndexOf x xs)
+
+-- | Ensures that @x@ is a unique member of @xs@, and that 'natVal' can be used.
 type UniqueLabelMember l xs = (UniqueLabel l xs, KnownNat (IndexOf (KindAtLabel l xs) xs))
 
 -- | Ensures that @x@ is a unique member of @xs@ if it exists, and that 'natVal' can be used.
-type MaybeUniqueMember x xs = (Unique x xs, KnownNat (PositionOf x xs))
+type MaybeUniqueMemberAt n x xs = (Unique x xs, KnownNat n, n ~ PositionOf x xs)
 
 -- | Ensures that @x@ is a member of @xs@ at @n@, and that 'natVal' can be used.
 type MemberAt n x xs = (KnownNat n, x ~ KindAtIndex n xs)

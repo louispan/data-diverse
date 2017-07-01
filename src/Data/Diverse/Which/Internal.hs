@@ -23,14 +23,17 @@ module Data.Diverse.Which.Internal (
     , pick
     , pick0
     , pickOnly
+    , pickL
     , pickN
       -- ** Destruction
     , obvious
     , trial
     , trial0
+    , trialL
     , trialN
       -- ** Lens
     , facet
+    , facetL
     , facetN
 
       -- * Multiple types
@@ -153,7 +156,13 @@ impossible = Which (-1) (unsafeCoerce ())
 -- 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: Which '[Int, Bool, Char, Maybe String]
 -- @
 pick :: forall xs x. UniqueMember x xs => x -> Which xs
-pick = Which (fromInteger (natVal @(IndexOf x xs) Proxy)) . unsafeCoerce
+pick = pick_
+
+pick_ :: forall x xs n. (KnownNat n, n ~ IndexOf x xs) => x -> Which xs
+pick_ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
+
+pickL :: forall l xs x proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> x -> Which xs
+pickL _ = pick_ @x
 
 -- | A variation of 'pick' into a 'Which' of a single type.
 --
@@ -199,12 +208,24 @@ trial
     :: forall x xs.
        (UniqueMember x xs)
     => Which xs -> Either (Which (Without x xs)) x
-trial (Which n v) = let i = fromInteger (natVal @(IndexOf x xs) Proxy)
+trial = trial_
+
+trial_
+    :: forall x xs n.
+       (KnownNat n, n ~ IndexOf x xs)
+    => Which xs -> Either (Which (Without x xs)) x
+trial_ (Which n v) = let i = fromInteger (natVal @n Proxy)
                   in if n == i
                      then Right (unsafeCoerce v)
                      else if n > i
                           then Left (Which (n - 1) v)
                           else Left (Which n v)
+
+trialL
+    :: forall l xs x proxy.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> Which xs -> Either (Which (Without x xs)) x
+trialL _ = trial_ @x
 
 -- | A variation of a 'Which' 'trial' which 'trial's the first type in the type list.
 --
@@ -216,7 +237,6 @@ trial0 :: Which (x ': xs) -> Either (Which xs) x
 trial0 (Which n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Which (n - 1) v)
-
 
 -- | 'trialN' the n-th type of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
 --
@@ -255,6 +275,10 @@ hush = either (const Nothing) Just
 facet :: forall x xs. (UniqueMember x xs) => Prism' (Which xs) x
 facet = prism' pick (hush . trial)
 {-# INLINE facet #-}
+
+facetL :: forall l xs x proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Prism' (Which xs) x
+facetL p = prism' (pickL p) (hush . trialL p)
+{-# INLINE facetL #-}
 
 -- | 'pickN' ('review' 'facetN') and 'trialN' ('preview' 'facetN') in 'Prism'' form.
 --
@@ -366,15 +390,15 @@ data CaseReinterpret (branch :: [Type]) (tree :: [Type]) (tree' :: [Type]) r = C
 instance Reiterate (CaseReinterpret branch tree) tree' where
     reiterate CaseReinterpret = CaseReinterpret
 
-instance ( MaybeUniqueMember x branch
+instance ( MaybeUniqueMemberAt n x branch
          , comp ~ Complement tree branch
-         , MaybeUniqueMember x comp
+         , MaybeUniqueMemberAt n' x comp
          , Unique x tree -- Compile error to ensure reinterpret only works with unique fields
          ) =>
          Case (CaseReinterpret branch tree) (x ': tree') (Either (Which comp) (Which branch)) where
     case' CaseReinterpret a =
-        case fromInteger (natVal @(PositionOf x branch) Proxy) of
-            0 -> let j = fromInteger (natVal @(PositionOf x (Complement tree branch)) Proxy)
+        case fromInteger (natVal @n Proxy) of
+            0 -> let j = fromInteger (natVal @n' Proxy)
                  -- safe use of partial! j will never be zero due to check above
                  in Left $ Which (j - 1) (unsafeCoerce a)
             i -> Right $ Which (i - 1) (unsafeCoerce a)
@@ -406,9 +430,9 @@ data CaseReinterpretN (indices :: [Nat]) (n :: Nat) (tree' :: [Type]) r = CaseRe
 instance ReiterateN (CaseReinterpretN indices) n tree' where
     reiterateN CaseReinterpretN = CaseReinterpretN
 
-instance MaybeMemberAt (PositionOf n indices) x branch => Case (CaseReinterpretN indices n) (x ': tree) (Maybe (Which branch)) where
+instance (MaybeMemberAt n' x branch, n' ~ PositionOf n indices) => Case (CaseReinterpretN indices n) (x ': tree) (Maybe (Which branch)) where
     case' CaseReinterpretN a =
-        case fromInteger (natVal @(PositionOf n indices) Proxy) of
+        case fromInteger (natVal @n' Proxy) of
             0 -> Nothing
             i -> Just $ Which (i - 1) (unsafeCoerce a)
 
