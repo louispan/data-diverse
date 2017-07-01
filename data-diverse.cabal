@@ -20,8 +20,8 @@ tested-with:         GHC == 8.0.1
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Data.Diverse.AFoldable
-                       Data.Diverse
+  exposed-modules:     Data.Diverse
+                       Data.Diverse.AFoldable
                        Data.Diverse.Case
                        Data.Diverse.Cases
                        Data.Diverse.CaseTypeable

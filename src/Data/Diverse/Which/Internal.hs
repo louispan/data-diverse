@@ -458,15 +458,14 @@ newtype Switch c (xs :: [Type]) r = Switch (c xs r)
 
 -- | 'trial0' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterate'__
 -- trying the next type in the type list.
--- This code will be efficiently compiled into a single case statement in GHC 8.2.1
--- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
 instance (Case c (x ': x' ': xs) r, Reduce Which (Switch c) (x' ': xs) r, Reiterate c (x : x' : xs)) =>
          Reduce Which (Switch c) (x ': x' ': xs) r where
     reduce (Switch c) v =
         case trial0 v of
             Right a -> case' c a
             Left v' -> reduce (Switch (reiterate c)) v'
-    {-# INLINE reduce #-}
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
+    {-# NOINLINE reduce #-}
 
 -- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
@@ -510,15 +509,14 @@ newtype SwitchN c (n :: Nat) (xs :: [Type]) r = SwitchN (c n xs r)
 
 -- | 'trial0' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterateN'__
 -- trying the next type in the type list.
--- This code will be efficiently compiled into a single case statement in GHC 8.2.1
--- See http://hsyl20.fr/home/posts/2016-12-12-control-flow-in-haskell-part-2.html
 instance (Case (c n) (x ': x' ': xs) r, Reduce Which (SwitchN c (n + 1)) (x' ': xs) r, ReiterateN c n (x : x' : xs)) =>
          Reduce Which (SwitchN c n) (x ': x' ': xs) r where
     reduce (SwitchN c) v =
         case trial0 v of
             Right a -> case' c a
             Left v' -> reduce (SwitchN (reiterateN c)) v'
-    {-# INLINE reduce #-}
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
+    {-# NOINLINE reduce #-}
 
 -- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
