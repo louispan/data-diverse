@@ -71,7 +71,6 @@ import qualified GHC.Generics as G
 import GHC.Prim (Any, coerce)
 import GHC.TypeLits
 import Text.ParserCombinators.ReadPrec
-import Text.ParserCombinators.ReadP (skipSpaces)
 import Text.Read
 import qualified Text.Read.Lex as L
 import Unsafe.Coerce
@@ -621,21 +620,15 @@ instance Show x => Case CaseShowWhich (x ': xs) ShowS where
 ------------------------------------------------------------------
 
 class WhichRead v where
-    whichReadPrec :: Int -> ReadPrec v
+    whichReadPrec :: Int -> Int -> ReadPrec v
 
 data Which' (xs ::[Type]) = Which' {-# UNPACK #-} !Int Any
 
 diversify0' :: forall x xs. Which' xs -> Which' (x ': xs)
 diversify0' = coerce
 
-readWhich' :: forall x xs. Read x => Int -> ReadPrec (Which' (x ': xs))
-readWhich' i = do
-        j <- lift L.readDecP
-        guard (i == j)
-        lift $ L.expect (Ident "Proxy")
-        parens $ prec app_prec $ do
-            v <- readPrec @x
-            pure $ Which' i (unsafeCoerce v)
+readWhich' :: forall x xs. Read x => Int -> Int -> ReadPrec (Which' (x ': xs))
+readWhich' i j = guard (i == j) >> parens (prec app_prec $ (Which' i . unsafeCoerce) <$> readPrec @x)
       where
         app_prec = 10
 
@@ -643,11 +636,8 @@ instance Read x => WhichRead (Which' '[x]) where
     whichReadPrec = readWhich'
 
 instance (Read x, WhichRead (Which' (x' ': xs))) => WhichRead (Which' (x ': x' ': xs)) where
-    whichReadPrec i = (readWhich' i
-               ) <|> (do
-                   v <- whichReadPrec (1 + i) :: ReadPrec (Which' (x' ': xs))
-                   pure $ diversify0' v
-               )
+    whichReadPrec i j = readWhich' i j
+               <|> (diversify0' <$> (whichReadPrec i (j + 1) :: ReadPrec (Which' (x' ': xs))))
     -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
     {-# NOINLINE whichReadPrec #-}
 
@@ -659,7 +649,9 @@ instance WhichRead (Which' (x ': xs)) =>
         parens $ prec app_prec $ do
             lift $ L.expect (Ident "pickN")
             lift $ L.expect (Punc "@")
-            Which' n v <- whichReadPrec 0 :: ReadPrec (Which' (x ': xs))
+            i <- lift L.readDecP
+            lift $ L.expect (Ident "Proxy")
+            Which' n v <- whichReadPrec i 0 :: ReadPrec (Which' (x ': xs))
             pure $ Which n v
       where
         app_prec = 10
