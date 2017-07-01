@@ -149,15 +149,15 @@ type role Many representational
 
 -- | Many stored as a list. This is useful when folding over 'Many' efficienty
 -- so that the conversion to List is only done once
-data ManyList (xs :: [Type]) = ManyList [Any]
+data Many_ (xs :: [Type]) = Many_ [Any]
 
-type role ManyList representational
+type role Many_ representational
 
-toManyList :: Many xs -> ManyList xs
-toManyList (Many _ m) = ManyList (snd <$> M.toAscList m)
+toMany_ :: Many xs -> Many_ xs
+toMany_ (Many _ m) = Many_ (snd <$> M.toAscList m)
 
-fromManyList :: ManyList xs -> Many xs
-fromManyList (ManyList xs) = Many 0 (M.fromList (zip [(0 :: Int)..] xs))
+fromMany_ :: Many_ xs -> Many xs
+fromMany_ (Many_ xs) = Many 0 (M.fromList (zip [(0 :: Int)..] xs))
 -----------------------------------------------------------------------
 
 -- | A terminating 'G.Generic' instance encoded as a 'nul'.
@@ -341,8 +341,8 @@ prefix x (Many ro rm) = Many nro
     nro = rightOffsetForCons 1 ro
 infixr 5 `prefix`
 
-prefix' :: x -> ManyList xs -> ManyList (x ': xs)
-prefix' x (ManyList xs) = ManyList (unsafeCoerce x : xs)
+prefix' :: x -> Many_ xs -> Many_ (x ': xs)
+prefix' x (Many_ xs) = Many_ (unsafeCoerce x : xs)
 
 -- | Infix version of 'prefix'.
 --
@@ -392,8 +392,8 @@ infixr 5 `append` -- like Data.List (++)
 front :: Many (x ': xs) -> x
 front (Many _ m) = unsafeCoerce (snd . Partial.head $ M.toAscList m)
 
-front' :: ManyList (x ': xs) -> x
-front' (ManyList xs) = unsafeCoerce (Partial.head xs)
+front' :: Many_ (x ': xs) -> x
+front' (Many_ xs) = unsafeCoerce (Partial.head xs)
 
 -- | Extract the 'back' element of a Many, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.last'
@@ -405,8 +405,8 @@ back (Many _ m) = unsafeCoerce (snd . Partial.head $ M.toDescList m)
 aft :: Many (x ': xs) -> Many xs
 aft (Many o m) = Many (o + 1) (M.delete o m)
 
-aft' :: ManyList (x ': xs) -> ManyList xs
-aft' (ManyList xs) = ManyList (Partial.tail xs)
+aft' :: Many_ (x ': xs) -> Many_ xs
+aft' (Many_ xs) = Many_ (Partial.tail xs)
 
 -- | Return all the elements of a Many except the 'back' one, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.init'
@@ -675,6 +675,9 @@ forManyN c (Many _ xs) = CollectorN c (snd <$> M.toAscList xs)
 collectN :: Many xs -> c n xs r -> CollectorN c n xs r
 collectN = flip forManyN
 
+
+-- mapMany' :: Many_ xs 
+
 -----------------------------------------------------------------------
 
 -- | A friendlier type constraint synomyn for 'select'
@@ -940,10 +943,10 @@ projectN' p = lens (selectN p) (amendN' p)
 
 -----------------------------------------------------------------------
 
-instance Eq (ManyList '[]) where
+instance Eq (Many_ '[]) where
     _ == _ = True
 
-instance (Eq x, Eq (ManyList xs)) => Eq (ManyList (x ': xs)) where
+instance (Eq x, Eq (Many_ xs)) => Eq (Many_ (x ': xs)) where
     ls == rs = case front' ls == front' rs of
         False -> False
         _ -> (aft' ls) == (aft' rs)
@@ -951,15 +954,15 @@ instance (Eq x, Eq (ManyList xs)) => Eq (ManyList (x ': xs)) where
     {-# NOINLINE (==) #-}
 
 -- | Two 'Many's are equal if all their fields equal
-instance Eq (ManyList xs) => Eq (Many xs) where
-    lt == rt = toManyList lt == toManyList rt
+instance Eq (Many_ xs) => Eq (Many xs) where
+    lt == rt = toMany_ lt == toMany_ rt
 
 -----------------------------------------------------------------------
 
-instance Ord (ManyList '[]) where
+instance Ord (Many_ '[]) where
     compare _ _ = EQ
 
-instance (Ord x, Ord (ManyList xs)) => Ord (ManyList (x ': xs)) where
+instance (Ord x, Ord (Many_ xs)) => Ord (Many_ (x ': xs)) where
     compare ls rs = case compare (front' ls) (front' rs) of
         LT -> LT
         GT -> GT
@@ -968,18 +971,18 @@ instance (Ord x, Ord (ManyList xs)) => Ord (ManyList (x ': xs)) where
     {-# NOINLINE compare #-}
 
 -- | Two 'Many's are ordered by 'compare'ing their fields in index order
-instance Ord (ManyList xs) => Ord (Many xs) where
-    compare xs ys = compare (toManyList xs) (toManyList ys)
+instance Ord (Many_ xs) => Ord (Many xs) where
+    compare xs ys = compare (toMany_ xs) (toMany_ ys)
 
 -----------------------------------------------------------------------
 
-instance Show (ManyList '[]) where
+instance Show (Many_ '[]) where
     showsPrec d _ = showParen (d > app_prec) $ showString "nul"
       where
         app_prec = 10
 
-instance (Show x, Show (ManyList xs)) => Show (ManyList (x ': xs)) where
-    showsPrec d ls@(ManyList xs) =
+instance (Show x, Show (Many_ xs)) => Show (Many_ (x ': xs)) where
+    showsPrec d ls@(Many_ xs) =
         showParen (d > cons_prec) $
         showsPrec (cons_prec + 1) v .
         showString " ./ " .
@@ -992,23 +995,23 @@ instance (Show x, Show (ManyList xs)) => Show (ManyList (x ': xs)) where
     {-# NOINLINE showsPrec #-}
 
 -- | Two 'Many's are equal if all their fields equal
-instance Show (ManyList xs) => Show (Many xs) where
-    showsPrec d xs = showsPrec d (toManyList xs)
+instance Show (Many_ xs) => Show (Many xs) where
+    showsPrec d xs = showsPrec d (toMany_ xs)
 
 -----------------------------------------------------------------------
 
-instance Read (ManyList '[]) where
+instance Read (Many_ '[]) where
     readPrec = parens $ prec app_prec $ do
         lift $ L.expect (Ident "nul")
-        pure $ ManyList []
+        pure $ Many_ []
       where
         app_prec = 10
 
-instance (Read x, Read (ManyList xs)) => Read (ManyList (x ': xs)) where
+instance (Read x, Read (Many_ xs)) => Read (Many_ (x ': xs)) where
     readPrec = parens $ prec cons_prec $ do
         a <- step (readPrec @x)
         lift $ L.expect (Symbol "./")
-        as <- readPrec @(ManyList xs) -- no 'step' to allow right associatitive './'
+        as <- readPrec @(Many_ xs) -- no 'step' to allow right associatitive './'
         pure $ prefix' a as
       where
         cons_prec = 5 -- infixr `prefix`
@@ -1016,10 +1019,10 @@ instance (Read x, Read (ManyList xs)) => Read (ManyList (x ': xs)) where
     {-# NOINLINE readPrec #-}
 
 -- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nul" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'@
-instance Read (ManyList xs) => Read (Many xs) where
+instance Read (Many_ xs) => Read (Many xs) where
     readPrec = do
-        xs <- readPrec @(ManyList xs)
-        pure $ fromManyList xs
+        xs <- readPrec @(Many_ xs)
+        pure $ fromMany_ xs
 
 -- | 'WrappedAny' avoids the following:
 -- Illegal type synonym family application in instance: Any

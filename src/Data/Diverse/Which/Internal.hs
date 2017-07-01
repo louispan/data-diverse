@@ -620,28 +620,28 @@ instance Show x => Case CaseShowWhich (x ': xs) ShowS where
 class WhichRead v where
     whichReadPrec :: Int -> Int -> ReadPrec v
 
-data Which' (xs ::[Type]) = Which' {-# UNPACK #-} !Int Any
+data Which_ (xs ::[Type]) = Which_ Int Any
 
-diversify0' :: forall x xs. Which' xs -> Which' (x ': xs)
+diversify0' :: forall x xs. Which_ xs -> Which_ (x ': xs)
 diversify0' = coerce
 
-readWhich' :: forall x xs. Read x => Int -> Int -> ReadPrec (Which' (x ': xs))
-readWhich' i j = guard (i == j) >> parens (prec app_prec $ (Which' i . unsafeCoerce) <$> readPrec @x)
+readWhich_ :: forall x xs. Read x => Int -> Int -> ReadPrec (Which_ (x ': xs))
+readWhich_ i j = guard (i == j) >> parens (prec app_prec $ (Which_ i . unsafeCoerce) <$> readPrec @x)
       where
         app_prec = 10
 
-instance Read x => WhichRead (Which' '[x]) where
-    whichReadPrec = readWhich'
+instance Read x => WhichRead (Which_ '[x]) where
+    whichReadPrec = readWhich_
 
-instance (Read x, WhichRead (Which' (x' ': xs))) => WhichRead (Which' (x ': x' ': xs)) where
-    whichReadPrec i j = readWhich' i j
-               <|> (diversify0' <$> (whichReadPrec i (j + 1) :: ReadPrec (Which' (x' ': xs))))
+instance (Read x, WhichRead (Which_ (x' ': xs))) => WhichRead (Which_ (x ': x' ': xs)) where
+    whichReadPrec i j = readWhich_ i j
+               <|> (diversify0' <$> (whichReadPrec i (j + 1) :: ReadPrec (Which_ (x' ': xs))))
     -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
     {-# NOINLINE whichReadPrec #-}
 
 
 -- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
-instance WhichRead (Which' (x ': xs)) =>
+instance WhichRead (Which_ (x ': xs)) =>
          Read (Which (x ': xs)) where
     readPrec =
         parens $ prec app_prec $ do
@@ -649,7 +649,7 @@ instance WhichRead (Which' (x ': xs)) =>
             lift $ L.expect (Punc "@")
             i <- lift L.readDecP
             lift $ L.expect (Ident "Proxy")
-            Which' n v <- whichReadPrec i 0 :: ReadPrec (Which' (x ': xs))
+            Which_ n v <- whichReadPrec i 0 :: ReadPrec (Which_ (x ': xs))
             pure $ Which n v
       where
         app_prec = 10
