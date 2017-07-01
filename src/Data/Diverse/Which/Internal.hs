@@ -60,19 +60,18 @@ module Data.Diverse.Which.Internal (
 
 import Control.Applicative
 import Control.Lens
-import Data.Diverse.AFoldable
+import Control.Monad
 import Data.Diverse.Case
-import Data.Diverse.Collector
-import Data.Diverse.Emit
 import Data.Diverse.Reduce
 import Data.Diverse.Reiterate
 import Data.Diverse.Type
 import Data.Kind
 import Data.Proxy
 import qualified GHC.Generics as G
-import GHC.Prim (Any)
+import GHC.Prim (Any, coerce)
 import GHC.TypeLits
 import Text.ParserCombinators.ReadPrec
+import Text.ParserCombinators.ReadP (skipSpaces)
 import Text.Read
 import qualified Text.Read.Lex as L
 import Unsafe.Coerce
@@ -105,6 +104,10 @@ import Unsafe.Coerce
 data Which (xs :: [Type]) = Which {-# UNPACK #-} !Int Any
 
 -- Just like Haskus and HList versions, inferred type is phantom which is wrong
+-- representational means:
+-- @
+-- Coercible '[Int] '[IntLike] => Coercible (Which '[Int]) (Which '[IntLike])
+-- @
 type role Which representational
 
 ----------------------------------------------
@@ -598,7 +601,7 @@ instance (Ord x) => Case CaseOrdWhich (x ': xs) Ordering where
 
 -- | @show ('pick'' \'A') == "pick \'A'"@
 instance (Reduce Which (Switch CaseShowWhich) (x ': xs) ShowS) => Show (Which (x ': xs)) where
-    showsPrec d v = showParen (d > app_prec) ((showString "pick ") . (which CaseShowWhich v))
+    showsPrec d v = showParen (d > app_prec) (which (CaseShowWhich 0) v)
       where app_prec = 10
 
 -- | @read "impossible" == 'impossible'@
@@ -606,49 +609,66 @@ instance Show (Which '[]) where
     showsPrec d _ = showParen (d > app_prec) (showString "impossible")
       where app_prec = 10
 
-data CaseShowWhich (xs :: [Type]) r = CaseShowWhich
+newtype CaseShowWhich (xs :: [Type]) r = CaseShowWhich Int
 
 instance Reiterate CaseShowWhich (x ': xs) where
-    reiterate CaseShowWhich = CaseShowWhich
+    reiterate (CaseShowWhich i) = CaseShowWhich (i + 1)
 
 instance Show x => Case CaseShowWhich (x ': xs) ShowS where
-    case' _ = showsPrec (app_prec + 1)
+    case' (CaseShowWhich i) v = showString "pickN @" . showString (show i) . showString " Proxy " . showsPrec (app_prec + 1) v
       where app_prec = 10
 
 ------------------------------------------------------------------
 
-newtype EmitReadWhich (xs :: [Type]) r = EmitReadWhich Int
+class WhichRead v where
+    whichReadPrec :: Int -> ReadPrec v
 
-instance Reiterate EmitReadWhich (x ': xs) where
-    reiterate (EmitReadWhich i) = EmitReadWhich (i + 1)
+data Which' (xs ::[Type]) = Which' {-# UNPACK #-} !Int Any
 
-instance Read x => Emit EmitReadWhich (x ': xs) (ReadPrec (Int, WrappedAny)) where
-    emit (EmitReadWhich i) = (\a -> (i, WrappedAny (unsafeCoerce a))) <$> readPrec @x
+diversify0' :: forall x xs. Which' xs -> Which' (x ': xs)
+diversify0' = coerce
 
-readWhich
-    :: forall xs.
-       AFoldable (Collector EmitReadWhich xs) (ReadPrec (Int, WrappedAny))
-    => Proxy (xs :: [Type]) -> ReadPrec (Int, WrappedAny)
-readWhich _ = afoldr (<|>) empty (Collector (EmitReadWhich @xs 0))
+readWhich' :: forall x xs. Read x => Int -> ReadPrec (Which' (x ': xs))
+readWhich' i = do
+        j <- lift L.readDecP
+        guard (i == j)
+        lift $ L.expect (Ident "Proxy")
+        parens $ prec app_prec $ do
+            v <- readPrec @x
+            pure $ Which' i (unsafeCoerce v)
+      where
+        app_prec = 10
+
+instance Read x => WhichRead (Which' '[x]) where
+    whichReadPrec = readWhich'
+
+instance (Read x, WhichRead (Which' (x' ': xs))) => WhichRead (Which' (x ': x' ': xs)) where
+    whichReadPrec i = (readWhich' i
+               ) <|> (do
+                   v <- whichReadPrec (1 + i) :: ReadPrec (Which' (x' ': xs))
+                   pure $ diversify0' v
+               )
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
+    {-# NOINLINE whichReadPrec #-}
+
 
 -- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
-instance AFoldable (Collector EmitReadWhich (x ': xs)) (ReadPrec (Int, WrappedAny)) =>
+instance WhichRead (Which' (x ': xs)) =>
          Read (Which (x ': xs)) where
     readPrec =
-        parens $
-        prec 10 $ do
-            lift $ L.expect (Ident "pick")
-            (n, WrappedAny v) <- step (readWhich @(x ': xs) Proxy)
-            pure (Which n v)
+        parens $ prec app_prec $ do
+            lift $ L.expect (Ident "pickN")
+            lift $ L.expect (Punc "@")
+            Which' n v <- whichReadPrec 0 :: ReadPrec (Which' (x ': xs))
+            pure $ Which n v
+      where
+        app_prec = 10
 
 -- | @read "impossible" == 'impossible'@
 instance Read (Which '[]) where
     readPrec =
-        parens $
-        prec 10 $ do
+        parens $ prec app_prec $ do
             lift $ L.expect (Ident "impossible")
             pure impossible
-
--- | 'WrappedAny' avoids the following:
--- Illegal type synonym family application in instance: Any
-newtype WrappedAny = WrappedAny Any
+      where
+        app_prec = 10

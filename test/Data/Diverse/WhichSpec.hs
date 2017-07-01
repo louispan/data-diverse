@@ -26,10 +26,14 @@ spec :: Spec
 spec = do
     describe "Which" $ do
 
+        it "is a Show" $ do
+            let x = pickN @0 Proxy 5 :: Which '[Int, Bool]
+            show x `shouldBe` "pickN @0 Proxy 5"
+
         it "is a Read and Show" $ do
-            let s = "pick 5"
+            let s = "pickN @0 Proxy 5"
                 x = read s :: Which '[Int, Bool]
-            show x `shouldBe` "pick 5"
+            show x `shouldBe` s
             "impossible" `shouldBe` show impossible
             "impossible" `shouldBe` show (read "impossible" :: Which '[])
 

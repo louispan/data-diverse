@@ -3,7 +3,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -81,13 +80,9 @@ module Data.Diverse.Many.Internal (
 
     -- * Destruction
     -- ** By type
-    , Via -- no constructor
-    , via -- safe construction
     , forMany
     , collect
     -- ** By Nat index offset
-    , ViaN -- no constructor
-    , viaN -- safe construction
     , forManyN
     , collectN
     ) where
@@ -97,11 +92,8 @@ import Control.Lens
 import Data.Bool
 import Data.Diverse.AFoldable
 import Data.Diverse.Case
-import Data.Diverse.Collector
-import Data.Diverse.Emit
 import Data.Diverse.Reiterate
 import Data.Diverse.Type
-import Data.Foldable
 import Data.Kind
 import qualified Data.Map.Strict as M
 import Data.Proxy
@@ -179,7 +171,11 @@ instance G.Generic (Many '[]) where
 instance G.Generic (Many (x ': xs)) where
     type Rep (Many (x ': xs)) = (G.Rec0 x) G.:*: (G.Rec0 (Many xs))
     from r = ({- G.Rec0 -} G.K1 (front r)) G.:*: ({- G.Rec0 -} G.K1 (aft r))
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
+    {-# NOINLINE from #-}
     to (({- G.Rec0 -} G.K1 a) G.:*: ({- G.Rec0 -} G.K1 b)) = a ./ b
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
+    {-# NOINLINE to #-}
 
 -----------------------------------------------------------------------
 
@@ -200,10 +196,12 @@ fromMany' = unTagged . fromMany
 -- | @_Many = iso fromMany toMany@
 _Many :: IsMany t xs a => Iso' (Many xs) (t xs a)
 _Many = iso fromMany toMany
+{-# INLINE _Many #-}
 
 -- | @_Many' = iso fromMany' toMany'@
 _Many' :: IsMany Tagged xs a => Iso' (Many xs) a
 _Many' = iso fromMany' toMany'
+{-# INLINE _Many' #-}
 
 -- | These instances add about 7 seconds to the compile time!
 instance IsMany Tagged '[] () where
@@ -300,6 +298,7 @@ instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l
 -- \OldRightKey -> OldRightKey - RightOffset + LeftOffset + LeftSize
 rightKeyForSnoc :: Int -> Int -> Int -> Int -> Int
 rightKeyForSnoc lo ld ro rk = rk - ro + lo + ld
+{-# INLINE rightKeyForSnoc #-}
 
 -- | When appending two maps together, get the function to modify the RightMap's offset
 -- when adding LeftMap into RightMap.
@@ -307,6 +306,7 @@ rightKeyForSnoc lo ld ro rk = rk - ro + lo + ld
 -- NewRightOffset = OldRightOffset - LeftSize
 rightOffsetForCons :: Int -> Int -> Int
 rightOffsetForCons ld ro = ro - ld
+{-# INLINE rightOffsetForCons #-}
 
 -- | When appending two maps together, get the function to 'M.mapKeys' the LeftMap
 -- when adding LeftMap into RightMap.
@@ -319,11 +319,11 @@ rightOffsetForCons ld ro = ro - ld
 -- \OldLeftKey -> OldLeftKey - LeftOffset + NewRightOffset (as above)
 leftKeyForCons :: Int -> Int -> Int -> Int
 leftKeyForCons lo ro lk = lk - lo + ro
+{-# INLINE leftKeyForCons #-}
 
 -- | Analogous to 'Prelude.null'. Named 'nul' to avoid conflicting with 'Prelude.null'.
 nul :: Many '[]
 nul = Many 0 M.empty
-infixr 5 `nul` -- to be the same as 'prefix'
 
 -- | Create a Many from a single value. Analogous to 'M.singleton'
 single :: x -> Many '[x]
@@ -516,27 +516,87 @@ fromList' xs = M.fromList (coerce xs)
 
 -----------------------------------------------------------------------
 
--- | Wraps a 'Case' into an instance of 'Emit', 'reiterate'ing and feeding 'Case' with the value from the 'Many'
--- and 'emit'ting the results.
---
--- Internally, this holds the left-over [(k, v)] from the original 'Many' for the remaining typelist @xs@.
---
--- That is the first v in the (k, v) is of type @x@, and the length of the list is equal to the length of @xs@.
-newtype Via c (xs :: [Type]) r = Via (c xs r, [Any])
+class CaseAny c (xs :: [Type]) r where
+    -- | Return the handler/continuation when x is observed.
+    caseAny :: c xs r -> Any -> r
 
--- | Creates an 'Via' safely, so that the invariant of \"typelist to the value list type and size\" holds.
-via :: c xs r -> Many xs -> Via c xs r
-via c (Many _ m) = Via (c, snd <$> M.toAscList m)
+-----------------------------------------------------------------------
 
-instance Reiterate c (x ': xs) => Reiterate (Via c) (x ': xs) where
-    -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterate (Via (c, xxs)) = Via (reiterate c, Partial.tail xxs)
+-- | Variation of 'Collector' which uses 'CaseAny' instead of 'Case'
+data CollectorAny c (xs :: [Type]) r = CollectorAny (c xs r) [Any]
 
-instance (Case c (x ': xs) r) => Emit (Via c) (x ': xs) r where
-    emit (Via (c, xxs)) = caseAny c v
+-- | null case that doesn't even use 'caseAny', so that an instance of @CaseAny '[]@ is not needed.
+instance AFoldable (CollectorAny c '[]) r where
+    afoldr _ z _ = z
+
+instance ( CaseAny c (x ': xs) r
+         , Reiterate c (x ': xs)
+         , AFoldable (CollectorAny c xs) r
+         ) =>
+         AFoldable (CollectorAny c (x ': xs)) r where
+    afoldr f z (CollectorAny c xs) = f (caseAny c x) (afoldr f z (CollectorAny (reiterate c) xs'))
       where
-       -- use of front here is safe as we are guaranteed the length from the typelist
-       v = Partial.head xxs
+       -- use of head/tail here is safe as we are guaranteed the length from the typelist
+       x = Partial.head xs
+       xs' = Partial.tail xs
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
+    {-# NOINLINE afoldr #-}
+
+forMany' :: c xs r -> Many xs -> CollectorAny c xs r
+forMany' c (Many _ xs) = CollectorAny c (snd <$> M.toAscList xs)
+
+-----------------------------------------------------------------------
+
+-- | A variation of 'CollectorN' which uses 'CaseAny' instead of 'Case'
+data CollectorAnyN c n (xs :: [Type]) r = CollectorAnyN (c n xs r) [Any]
+
+-- | null case that doesn't even use 'caseAnyN', so that an instance of @CaseAnyN '[]@ is not needed.
+instance AFoldable (CollectorAnyN c n '[]) r where
+    afoldr _ z _ = z
+
+instance ( CaseAny (c n) (x ': xs) r
+         , ReiterateN c n (x ': xs)
+         , AFoldable (CollectorAnyN c (n + 1) xs) r
+         ) =>
+         AFoldable (CollectorAnyN c n (x ': xs)) r where
+    afoldr f z (CollectorAnyN c xs) = f (caseAny c x) (afoldr f z (CollectorAnyN (reiterateN c) xs'))
+      where
+       -- use of head/tail here is safe as we are guaranteed the length from the typelist
+       x = Partial.head xs
+       xs' = Partial.tail xs
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
+    {-# NOINLINE afoldr #-}
+
+forManyN' :: c n xs r -> Many xs -> CollectorAnyN c n xs r
+forManyN' c (Many _ xs) = CollectorAnyN c (snd <$> M.toAscList xs)
+
+-----------------------------------------------------------------------
+
+-- | Collects the output from 'case''ing each field in a 'Many'.
+-- Uses 'Reiterate' to prepare the 'Case' to accept the next type in the @xs@ typelist.
+--
+--  Internally, this holds the left-over [(k, v)] from the original 'Many' for the remaining typelist @xs@.
+--
+-- That is, the first v in the (k, v) is of type @x@, and the length of the list is equal to the length of @xs@.
+data Collector c (xs :: [Type]) r = Collector (c xs r) [Any]
+
+-- | null case that doesn't even use 'case'', so that an instance of @Case '[]@ is not needed.
+instance AFoldable (Collector c '[]) r where
+    afoldr _ z _ = z
+
+-- | Folds values by 'reiterate'ing 'Emit'ters through the @xs@ typelist.
+instance ( Case c (x ': xs) r
+         , Reiterate c (x ': xs)
+         , AFoldable (Collector c xs) r
+         ) =>
+         AFoldable (Collector c (x ': xs)) r where
+    afoldr f z (Collector c xs) = f (case' c v) (afoldr f z (Collector (reiterate c) xs'))
+      where
+       -- use of head/tail here is safe as we are guaranteed the length from the typelist
+       v = unsafeCoerce $ Partial.head xs
+       xs' = Partial.tail xs
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
+    {-# NOINLINE afoldr #-}
 
 -----------------------------------------------------------------------
 
@@ -552,8 +612,8 @@ instance (Case c (x ': xs) r) => Emit (Via c) (x ': xs) r where
 -- 'afoldr' (:) [] ('forMany' ('Data.Diverse.Cases.cases' y) x) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-forMany :: c xs r -> Many xs -> Collector (Via c) xs r
-forMany c x = Collector (via c x)
+forMany :: c xs r -> Many xs -> Collector c xs r
+forMany c (Many _ xs) = Collector c (snd <$> M.toAscList xs)
 
 -- | This is @flip 'forMany'@
 --
@@ -563,27 +623,31 @@ forMany c x = Collector (via c x)
 -- 'afoldr' (:) [] ('collect' x ('Data.Diverse.Cases.cases' y)) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-collect :: Many xs -> c xs r -> Collector (Via c) xs r
+collect :: Many xs -> c xs r -> Collector c xs r
 collect = flip forMany
 
 -----------------------------------------------------------------------
 
--- | A variation of 'Via' which __'reiterateN'__ instead.
-newtype ViaN c (n :: Nat) (xs :: [Type]) r = ViaN (c n xs r, [Any])
+-- | A variation of 'Collector' which uses 'ReiterateN' instead of 'Reiterate'
+data CollectorN c (n :: Nat) (xs :: [Type]) r = CollectorN (c n xs r) [Any]
 
--- | Creates an 'ViaN' safely, so that the invariant of \"typelist to the value list type and size\" holds.
-viaN :: c n xs r -> Many xs -> ViaN c n xs r
-viaN c (Many _ m) = ViaN (c, snd <$> M.toAscList m)
+-- | null case that doesn't even use 'case'', so that an instance of @Case '[]@ is not needed.
+instance AFoldable (CollectorN c n '[]) r where
+    afoldr _ z _ = z
 
-instance ReiterateN c n (x ': xs) => ReiterateN (ViaN c) n (x ': xs) where
-    -- use of tail here is safe as we are guaranteed the length from the typelist
-    reiterateN (ViaN (c, xxs)) = ViaN (reiterateN c, Partial.tail xxs)
-
-instance (Case (c n) (x ': xs) r) => Emit (ViaN c n) (x ': xs) r where
-    emit (ViaN (c, xxs)) = caseAny c v
+-- | Folds values by 'reiterate'ing 'Emit'ters through the @xs@ typelist.
+instance ( Case (c n) (x ': xs) r
+         , ReiterateN c n (x ': xs)
+         , AFoldable (CollectorN c (n + 1) xs) r
+         ) =>
+         AFoldable (CollectorN c n (x ': xs)) r where
+    afoldr f z (CollectorN c xs) = f (case' c v) (afoldr f z (CollectorN (reiterateN c) xs'))
       where
-       -- use of front here is safe as we are guaranteed the length from the typelist
-       v = Partial.head xxs
+       -- use of head/tail here is safe as we are guaranteed the length from the typelist
+       v = unsafeCoerce $ Partial.head xs
+       xs' = Partial.tail xs
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
+    {-# NOINLINE afoldr #-}
 
 -- | Folds any 'Many', even with indistinct types.
 -- Given __index__ handlers for the fields in 'Many', create a 'CollectorN'
@@ -597,8 +661,8 @@ instance (Case (c n) (x ': xs) r) => Emit (ViaN c n) (x ': xs) r where
 -- 'afoldr' (:) [] ('forManyN' ('Data.Diverse.Cases.casesN' y) x) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-forManyN :: c n xs r -> Many xs -> CollectorN (ViaN c) n xs r
-forManyN c x = CollectorN (viaN c x)
+forManyN :: c n xs r -> Many xs -> CollectorN c n xs r
+forManyN c (Many _ xs) = CollectorN c (snd <$> M.toAscList xs)
 
 -- | This is @flip 'forManyN'@
 --
@@ -608,7 +672,7 @@ forManyN c x = CollectorN (viaN c x)
 -- 'afoldr' (:) [] ('collectN' x ('Data.Diverse.Cases.casesN' y)) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-collectN :: Many xs -> c n xs r -> CollectorN (ViaN c) n xs r
+collectN :: Many xs -> c n xs r -> CollectorN c n xs r
 collectN = flip forManyN
 
 -----------------------------------------------------------------------
@@ -616,7 +680,7 @@ collectN = flip forManyN
 -- | A friendlier type constraint synomyn for 'select'
 type Select (smaller :: [Type]) (larger :: [Type]) =
     (AFoldable
-        ( Collector (Via (CaseSelect smaller larger)) larger) [(Int, WrappedAny)])
+        ( CollectorAny (CaseSelect smaller larger) larger) (Maybe (Int, WrappedAny)))
 
 -- | Construct a 'Many' with a smaller number of fields than the original.
 -- Analogous to 'fetch' getter but for multiple fields.
@@ -630,21 +694,21 @@ type Select (smaller :: [Type]) (larger :: [Type]) =
 select :: forall smaller larger. Select smaller larger => Many larger -> Many smaller
 select t = Many 0 (fromList' xs')
   where
-    xs' = afoldr (++) [] (Collector (via (CaseSelect @smaller @larger @larger) t))
+    xs' = afoldr (\a z -> maybe z (: z) a) [] (forMany' (CaseSelect @smaller @larger @larger) t)
 
 -- | For each type x in @larger@, generate the (k, v) in @smaller@ (if it exists)
 data CaseSelect (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) r = CaseSelect
 
 instance Reiterate (CaseSelect smaller larger) (x ': xs) where
-    reiterate CaseSelect = CaseSelect
+    reiterate = coerce
 
--- | For each type x in larger, find the index in ys, and create an (incrementing key, value)
+-- | For each type x in larger, find the index in ys, and create a (key, value)
 instance forall smaller larger x xs. (UniqueIfExists smaller x larger, MaybeUniqueMember x smaller) =>
-         Case (CaseSelect smaller larger) (x ': xs) [(Int, WrappedAny)] where
+         CaseAny (CaseSelect smaller larger) (x ': xs) (Maybe (Int, WrappedAny)) where
     caseAny _ v =
         case i of
-            0 -> []
-            i' -> [(i' - 1, WrappedAny v)]
+            0 -> Nothing
+            i' -> Just (i' - 1, WrappedAny v)
       where
         i = fromInteger (natVal @(PositionOf x smaller) Proxy)
 
@@ -652,7 +716,7 @@ instance forall smaller larger x xs. (UniqueIfExists smaller x larger, MaybeUniq
 
 -- | A friendlier type constraint synomyn for 'selectN'
 type SelectN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
-    ( AFoldable (CollectorN (ViaN (CaseSelectN ns smaller)) 0 larger) [(Int, WrappedAny)]
+    ( AFoldable (CollectorAnyN (CaseSelectN ns smaller) 0 larger) (Maybe (Int, WrappedAny))
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
@@ -675,7 +739,7 @@ selectN
     => proxy ns -> Many larger -> Many smaller
 selectN _ xs = Many 0 (fromList' xs')
   where
-    xs' = afoldr (++) [] (forManyN (CaseSelectN @ns @smaller @0 @larger) xs)
+    xs' = afoldr (\a z -> maybe z (: z) a) [] (forManyN' (CaseSelectN @ns @smaller @0 @larger) xs)
 
 data CaseSelectN (indices :: [Nat]) (smaller :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseSelectN
 
@@ -684,18 +748,18 @@ instance ReiterateN (CaseSelectN indices smaller) n (x ': xs) where
 
 -- | For each type x in @larger@, find the index in ys, and create an (incrementing key, value)
 instance forall indices smaller n x xs. MaybeMemberAt (PositionOf n indices) x smaller =>
-         Case (CaseSelectN indices smaller n) (x ': xs) [(Int, WrappedAny)] where
+         CaseAny (CaseSelectN indices smaller n) (x ': xs) (Maybe (Int, WrappedAny)) where
     caseAny _ v =
         case i of
-            0 -> []
-            i' -> [(i' - 1, WrappedAny v)]
+            0 -> Nothing
+            i' -> Just (i' - 1, WrappedAny v)
       where
         i = fromInteger (natVal @(PositionOf n indices) Proxy)
 
 -----------------------------------------------------------------------
 
 -- | A friendlier type constraint synomyn for 'amend'
-type Amend smaller larger = (AFoldable (Collector (Via (CaseAmend larger)) smaller) (Int, WrappedAny)
+type Amend smaller larger = (AFoldable (CollectorAny (CaseAmend larger) smaller) (Int, WrappedAny)
        , IsDistinct smaller)
 
 -- | Sets the subset of 'Many' in the larger 'Many'.
@@ -709,15 +773,15 @@ type Amend smaller larger = (AFoldable (Collector (Via (CaseAmend larger)) small
 amend :: forall smaller larger. Amend smaller larger => Many larger -> Many smaller -> Many larger
 amend (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
   where
-    xs' = afoldr (:) [] (forMany (CaseAmend @larger @smaller lo) t)
+    xs' = afoldr (:) [] (forMany' (CaseAmend @larger @smaller lo) t)
 
 newtype CaseAmend (larger :: [Type]) (xs :: [Type]) r = CaseAmend Int
 
 instance Reiterate (CaseAmend larger) (x ': xs) where
-    reiterate (CaseAmend lo) = CaseAmend lo
+    reiterate = coerce
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
-instance UniqueMember x larger => Case (CaseAmend larger) (x ': xs) (Int, WrappedAny) where
+instance UniqueMember x larger => CaseAny (CaseAmend larger) (x ': xs) (Int, WrappedAny) where
     caseAny (CaseAmend lo) v = (lo + i, WrappedAny v)
       where
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
@@ -725,26 +789,24 @@ instance UniqueMember x larger => Case (CaseAmend larger) (x ': xs) (Int, Wrappe
 -----------------------------------------------------------------------
 
 -- | A friendlier type constraint synomyn for 'amend''
-type Amend' smaller smaller' larger = (AFoldable (Collector (Via (CaseAmend' larger)) (Zip smaller smaller')) (Int, WrappedAny), IsDistinct smaller)
+type Amend' smaller smaller' larger = (AFoldable (CollectorAny (CaseAmend' larger) (Zip smaller smaller')) (Int, WrappedAny), IsDistinct smaller)
 
 amend' :: forall smaller smaller' larger. Amend' smaller smaller' larger
     => Proxy smaller -> Many larger -> Many smaller' -> Many (Replaces smaller smaller' larger)
 amend' _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
   where
-    xs' = afoldr (:) [] (Collector (via' @smaller Proxy (CaseAmend' @larger @(Zip smaller smaller') lo) t))
+    xs' = afoldr (:) [] (forMany'' @smaller Proxy (CaseAmend' @larger @(Zip smaller smaller') lo) t)
 
--- | We are cheating here and saying that the @y@ can be unsafeCoerced into a type of @(x, y)@
--- but we only every coerce from 'Any' back into @y@in the @caseAny (CaseAmend' lo) v@ below.
-via' :: Proxy xs -> c (Zip xs ys) r -> Many ys -> Via c (Zip xs ys) r
-via' _ c (Many _ m) = Via (c, snd <$> M.toAscList m)
+forMany'' :: Proxy xs -> c (Zip xs ys) r -> Many ys -> CollectorAny c (Zip xs ys) r
+forMany'' _ c (Many _ ys) = CollectorAny c (snd <$> M.toAscList ys)
 
 newtype CaseAmend' (larger :: [Type]) (zs :: [Type]) r = CaseAmend' Int
 
 instance Reiterate (CaseAmend' larger) (z ': zs) where
-    reiterate (CaseAmend' lo) = CaseAmend' lo
+    reiterate = coerce
 
 -- | for each y in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
-instance UniqueMember x larger => Case (CaseAmend' larger) ((x, y) ': zs) (Int, WrappedAny) where
+instance UniqueMember x larger => CaseAny (CaseAmend' larger) ((x, y) ': zs) (Int, WrappedAny) where
     caseAny (CaseAmend' lo) v = (lo + i, WrappedAny v)
       where
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
@@ -752,7 +814,7 @@ instance UniqueMember x larger => Case (CaseAmend' larger) ((x, y) ': zs) (Int, 
 -----------------------------------------------------------------------
 -- | A friendlier type constraint synomyn for 'amendN'
 type AmendN ns smaller larger =
-    ( AFoldable (CollectorN (ViaN (CaseAmendN ns larger)) 0 smaller) (Int, WrappedAny)
+    ( AFoldable (CollectorAnyN (CaseAmendN ns larger) 0 smaller) (Int, WrappedAny)
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
@@ -775,25 +837,25 @@ amendN :: forall ns smaller larger proxy.
     => proxy ns -> Many larger -> Many smaller -> Many larger
 amendN _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
   where
-    xs' = afoldr (:) [] (forManyN (CaseAmendN @ns @larger @0 @smaller lo) t)
-
------------------------------------------------------------------------
+    xs' = afoldr (:) [] (forManyN' (CaseAmendN @ns @larger @0 @smaller lo) t)
 
 newtype CaseAmendN (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseAmendN Int
 
 instance ReiterateN (CaseAmendN indices larger) n (x ': xs) where
-    reiterateN (CaseAmendN lo) = CaseAmendN lo
+    reiterateN = coerce
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt (KindAtIndex n indices) x larger) =>
-         Case (CaseAmendN indices larger n) (x ': xs) (Int, WrappedAny) where
+         CaseAny (CaseAmendN indices larger n) (x ': xs) (Int, WrappedAny) where
     caseAny (CaseAmendN lo) v = (lo + i, WrappedAny v)
       where
         i = fromInteger (natVal @(KindAtIndex n indices) Proxy)
 
+-----------------------------------------------------------------------
+
 -- | A friendlier type constraint synomyn for 'amendN'
 type AmendN' ns smaller smaller' larger =
-    ( AFoldable (CollectorN (ViaN (CaseAmendN' ns larger)) 0 (Zip smaller smaller')) (Int, WrappedAny)
+    ( AFoldable (CollectorAnyN (CaseAmendN' ns larger) 0 (Zip smaller smaller')) (Int, WrappedAny)
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
@@ -803,21 +865,19 @@ amendN' :: forall ns smaller smaller' larger proxy.
     => proxy ns -> Many larger -> Many smaller' -> Many (ReplacesIndex ns smaller' larger)
 amendN' _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
   where
-    xs' = afoldr (:) [] (CollectorN (viaN' @smaller Proxy (CaseAmendN' @ns @larger @0 @(Zip smaller smaller') lo) t))
+    xs' = afoldr (:) [] (forManyN'' @smaller Proxy (CaseAmendN' @ns @larger @0 @(Zip smaller smaller') lo) t)
 
--- | We are cheating here and saying that the @y@ can be unsafeCoerced into a type of @(x, y)@
--- but we only every coerce from 'Any' back into @y@in the @caseAny (CaseAmend' lo) v@ below.
-viaN' :: Proxy xs -> c n (Zip xs ys) r -> Many ys -> ViaN c n (Zip xs ys) r
-viaN' _ c (Many _ m) = ViaN (c, snd <$> M.toAscList m)
+forManyN'' :: Proxy xs -> c n (Zip xs ys) r -> Many ys -> CollectorAnyN c n (Zip xs ys) r
+forManyN'' _ c (Many _ ys) = CollectorAnyN c (snd <$> M.toAscList ys)
 
 newtype CaseAmendN' (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (zs :: [Type]) r = CaseAmendN' Int
 
 instance ReiterateN (CaseAmendN' indices larger) n (z ': zs) where
-    reiterateN (CaseAmendN' lo) = CaseAmendN' lo
+    reiterateN = coerce
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt (KindAtIndex n indices) x larger) =>
-         Case (CaseAmendN' indices larger n) ((x, y) ': zs) (Int, WrappedAny) where
+         CaseAny (CaseAmendN' indices larger n) ((x, y) ': zs) (Int, WrappedAny) where
     caseAny (CaseAmendN' lo) v = (lo + i, WrappedAny v)
       where
         i = fromInteger (natVal @(KindAtIndex n indices) Proxy)
@@ -887,36 +947,12 @@ instance (Eq x, Eq (ManyList xs)) => Eq (ManyList (x ': xs)) where
     ls == rs = case front' ls == front' rs of
         False -> False
         _ -> (aft' ls) == (aft' rs)
-    -- GHC compilation is SLOW if INLINE is on... too many type instances?
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
     {-# NOINLINE (==) #-}
 
 -- | Two 'Many's are equal if all their fields equal
 instance Eq (ManyList xs) => Eq (Many xs) where
     lt == rt = toManyList lt == toManyList rt
-
------------------------------------------------------------------------
-
-instance Show (ManyList '[]) where
-    showsPrec d _ = showParen (d > cons_prec) $ showString "nul"
-      where
-        cons_prec = 5 -- infixr 5 prefix
-
-instance (Show x, Show (ManyList xs)) => Show (ManyList (x ': xs)) where
-    showsPrec d ls@(ManyList xs) =
-        showParen (d > cons_prec) $
-        showsPrec (cons_prec + 1) v .
-        showString " ./ " .
-        showsPrec cons_prec (aft' ls)
-      where
-        cons_prec = 5 -- infixr 5 prefix
-        -- use of front here is safe as we are guaranteed the length from the typelist
-        v = unsafeCoerce (Partial.head xs) :: x
-    -- GHC compilation is SLOW if INLINE is on... too many type instances?
-    {-# NOINLINE showsPrec #-}
-
--- | Two 'Many's are equal if all their fields equal
-instance Show (ManyList xs) => Show (Many xs) where
-    showsPrec d xs = showsPrec d (toManyList xs)
 
 -----------------------------------------------------------------------
 
@@ -928,7 +964,7 @@ instance (Ord x, Ord (ManyList xs)) => Ord (ManyList (x ': xs)) where
         LT -> LT
         GT -> GT
         EQ -> compare (aft' ls) (aft' rs)
-    -- GHC compilation is SLOW if INLINE is on... too many type instances?
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
     {-# NOINLINE compare #-}
 
 -- | Two 'Many's are ordered by 'compare'ing their fields in index order
@@ -937,17 +973,46 @@ instance Ord (ManyList xs) => Ord (Many xs) where
 
 -----------------------------------------------------------------------
 
+instance Show (ManyList '[]) where
+    showsPrec d _ = showParen (d > app_prec) $ showString "nul"
+      where
+        app_prec = 10
+
+instance (Show x, Show (ManyList xs)) => Show (ManyList (x ': xs)) where
+    showsPrec d ls@(ManyList xs) =
+        showParen (d > cons_prec) $
+        showsPrec (cons_prec + 1) v .
+        showString " ./ " .
+        showsPrec cons_prec (aft' ls) -- not (cons-prec+1) for right associativity
+      where
+        cons_prec = 5 -- infixr 5 prefix
+        -- use of front here is safe as we are guaranteed the length from the typelist
+        v = unsafeCoerce (Partial.head xs) :: x
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
+    {-# NOINLINE showsPrec #-}
+
+-- | Two 'Many's are equal if all their fields equal
+instance Show (ManyList xs) => Show (Many xs) where
+    showsPrec d xs = showsPrec d (toManyList xs)
+
+-----------------------------------------------------------------------
+
 instance Read (ManyList '[]) where
-    readPrec = parens $ do
+    readPrec = parens $ prec app_prec $ do
         lift $ L.expect (Ident "nul")
         pure $ ManyList []
+      where
+        app_prec = 10
 
 instance (Read x, Read (ManyList xs)) => Read (ManyList (x ': xs)) where
-    readPrec = parens $ do
-        a <- readPrec @x
+    readPrec = parens $ prec cons_prec $ do
+        a <- step (readPrec @x)
         lift $ L.expect (Symbol "./")
-        as <- readPrec @(ManyList xs)
+        as <- readPrec @(ManyList xs) -- no 'step' to allow right associatitive './'
         pure $ prefix' a as
+      where
+        cons_prec = 5 -- infixr `prefix`
+    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
     {-# NOINLINE readPrec #-}
 
 -- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nul" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'@

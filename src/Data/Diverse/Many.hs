@@ -64,13 +64,9 @@ module Data.Diverse.Many (
 
     -- * Destruction
     -- ** By type
-    , Via -- no constructor
-    , via -- safe construction
     , forMany
     , collect
     -- ** By Nat index offset
-    , ViaN -- no constructor
-    , viaN -- safe construction
     , forManyN
     , collectN
     ) where
