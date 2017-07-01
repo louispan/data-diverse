@@ -41,7 +41,7 @@ type family NubImpl (ctx :: [k]) (y :: k) (ys :: [k]) :: [k] where
 -- | Errors if a type exists in a typelist
 type family MissingImpl (ctx :: [k]) (y :: k) (xs :: [k]) :: Constraint where
     MissingImpl ctx y '[] = ()
-    MissingImpl ctx x (x ': xs) = TypeError ('Text "Missing error: ‘"
+    MissingImpl ctx x (x ': xs) = TypeError ('Text "Not unique error: ‘"
                                              ':<>: 'ShowType x
                                              ':<>: 'Text "’"
                                              ':<>: 'Text " is a duplicate in "
@@ -50,7 +50,20 @@ type family MissingImpl (ctx :: [k]) (y :: k) (xs :: [k]) :: Constraint where
                                              ':<>: 'Text "’")
     MissingImpl ctx y (x ': xs) = (MissingImpl ctx y xs)
 
--- | Ensures that the type list contain unique types
+-- | Errors if a label exists in a typelist
+type family MissingLabelImpl (ctx :: [k]) (l :: k2) (xs :: [k]) :: Constraint where
+    MissingLabelImpl ctx y '[] = ()
+    MissingLabelImpl ctx l (tagged l x ': xs) = TypeError ('Text "Not unique label error: ‘"
+                                             ':<>: 'ShowType l
+                                             ':<>: 'Text "’"
+                                             ':<>: 'Text " is a duplicate in "
+                                             ':<>: 'Text "‘"
+                                             ':<>: 'ShowType ctx
+                                             ':<>: 'Text "’")
+    MissingLabelImpl ctx l (x ': xs) = (MissingLabelImpl ctx l xs)
+
+-- | Ensures that the type list contain unique types.
+-- Not implemented as @(xs ~ Nub xs)@ for better type error messages.
 type family IsDistinctImpl (ctx :: [k]) (xs :: [k]) :: Constraint where
     IsDistinctImpl ctx '[] = ()
     IsDistinctImpl ctx (x ': xs) = (MissingImpl ctx x xs, IsDistinctImpl ctx xs)
@@ -60,6 +73,12 @@ type family UniqueImpl (ctx :: [k]) (x :: k) (xs :: [k]) :: Constraint where
     UniqueImpl ctx x '[] = ()
     UniqueImpl ctx x (x ': xs) = MissingImpl ctx x xs
     UniqueImpl ctx x (y ': xs) = UniqueImpl ctx x xs
+
+-- | Ensures that the @label@ in @tagged label v@ only ever appears once in @xs@.
+type family UniqueLabelImpl (ctx :: [k]) (l :: k1) (xs :: [k]) :: Constraint where
+    UniqueLabelImpl ctx l '[] = ()
+    UniqueLabelImpl ctx l (tagged l x ': xs) = MissingLabelImpl ctx l xs
+    UniqueLabelImpl ctx l (y ': xs) = UniqueLabelImpl ctx l xs
 
 -- | Indexed access into the list
 type family KindAtIndexImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: k where
@@ -74,7 +93,7 @@ type family KindAtIndexImpl (orig :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) ::
     KindAtIndexImpl i ctx n (x ': xs) = KindAtIndexImpl i ctx (n - 1) xs
 
 -- | Labelled access into the list
-type family KindAtLabelImpl (l :: k1) (ctx :: [k2]) (xs :: [k2]) :: k2 where
+type family KindAtLabelImpl (l :: k1) (ctx :: [k]) (xs :: [k]) :: k where
     KindAtLabelImpl l ctx '[] = TypeError ('Text "KindAtLabel error: Label ‘"
                                        ':<>: 'ShowType l
                                        ':<>: 'Text "’"

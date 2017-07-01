@@ -16,6 +16,9 @@ import GHC.TypeLits
 -- | Ensures that @x@ is a unique member of @xs@, and that 'natVal' can be used.
 type UniqueMember x xs = (Unique x xs, KnownNat (IndexOf x xs))
 
+-- | Ensures that @x@ is a unique member of @xs@, and that 'natVal' can be used.
+type UniqueLabelMember l xs = (UniqueLabel l xs, KnownNat (IndexOf (KindAtLabel l xs) xs))
+
 -- | Ensures that @x@ is a unique member of @xs@ if it exists, and that 'natVal' can be used.
 type MaybeUniqueMember x xs = (Unique x xs, KnownNat (PositionOf x xs))
 
@@ -42,6 +45,9 @@ type family Nub (xs :: [k]) :: [k] where
 -- | Ensures that @x@ only ever appears once in @xs@
 type Unique (x :: k) (xs :: [k]) = UniqueImpl xs x xs
 
+-- | Ensures that the @label@ in @tagged label v@ only ever appears once in @xs@.
+type UniqueLabel (l :: k1) (xs :: [k2]) = UniqueLabelImpl xs l xs
+
 -- | Get the first index of a type (Indexed by 0)
 -- Will result in type error if x doesn't exist in xs.
 type IndexOf (x :: k) (xs :: [k]) = IndexOfImpl xs x xs
@@ -54,7 +60,7 @@ type PositionOf (x :: k) (xs :: [k]) = PositionOfImpl 0 x xs
 type KindAtIndex (n :: Nat) (xs :: [k]) = KindAtIndexImpl n xs n xs
 
 -- | Get the type at a label
-type KindAtLabel (l :: k1) (xs :: [k2]) = KindAtLabelImpl l xs xs
+type KindAtLabel (l :: k1) (xs :: [k]) = KindAtLabelImpl l xs xs
 
 -- | It's actually ok for the position to be zero, but if it's not zero then the types must match
 type family KindAtPositionIs (n :: Nat) (x :: k) (xs :: [k]) :: Constraint where
@@ -65,6 +71,10 @@ type family KindAtPositionIs (n :: Nat) (x :: k) (xs :: [k]) :: Constraint where
 type family KindsAtIndices (ns :: [Nat]) (xs :: [k]) :: [k] where
     KindsAtIndices '[] xs = '[]
     KindsAtIndices (n ': ns) xs = KindAtIndex n xs ': KindsAtIndices ns xs
+
+type family KindsAtLabels (ls :: [k1]) (xs :: [k]) :: [k] where
+    KindsAtLabels '[] xs = '[]
+    KindsAtLabels (l ': ls) xs = KindAtLabel l xs ': KindsAtLabels ls xs
 
 -- | The typelist @xs@ without first @x@. It is okay for @x@ not to exist in @xs@
 type family Without (x :: k) (xs :: [k]) :: [k] where

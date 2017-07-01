@@ -11,7 +11,7 @@ module Data.Diverse.Many (
     , _Many'
 
       -- * Construction
-    , nul
+    , nil
     , single
     , prefix
     , (./)
@@ -29,15 +29,20 @@ module Data.Diverse.Many (
     -- * Single field
     -- ** Getter for single field
     , fetch
+    , fetchL
     , fetchN
     -- ** Setter for single field
     , replace
     , replace'
+    , replaceL
+    , replaceL'
     , replaceN
     , replaceN'
     -- ** Lens for a single field
     , item
     , item'
+    , itemL
+    , itemL'
     , itemN
     , itemN'
 
@@ -45,6 +50,7 @@ module Data.Diverse.Many (
     -- ** Getter for multiple fields
     , Select
     , select
+    , selectL
     , SelectN
     , selectN
     -- ** Setter for multiple fields
@@ -52,6 +58,8 @@ module Data.Diverse.Many (
     , amend
     , Amend'
     , amend'
+    , amendL
+    , amendL'
     , AmendN
     , amendN
     , AmendN'
@@ -59,6 +67,8 @@ module Data.Diverse.Many (
     -- ** Lens for multiple fields
     , project
     , project'
+    , projectL
+    , projectL'
     , projectN
     , projectN'
 

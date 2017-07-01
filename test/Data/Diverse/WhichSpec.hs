@@ -209,7 +209,7 @@ spec = do
             switch y (
                 cases (show @Bool
                     ./ show @Int
-                    ./ nul)) `shouldBe` "5"
+                    ./ nil)) `shouldBe` "5"
 
         it "can be 'switch'ed with 'Many' handlers with extraneous content" $ do
             let y = pick (5 :: Int) :: Which '[Int, Bool]
@@ -220,7 +220,7 @@ spec = do
                     ./ show @Char
                     ./ 'X'
                     ./ False
-                    ./ nul
+                    ./ nil
                 )) `shouldBe` "5"
 
         it "can be 'switchN'ed with 'Many' handlers in index order" $ do
@@ -230,7 +230,7 @@ spec = do
                     ./ show @Bool
                     ./ show @Bool
                     ./ show @Int
-                    ./ nul)) `shouldBe` "5"
+                    ./ nil)) `shouldBe` "5"
 
         it "can be switched with a single 'CaseTypeable' handler" $ do
             let y = pick (5 :: Int) :: Which '[Int, Bool]

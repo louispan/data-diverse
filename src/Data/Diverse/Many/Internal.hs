@@ -27,7 +27,7 @@ module Data.Diverse.Many.Internal (
     , _Many'
 
       -- * Construction
-    , nul
+    , nil
     , single
     , prefix
     , (./)
@@ -45,15 +45,20 @@ module Data.Diverse.Many.Internal (
     -- * Single field
     -- ** Getter for single field
     , fetch
+    , fetchL
     , fetchN
     -- ** Setter for single field
     , replace
     , replace'
+    , replaceL
+    , replaceL'
     , replaceN
     , replaceN'
     -- ** Lens for a single field
     , item
     , item'
+    , itemL
+    , itemL'
     , itemN
     , itemN'
 
@@ -61,6 +66,7 @@ module Data.Diverse.Many.Internal (
     -- ** Getter for multiple fields
     , Select
     , select
+    , selectL
     , SelectN
     , selectN
     -- ** Setter for multiple fields
@@ -68,6 +74,8 @@ module Data.Diverse.Many.Internal (
     , amend
     , Amend'
     , amend'
+    , amendL
+    , amendL'
     , AmendN
     , amendN
     , AmendN'
@@ -75,6 +83,8 @@ module Data.Diverse.Many.Internal (
     -- ** Lens for multiple fields
     , project
     , project'
+    , projectL
+    , projectL'
     , projectN
     , projectN'
 
@@ -160,11 +170,11 @@ fromMany_ :: Many_ xs -> Many xs
 fromMany_ (Many_ xs) = Many 0 (M.fromList (zip [(0 :: Int)..] xs))
 -----------------------------------------------------------------------
 
--- | A terminating 'G.Generic' instance encoded as a 'nul'.
+-- | A terminating 'G.Generic' instance encoded as a 'nil'.
 instance G.Generic (Many '[]) where
     type Rep (Many '[]) =  G.U1
     from _ = {- G.U1 -} G.U1
-    to G.U1 = nul
+    to G.U1 = nil
 
 -- | A 'G.Generic' instance encoded as the 'front' value 'G.:*:' with the 'aft' 'Many'.
 -- The 'G.C1' and 'G.S1' metadata are not encoded.
@@ -205,7 +215,7 @@ _Many' = iso fromMany' toMany'
 
 -- | These instances add about 7 seconds to the compile time!
 instance IsMany Tagged '[] () where
-    toMany _ = nul
+    toMany _ = nil
     fromMany _ = Tagged ()
 
 -- | This single field instance is the reason for 'Tagged' wrapper.
@@ -215,72 +225,72 @@ instance IsMany Tagged '[a] a where
     fromMany r = Tagged (fetch @a r)
 
 instance IsMany Tagged '[a,b] (a,b) where
-    toMany (Tagged (a,b)) = a./b./nul
+    toMany (Tagged (a,b)) = a./b./nil
     fromMany r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r)
 
 instance IsMany Tagged '[a,b,c] (a,b,c) where
-    toMany (Tagged (a,b,c)) = a./b./c./nul
+    toMany (Tagged (a,b,c)) = a./b./c./nil
     fromMany r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r)
 
 instance IsMany Tagged '[a,b,c,d] (a,b,c,d) where
-    toMany (Tagged (a,b,c,d)) = a./b./c./d./nul
+    toMany (Tagged (a,b,c,d)) = a./b./c./d./nil
     fromMany r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r)
 
 instance IsMany Tagged '[a,b,c,d,e] (a,b,c,d,e) where
-    toMany (Tagged (a,b,c,d,e)) = a./b./c./d./e./nul
+    toMany (Tagged (a,b,c,d,e)) = a./b./c./d./e./nil
     fromMany r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r)
 
 instance IsMany Tagged '[a,b,c,d,e,f] (a,b,c,d,e,f) where
-    toMany (Tagged (a,b,c,d,e,f)) = a./b./c./d./e./f./nul
+    toMany (Tagged (a,b,c,d,e,f)) = a./b./c./d./e./f./nil
     fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
                         , fetchN (Proxy @5) r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g] (a,b,c,d,e,f,g) where
-    toMany (Tagged (a,b,c,d,e,f,g)) = a./b./c./d./e./f./g./nul
+    toMany (Tagged (a,b,c,d,e,f,g)) = a./b./c./d./e./f./g./nil
     fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
                         , fetchN (Proxy @5) r, fetchN (Proxy @6) r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h] (a,b,c,d,e,f,g,h) where
-    toMany (Tagged (a,b,c,d,e,f,g,h)) = a./b./c./d./e./f./g./h./nul
+    toMany (Tagged (a,b,c,d,e,f,g,h)) = a./b./c./d./e./f./g./h./nil
     fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
                         , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i] (a,b,c,d,e,f,g,h,i) where
-    toMany (Tagged (a,b,c,d,e,f,g,h,i)) = a./b./c./d./e./f./g./h./i./ nul
+    toMany (Tagged (a,b,c,d,e,f,g,h,i)) = a./b./c./d./e./f./g./h./i./ nil
     fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
                         , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j] (a,b,c,d,e,f,g,h,i,j) where
-    toMany (Tagged (a,b,c,d,e,f,g,h,i,j)) = a./b./c./d./e./f./g./h./i./j./nul
+    toMany (Tagged (a,b,c,d,e,f,g,h,i,j)) = a./b./c./d./e./f./g./h./i./j./nil
     fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
                         , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k] (a,b,c,d,e,f,g,h,i,j,k) where
-    toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k)) = a./b./c./d./e./f./g./h./i./j./k./nul
+    toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k)) = a./b./c./d./e./f./g./h./i./j./k./nil
     fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
                         , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
                         , fetchN (Proxy @10) r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l] (a,b,c,d,e,f,g,h,i,j,k,l) where
-    toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l)) = a./b./c./d./e./f./g./h./i./j./k./l./nul
+    toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l)) = a./b./c./d./e./f./g./h./i./j./k./l./nil
     fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
                         , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
                         , fetchN (Proxy @10) r, fetchN (Proxy @11) r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m] (a,b,c,d,e,f,g,h,i,j,k,l,m) where
-    toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m)) = a./b./c./d./e./f./g./h./i./j./k./l./m./nul
+    toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m)) = a./b./c./d./e./f./g./h./i./j./k./l./m./nil
     fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
                         , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
                         , fetchN (Proxy @10) r, fetchN (Proxy @11) r, fetchN (Proxy @12) r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n] (a,b,c,d,e,f,g,h,i,j,k,l,m,n) where
-    toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m,n)) = a./b./c./d./e./f./g./h./i./j./k./l./m./n./nul
+    toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m,n)) = a./b./c./d./e./f./g./h./i./j./k./l./m./n./nil
     fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
                         , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
                         , fetchN (Proxy @10) r, fetchN (Proxy @11) r, fetchN (Proxy @12) r, fetchN (Proxy @13) r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l,m,n,o) where
-    toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m,n,o)) = a./b./c./d./e./f./g./h./i./j./k./l./m./n./o./nul
+    toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m,n,o)) = a./b./c./d./e./f./g./h./i./j./k./l./m./n./o./nil
     fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
                         , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
                         , fetchN (Proxy @10) r, fetchN (Proxy @11) r, fetchN (Proxy @12) r, fetchN (Proxy @13) r, fetchN (Proxy @14) r)
@@ -321,9 +331,9 @@ leftKeyForCons :: Int -> Int -> Int -> Int
 leftKeyForCons lo ro lk = lk - lo + ro
 {-# INLINE leftKeyForCons #-}
 
--- | Analogous to 'Prelude.null'. Named 'nul' to avoid conflicting with 'Prelude.null'.
-nul :: Many '[]
-nul = Many 0 M.empty
+-- | Analogous to 'Prelude.nill'. Named 'nil' to avoid conflicting with 'Prelude.nill'.
+nil :: Many '[]
+nil = Many 0 M.empty
 
 -- | Create a Many from a single value. Analogous to 'M.singleton'
 single :: x -> Many '[x]
@@ -418,7 +428,7 @@ fore (Many o m) = Many o (M.delete (o + M.size m - 1) m)
 -- | Getter by unique type. Get the field with type @x@.
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
 -- 'fetch' \@Int x \`shouldBe` 5
 -- @
 fetch :: forall x xs. UniqueMember x xs => Many xs -> x
@@ -427,9 +437,26 @@ fetch (Many o m) = unsafeCoerce (m M.! (o + i))
 
 --------------------------------------------------
 
+-- | Getter by label. Get the value of the field with tag @label@ which can be any type
+-- not just @KnownSymbol@.
+-- @
+--
+-- let y = False './' Tagged \@Foo \'X' './' Tagged @"Hi" True './' 'nil'
+-- 'fetchL' \@Foo Proxy y \`shouldBe` Tagged \@Foo \'X'
+-- 'fetchL' \@"Hi" Proxy y \`shouldBe` Tagged \@"Hi" True
+-- @
+fetchL :: forall l xs proxy. UniqueLabelMember l xs => proxy l -> Many xs -> KindAtLabel l xs
+fetchL _ (Many o m) = unsafeCoerce (m M.! (o + i))
+  where i = fromInteger (natVal @(IndexOf (KindAtLabel l xs) xs) Proxy)
+
+--------------------------------------------------
+
 -- | Getter by index. Get the value of the field at index type-level Nat @n@
 --
--- @getchN (Proxy \@2) t@
+-- @
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
+-- 'fetchN' @1 Proxy x \`shouldBe` False
+-- @
 fetchN :: forall n x xs proxy. MemberAt n x xs => proxy n -> Many xs -> x
 fetchN p (Many o m) = unsafeCoerce (m M.! (o + i))
   where i = fromInteger (natVal p)
@@ -439,8 +466,8 @@ fetchN p (Many o m) = unsafeCoerce (m M.! (o + i))
 -- | Setter by unique type. Set the field with type @x@.
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
--- 'replace' \@Int x 6 \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
+-- 'replace' \@Int x 6 \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
 -- @
 replace :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
 replace (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
@@ -449,19 +476,47 @@ replace (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
 -- | Polymorphic setter by unique type. Set the field with type @x@, and replace with type @y@
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
--- 'replace'' \@Int Proxy x (Just True) \`shouldBe` Just True './' False './' \'X' './' Just \'O' './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
+-- 'replace'' \@Int Proxy x (Just True) \`shouldBe` Just True './' False './' \'X' './' Just \'O' './' 'nil'
 -- @
-replace' :: forall x y xs. UniqueMember x xs => Proxy x -> Many xs -> y -> Many (Replace x y xs)
+replace' :: forall x y xs proxy. UniqueMember x xs => proxy x -> Many xs -> y -> Many (Replace x y xs)
 replace' _ (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
   where i = fromInteger (natVal @(IndexOf x xs) Proxy)
+
+--------------------------------------------------
+
+-- | Setter by unique label. Set the field with label @l@.
+--
+-- @
+-- let y = (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" (6 :: Int) './' 'nil'
+-- 'replaceL' \@Foo Proxy y (Tagged \@Foo \'Y') \`shouldBe`
+--     (5 :: Int) './' False './' Tagged \@Foo \'Y' './' Tagged \@\"Hello" (6 :: Int) './' 'nil'
+-- 'replaceL' \@\"Hello" Proxy y (Tagged \@\"Hello" 7) \`shouldBe`
+--     (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" (7 :: Int) './' 'nil'
+-- @
+replaceL :: forall l xs proxy. UniqueLabelMember l xs => proxy l -> Many xs -> KindAtLabel l xs -> Many xs
+replaceL _ (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
+  where i = fromInteger (natVal @(IndexOf (KindAtLabel l xs) xs) Proxy)
+
+-- | Polymorphic setter by unique type. Set the field with type @x@, and replace with type @y@
+--
+-- @
+-- let y = (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" (6 :: Int) './' 'nil'
+-- replaceL' \@Foo Proxy y (Tagged \@Bar \'Y') `shouldBe`
+--     (5 :: Int) './' False './' Tagged @Bar 'Y' './' Tagged @"Hello" (6 :: Int) './' 'nil'
+-- replaceL' \@\"Hello" Proxy y (Tagged \@\"Hello" False) \`shouldBe`
+--     (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" False './' 'nil'
+-- @
+replaceL' :: forall l y xs proxy. UniqueLabelMember l xs => proxy l -> Many xs -> y -> Many (Replace (KindAtLabel l xs) y xs)
+replaceL' _ (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
+  where i = fromInteger (natVal @(IndexOf (KindAtLabel l xs) xs) Proxy)
 
 --------------------------------------------------
 
 -- | Setter by index. Set the value of the field at index type-level Nat @n@
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
 -- 'replaceN' \@0 Proxy x 7 `shouldBe`
 -- @
 replaceN :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many xs
@@ -478,9 +533,9 @@ replaceN' p (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
 -- | 'fetch' ('view' 'item') and 'replace' ('set' 'item') in 'Lens'' form.
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
 -- x '^.' 'item' \@Int \`shouldBe` 5
--- (x '&' 'item' \@Int .~ 6) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
+-- (x '&' 'item' \@Int .~ 6) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
 -- @
 item :: forall x xs. UniqueMember x xs => Lens' (Many xs) x
 item = lens fetch replace
@@ -491,12 +546,35 @@ item' :: forall x y xs. UniqueMember x xs => Lens (Many xs) (Many (Replace x y x
 item' = lens fetch (replace' @x @y Proxy)
 {-# INLINE item' #-}
 
+
+-- | 'fetchL' ('view' 'itemL') and 'replaceL' ('set' 'itemL') in 'Lens'' form.
+--
+-- @
+-- let x = (5 :: Int) './' Tagged \@Foo False './' Tagged \@Bar \'X' './' 'nil'
+-- x '^.' 'itemL' \@Foo Proxy \`shouldBe` Tagged \@Foo False
+-- (x '&' 'itemL' \@Foo Proxy '.~' Tagged \@Foo True) \`shouldBe` (5 :: Int) './' Tagged \@Foo True './' Tagged \@Bar \'X' './' 'nil'
+-- @
+itemL :: forall l xs proxy. UniqueLabelMember l xs => proxy l -> Lens' (Many xs) (KindAtLabel l xs)
+itemL p = lens (fetchL p) (replaceL p)
+{-# INLINE itemL #-}
+
+-- | Polymorphic version of 'itemL'
+--
+-- @
+-- let x = (5 :: Int) './' Tagged @Foo False './' Tagged \@Bar \'X' './' 'nil'
+-- (x '&' itemL' \@Foo Proxy '.~' \"foo") \`shouldBe` (5 :: Int) './' \"foo" './' Tagged \@Bar \'X' './' 'nil'
+-- @
+itemL' :: forall l y xs proxy. UniqueLabelMember l xs => proxy l -> Lens (Many xs) (Many (Replace (KindAtLabel l xs) y xs)) (KindAtLabel l xs) y
+itemL' p = lens (fetchL p) (replaceL' p)
+{-# INLINE itemL' #-}
+
+
 -- | 'fetchN' ('view' 'item') and 'replaceN' ('set' 'item') in 'Lens'' form.
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' ./ nul
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' ./ nil
 -- x '^.' 'itemN' (Proxy \@0) \`shouldBe` 5
--- (x '&' 'itemN' (Proxy @0) '.~' 6) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
+-- (x '&' 'itemN' (Proxy @0) '.~' 6) \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
 -- @
 itemN ::  forall n x xs proxy. MemberAt n x xs => proxy n -> Lens' (Many xs) x
 itemN p = lens (fetchN p) (replaceN p)
@@ -525,7 +603,7 @@ class CaseAny c (xs :: [Type]) r where
 -- | Variation of 'Collector' which uses 'CaseAny' instead of 'Case'
 data CollectorAny c (xs :: [Type]) r = CollectorAny (c xs r) [Any]
 
--- | null case that doesn't even use 'caseAny', so that an instance of @CaseAny '[]@ is not needed.
+-- | nill case that doesn't even use 'caseAny', so that an instance of @CaseAny '[]@ is not needed.
 instance AFoldable (CollectorAny c '[]) r where
     afoldr _ z _ = z
 
@@ -550,7 +628,7 @@ forMany' c (Many _ xs) = CollectorAny c (snd <$> M.toAscList xs)
 -- | A variation of 'CollectorN' which uses 'CaseAny' instead of 'Case'
 data CollectorAnyN c n (xs :: [Type]) r = CollectorAnyN (c n xs r) [Any]
 
--- | null case that doesn't even use 'caseAnyN', so that an instance of @CaseAnyN '[]@ is not needed.
+-- | nill case that doesn't even use 'caseAnyN', so that an instance of @CaseAnyN '[]@ is not needed.
 instance AFoldable (CollectorAnyN c n '[]) r where
     afoldr _ z _ = z
 
@@ -580,7 +658,7 @@ forManyN' c (Many _ xs) = CollectorAnyN c (snd <$> M.toAscList xs)
 -- That is, the first v in the (k, v) is of type @x@, and the length of the list is equal to the length of @xs@.
 data Collector c (xs :: [Type]) r = Collector (c xs r) [Any]
 
--- | null case that doesn't even use 'case'', so that an instance of @Case '[]@ is not needed.
+-- | nill case that doesn't even use 'case'', so that an instance of @Case '[]@ is not needed.
 instance AFoldable (Collector c '[]) r where
     afoldr _ z _ = z
 
@@ -607,8 +685,8 @@ instance ( Case c (x ': xs) r
 -- The 'Collector' is 'AFoldable' to combine the results.
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
---     y = show \@Int './' show \@Char './' show \@(Maybe Char) './' show \@Bool './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
+--     y = show \@Int './' show \@Char './' show \@(Maybe Char) './' show \@Bool './' 'nil'
 -- 'afoldr' (:) [] ('forMany' ('Data.Diverse.Cases.cases' y) x) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
@@ -618,8 +696,8 @@ forMany c (Many _ xs) = Collector c (snd <$> M.toAscList xs)
 -- | This is @flip 'forMany'@
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
---     y = show \@Int './' show \@Char './' show \@(Maybe Char) './' show \@Bool './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
+--     y = show \@Int './' show \@Char './' show \@(Maybe Char) './' show \@Bool './' 'nil'
 -- 'afoldr' (:) [] ('collect' x ('Data.Diverse.Cases.cases' y)) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
@@ -631,7 +709,7 @@ collect = flip forMany
 -- | A variation of 'Collector' which uses 'ReiterateN' instead of 'Reiterate'
 data CollectorN c (n :: Nat) (xs :: [Type]) r = CollectorN (c n xs r) [Any]
 
--- | null case that doesn't even use 'case'', so that an instance of @Case '[]@ is not needed.
+-- | nill case that doesn't even use 'case'', so that an instance of @Case '[]@ is not needed.
 instance AFoldable (CollectorN c n '[]) r where
     afoldr _ z _ = z
 
@@ -656,8 +734,8 @@ instance ( Case (c n) (x ': xs) r
 -- The 'CollectorN' is 'AFoldable' to combine the results.
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
---     y = show \@Int './' show \@Bool './' show \@Char './' show \@(Maybe Char) './' show \@Int './' show \@(Maybe Char) './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
+--     y = show \@Int './' show \@Bool './' show \@Char './' show \@(Maybe Char) './' show \@Int './' show \@(Maybe Char) './' 'nil'
 -- 'afoldr' (:) [] ('forManyN' ('Data.Diverse.Cases.casesN' y) x) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
@@ -667,16 +745,13 @@ forManyN c (Many _ xs) = CollectorN c (snd <$> M.toAscList xs)
 -- | This is @flip 'forManyN'@
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
---     y = show \@Int './' show \@Bool './' show \@Char './' show \@(Maybe Char) './' show \@Int './' show \@(Maybe Char) './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
+--     y = show \@Int './' show \@Bool './' show \@Char './' show \@(Maybe Char) './' show \@Int './' show \@(Maybe Char) './' 'nil'
 -- 'afoldr' (:) [] ('collectN' x ('Data.Diverse.Cases.casesN' y)) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
 collectN :: Many xs -> c n xs r -> CollectorN c n xs r
 collectN = flip forManyN
-
-
--- mapMany' :: Many_ xs 
 
 -----------------------------------------------------------------------
 
@@ -691,8 +766,8 @@ type Select (smaller :: [Type]) (larger :: [Type]) =
 -- This can also be used to reorder fields in the original 'Many'.
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
--- 'select' \@'[Bool, Char] x \`shouldBe` False './' \'X' './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
+-- 'select' \@'[Bool, Char] x \`shouldBe` False './' \'X' './' 'nil'
 -- @
 select :: forall smaller larger. Select smaller larger => Many larger -> Many smaller
 select t = Many 0 (fromList' xs')
@@ -717,6 +792,18 @@ instance forall smaller larger x xs. (UniqueIfExists smaller x larger, MaybeUniq
 
 -----------------------------------------------------------------------
 
+-- | A variation of 'select' which selects by labels
+--
+-- @
+-- let x = False './' Tagged \@\"Hi" (5 :: Int) './' Tagged \@Foo False './' Tagged \@Bar \'X' './' Tagged \@\"Bye" 'O' './' 'nil'
+-- 'selectL' \@'[Foo, Bar] Proxy x \`shouldBe` Tagged \@Foo False './' Tagged \@Bar \'X' './' 'nil'
+-- 'selectL' \@'[\"Hi", \"Bye"] Proxy x \`shouldBe` Tagged \@\"Hi" (5 :: Int) './' Tagged \@\"Bye" \'O' './' 'nil'
+-- @
+selectL :: forall ls smaller larger proxy. (Select smaller larger, smaller ~ KindsAtLabels ls larger, IsDistinct ls) => proxy ls -> Many larger -> Many smaller
+selectL _ = select @(KindsAtLabels ls larger)
+
+-----------------------------------------------------------------------
+
 -- | A friendlier type constraint synomyn for 'selectN'
 type SelectN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
     ( AFoldable (CollectorAnyN (CaseSelectN ns smaller) 0 larger) (Maybe (Int, WrappedAny))
@@ -733,8 +820,8 @@ type SelectN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
 -- the mapping is specified by @indicies@.
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
--- 'selectN' (Proxy @'[5, 4, 0]) x \`shouldBe` Just \'A' './' (6 :: Int) './' (5 ::Int) './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
+-- 'selectN' (Proxy @'[5, 4, 0]) x \`shouldBe` Just \'A' './' (6 :: Int) './' (5 ::Int) './' 'nil'
 -- @
 selectN
     :: forall ns smaller larger proxy.
@@ -769,9 +856,9 @@ type Amend smaller larger = (AFoldable (CollectorAny (CaseAmend larger) smaller)
 -- Analogous to 'replace' setter but for multiple fields.
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
--- 'amend' \@'[Int, Maybe Char] x ((6 :: Int) './' Just \'P' './' 'nul') \`shouldBe`
---     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
+-- 'amend' \@'[Int, Maybe Char] x ((6 :: Int) './' Just \'P' './' 'nil') \`shouldBe`
+--     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nil'
 -- @
 amend :: forall smaller larger. Amend smaller larger => Many larger -> Many smaller -> Many larger
 amend (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
@@ -791,11 +878,28 @@ instance UniqueMember x larger => CaseAny (CaseAmend larger) (x ': xs) (Int, Wra
 
 -----------------------------------------------------------------------
 
+-- | A variation of 'amend' which amends via labels.
+--
+-- @
+-- let x = False ./ Tagged \@\"Hi" (5 :: Int) ./ Tagged \@Foo False ./ Tagged \@Bar \'X' ./ Tagged \@\"Bye" \'O' ./ 'nil'
+-- 'amendL' \@'[Foo, Bar] Proxy x (Tagged \@Foo True ./ Tagged \@Bar \'Y' ./ nil) `shouldBe`
+--     False ./ Tagged \@\"Hi" (5 :: Int) ./ Tagged \@Foo True ./ Tagged \@Bar \'Y' ./ Tagged \@\"Bye" \'O' ./ 'nil'
+-- 'amendL' \@'[\"Hi", \"Bye"] Proxy x (Tagged \@\"Hi" (6 :: Int) ./ Tagged \@\"Bye" \'P' ./ nil) `shouldBe`
+--     False ./ Tagged \@\"Hi" (6 :: Int) ./ Tagged \@Foo False ./ Tagged \@Bar \'X' ./ Tagged \@\"Bye" \'P' ./ 'nil'
+-- @
+amendL
+    :: forall ls smaller larger proxy.
+       (Amend smaller larger, smaller ~ KindsAtLabels ls larger, IsDistinct ls)
+    => proxy ls -> Many larger -> Many smaller -> Many larger
+amendL _ = amend @(KindsAtLabels ls larger)
+
+-----------------------------------------------------------------------
+
 -- | A friendlier type constraint synomyn for 'amend''
 type Amend' smaller smaller' larger = (AFoldable (CollectorAny (CaseAmend' larger) (Zip smaller smaller')) (Int, WrappedAny), IsDistinct smaller)
 
-amend' :: forall smaller smaller' larger. Amend' smaller smaller' larger
-    => Proxy smaller -> Many larger -> Many smaller' -> Many (Replaces smaller smaller' larger)
+amend' :: forall smaller smaller' larger proxy. Amend' smaller smaller' larger
+    => proxy smaller -> Many larger -> Many smaller' -> Many (Replaces smaller smaller' larger)
 amend' _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
   where
     xs' = afoldr (:) [] (forMany'' @smaller Proxy (CaseAmend' @larger @(Zip smaller smaller') lo) t)
@@ -815,6 +919,29 @@ instance UniqueMember x larger => CaseAny (CaseAmend' larger) ((x, y) ': zs) (In
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
 
 -----------------------------------------------------------------------
+
+-- | A variation of 'amend' which amends via labels.
+--
+-- @
+-- let x = False './' Tagged \@\"Hi" (5 :: Int) './' Tagged \@Foo False './' Tagged \@Bar 'X' './' Tagged \@\"Bye" \'O' './' 'nil'
+-- 'amendL'' \@'[Foo, Bar] Proxy x (\'Y' './' True './' 'ni'l) \`shouldBe`
+--     False './' Tagged \@\"Hi" (5 :: Int) './' \'Y' './' True './' Tagged \@\"Bye" \'O' './' 'nil'
+-- 'amendL'' \@'[\"Hi", \"Bye"] Proxy x (True './' Tagged \@\"Changed" True './' 'nil') \`shouldBe`
+--     False './' True './' Tagged \@Foo False './' Tagged \@Bar \'X' './' Tagged \@\"Changed" True './' 'nil'
+-- @
+amendL'
+    :: forall ls smaller smaller' larger proxy.
+       ( Amend' smaller smaller' larger
+       , smaller ~ KindsAtLabels ls larger
+       , IsDistinct ls
+       )
+    => proxy ls
+    -> Many larger
+    -> Many smaller'
+    -> Many (Replaces smaller smaller' larger)
+amendL' _ = amend' @(KindsAtLabels ls larger) Proxy
+
+-----------------------------------------------------------------------
 -- | A friendlier type constraint synomyn for 'amendN'
 type AmendN ns smaller larger =
     ( AFoldable (CollectorAnyN (CaseAmendN ns larger) 0 smaller) (Int, WrappedAny)
@@ -831,9 +958,9 @@ type AmendN ns smaller larger =
 -- the mapping is specified by @indicies@.
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
--- 'amendN' (Proxy \@'[5, 4, 0]) x (Just \'B' './' (8 :: Int) './' (4 ::Int) './' 'nul') \`shouldBe`
---     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
+-- 'amendN' (Proxy \@'[5, 4, 0]) x (Just \'B' './' (8 :: Int) './' (4 ::Int) './' 'nil') \`shouldBe`
+--     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nil'
 -- @
 amendN :: forall ns smaller larger proxy.
        (AmendN ns smaller larger)
@@ -894,10 +1021,10 @@ instance (MemberAt (KindAtIndex n indices) x larger) =>
 -- @
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'
--- x '^.' ('project' \@'[Int, Maybe Char]) \`shouldBe` (5 :: Int) './' Just \'O' './' 'nul'
--- (x '&' ('project' \@'[Int, Maybe Char]) '.~' ((6 :: Int) './' Just 'P' './' 'nul')) \`shouldBe`
---     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
+-- x '^.' ('project' \@'[Int, Maybe Char]) \`shouldBe` (5 :: Int) './' Just \'O' './' 'nil'
+-- (x '&' ('project' \@'[Int, Maybe Char]) '.~' ((6 :: Int) './' Just 'P' './' 'nil')) \`shouldBe`
+--     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nil'
 -- @
 project
     :: forall smaller larger.
@@ -914,6 +1041,39 @@ project'
 project' = lens select (amend' @smaller @smaller' Proxy)
 {-# INLINE project' #-}
 
+-- | 'selectL' ('view' 'projectL') and 'amendL' ('set' 'projectL') in 'Lens'' form.
+--
+-- @
+-- let x = False './' Tagged \@\"Hi" (5 :: Int) './' Tagged \@Foo False './' Tagged \@Bar \'X' './' Tagged \@\"Bye" \'O' './' 'nil'
+-- x '^.' ('projectL' \@'[Foo, Bar] Proxy) \`shouldBe` Tagged \@Foo False './' Tagged \@Bar \'X' './' nil
+-- (x '&' ('projectL' \@'[\"Hi", \"Bye"] Proxy) '.~' (Tagged \@\"Hi" (6 :: Int) './' Tagged \@\"Bye" \'P' './' nil)) '`shouldBe`
+--     False './' Tagged \@\"Hi" (6 :: Int) './' Tagged \@Foo False './' Tagged \@Bar \'X' './' Tagged \@\"Bye" \'P' './' 'nil'
+-- @
+projectL
+    :: forall ls smaller larger proxy.
+       (Select smaller larger, Amend smaller larger, smaller ~ KindsAtLabels ls larger, IsDistinct ls)
+    => proxy ls -> Lens' (Many larger) (Many smaller)
+projectL p = lens (selectL p) (amendL p)
+{-# INLINE projectL #-}
+
+-- | Polymorphic version of projectL'
+--
+-- @
+-- let x = False './' Tagged \@\"Hi" (5 :: Int) './' Tagged \@Foo False './' Tagged \@Bar \'X' './' Tagged \@\"Bye" \'O' './' 'nil'
+-- (x '&' ('projectL'' \@'[\"Hi", \"Bye"] Proxy) '.~' (True './' Tagged \@\"Changed" False './' 'nil')) \`shouldBe`
+--     False './' True './' Tagged \@Foo False './' Tagged \@Bar \'X' './' Tagged \@\"Changed" False './' 'nil'
+-- @
+projectL'
+    :: forall ls smaller smaller' larger proxy.
+       ( Select smaller larger
+       , Amend' smaller smaller' larger
+       , smaller ~ KindsAtLabels ls larger
+       , IsDistinct ls
+       )
+    => proxy ls -> Lens (Many larger) (Many (Replaces smaller smaller' larger)) (Many smaller) (Many smaller')
+projectL' p = lens (selectL p) (amendL' p)
+{-# INLINE projectL' #-}
+
 -- | 'selectN' ('view' 'projectN') and 'amendN' ('set' 'projectN') in 'Lens'' form.
 --
 -- @
@@ -921,10 +1081,10 @@ project' = lens select (amend' @smaller @smaller' Proxy)
 -- @
 --
 -- @
--- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nul'
--- x '^.' ('projectN' \@'[5, 4, 0] Proxy) \`shouldBe` Just \'A' './' (6 :: Int) './' (5 ::Int) './' 'nul'
--- (x '&' ('projectN' \@'[5, 4, 0] Proxy) '.~' (Just \'B' './' (8 :: Int) './' (4 ::Int) './' nul)) \`shouldBe`
---     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nul'
+-- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
+-- x '^.' ('projectN' \@'[5, 4, 0] Proxy) \`shouldBe` Just \'A' './' (6 :: Int) './' (5 ::Int) './' 'nil'
+-- (x '&' ('projectN' \@'[5, 4, 0] Proxy) '.~' (Just \'B' './' (8 :: Int) './' (4 ::Int) './' nil)) \`shouldBe`
+--     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nil'
 -- @
 projectN
     :: forall ns smaller larger proxy.
@@ -977,7 +1137,7 @@ instance Ord (Many_ xs) => Ord (Many xs) where
 -----------------------------------------------------------------------
 
 instance Show (Many_ '[]) where
-    showsPrec d _ = showParen (d > app_prec) $ showString "nul"
+    showsPrec d _ = showParen (d > app_prec) $ showString "nil"
       where
         app_prec = 10
 
@@ -1002,7 +1162,7 @@ instance Show (Many_ xs) => Show (Many xs) where
 
 instance Read (Many_ '[]) where
     readPrec = parens $ prec app_prec $ do
-        lift $ L.expect (Ident "nul")
+        lift $ L.expect (Ident "nil")
         pure $ Many_ []
       where
         app_prec = 10
@@ -1018,7 +1178,7 @@ instance (Read x, Read (Many_ xs)) => Read (Many_ (x ': xs)) where
     -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
     {-# NOINLINE readPrec #-}
 
--- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nul" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nul'@
+-- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nil" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'@
 instance Read (Many_ xs) => Read (Many xs) where
     readPrec = do
         xs <- readPrec @(Many_ xs)

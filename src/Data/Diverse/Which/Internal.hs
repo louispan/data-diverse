@@ -487,7 +487,7 @@ which = reduce . Switch
 -- 'Data.Diverse.Which.switch' y (
 --     'Data.Diverse.Cases.cases' (show \@Bool
 --         'Data.Diverse.Many../' show \@Int
---         'Data.Diverse.Many../' 'Data.Diverse.Many.nul')) \`shouldBe` "5"
+--         'Data.Diverse.Many../' 'Data.Diverse.Many.nil')) \`shouldBe` "5"
 -- @
 --
 -- Or 'Data.Diverse.CaseTypeable.CaseTypeable' to apply a polymorphic function that work on all 'Typeables'.
@@ -541,7 +541,7 @@ whichN = reduce . SwitchN
 --         'Data.Diverse.Many../' show \@Bool
 --         'Data.Diverse.Many../' show \@Bool
 --         'Data.Diverse.Many../' show \@Int
---         'Data.Diverse.Many../' 'Data.Diverse.Many.nul')) \`shouldBe` "5"
+--         'Data.Diverse.Many../' 'Data.Diverse.Many.nil')) \`shouldBe` "5"
 -- @
 --
 -- Or you may use your own custom instance of 'Case'.
