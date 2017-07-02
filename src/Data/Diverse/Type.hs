@@ -49,7 +49,12 @@ type family Nub (xs :: [k]) :: [k] where
 type Unique (x :: k) (xs :: [k]) = UniqueImpl xs x xs
 
 -- | Ensures that the @label@ in @tagged label v@ only ever appears once in @xs@.
-type UniqueLabel (l :: k1) (xs :: [k2]) = UniqueLabelImpl xs l xs
+type UniqueLabel (l :: k1) (xs :: [k]) = UniqueLabelImpl xs l xs
+
+-- | Ensures that the @label@ list all 'UniqueLabel's
+type family UniqueLabels (ls :: [k1]) (xs :: [k]) :: Constraint where
+    UniqueLabels '[] xs = ()
+    UniqueLabels (l ': ls) xs = (UniqueLabel l xs, UniqueLabels ls xs)
 
 -- | Get the first index of a type (Indexed by 0)
 -- Will result in type error if x doesn't exist in xs.

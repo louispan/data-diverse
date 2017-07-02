@@ -805,7 +805,13 @@ instance forall smaller larger x xs n. (UniqueIfExists smaller x larger, MaybeUn
 -- 'selectL' \@'[Foo, Bar] Proxy x \`shouldBe` Tagged \@Foo False './' Tagged \@Bar \'X' './' 'nil'
 -- 'selectL' \@'[\"Hi", \"Bye"] Proxy x \`shouldBe` Tagged \@\"Hi" (5 :: Int) './' Tagged \@\"Bye" \'O' './' 'nil'
 -- @
-selectL :: forall ls smaller larger proxy. (Select smaller larger, smaller ~ KindsAtLabels ls larger, IsDistinct ls) => proxy ls -> Many larger -> Many smaller
+selectL
+    :: forall ls smaller larger proxy.
+       ( Select smaller larger
+       , smaller ~ KindsAtLabels ls larger
+       , IsDistinct ls
+       , UniqueLabels ls larger)
+    => proxy ls -> Many larger -> Many smaller
 selectL _ = select @smaller
 
 -----------------------------------------------------------------------
@@ -895,7 +901,10 @@ instance UniqueMemberAt n x larger => CaseAny (CaseAmend larger) (x ': xs) (Int,
 -- @
 amendL
     :: forall ls smaller larger proxy.
-       (Amend smaller larger, smaller ~ KindsAtLabels ls larger, IsDistinct ls)
+       ( Amend smaller larger
+       , smaller ~ KindsAtLabels ls larger
+       , IsDistinct ls
+       , UniqueLabels ls larger)
     => proxy ls -> Many larger -> Many smaller -> Many larger
 amendL _ = amend @(KindsAtLabels ls larger)
 
@@ -943,6 +952,7 @@ amendL'
        ( Amend' smaller smaller' larger zipped
        , smaller ~ KindsAtLabels ls larger
        , IsDistinct ls
+       , UniqueLabels ls larger
        )
     => proxy ls
     -> Many larger
@@ -1061,7 +1071,11 @@ project' = lens select (amend' @smaller @smaller' Proxy)
 -- @
 projectL
     :: forall ls smaller larger proxy.
-       (Select smaller larger, Amend smaller larger, smaller ~ KindsAtLabels ls larger, IsDistinct ls)
+       ( Select smaller larger
+       , Amend smaller larger
+       , smaller ~ KindsAtLabels ls larger
+       , IsDistinct ls
+       , UniqueLabels ls larger)
     => proxy ls -> Lens' (Many larger) (Many smaller)
 projectL p = lens (selectL p) (amendL p)
 {-# INLINE projectL #-}
@@ -1079,7 +1093,7 @@ projectL'
        , Amend' smaller smaller' larger zipped
        , smaller ~ KindsAtLabels ls larger
        , IsDistinct ls
-       )
+       , UniqueLabels ls larger)
     => proxy ls -> Lens (Many larger) (Many (Replaces smaller smaller' larger)) (Many smaller) (Many smaller')
 projectL' p = lens (selectL p) (amendL' p)
 {-# INLINE projectL' #-}

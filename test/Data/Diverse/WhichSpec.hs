@@ -10,8 +10,14 @@ module Data.Diverse.WhichSpec (main, spec) where
 
 import Control.Lens
 import Data.Diverse
+import Data.Tagged
 import Data.Typeable
 import Test.Hspec
+
+data Foo
+data Bar
+data Hi
+data Bye
 
 -- `main` is here so that this module can be run from GHCi on its own.  It is
 -- not needed for automatic spec discovery.
@@ -55,6 +61,11 @@ spec = do
             let y = pick (5 :: Int) :: Which '[Bool, Int, Char]
                 x = hush $ trial @Int y
             x `shouldBe` (Just 5)
+
+        it "can be constructed by label with 'pickL' and destructed with 'trialL'" $ do
+            let y = pickL @Foo Proxy (Tagged (5 :: Int)) :: Which '[Bool, Tagged Foo Int, Tagged Bar Char]
+                x = hush $ trialL @Foo Proxy y
+            x `shouldBe` (Just (Tagged 5))
 
         it "may contain possiblities of duplicate types" $ do
             let y = pick (5 :: Int) :: Which '[Bool, Int, Char, Bool, Char]
@@ -125,6 +136,11 @@ spec = do
                 x = preview (facet @Int) y
             x `shouldBe` (Just 5)
 
+        it "can be constructed and destructed by label with 'facetL'" $ do
+            let y = review (facetL @Bar Proxy) (Tagged (5 :: Int)) :: Which '[Tagged Foo Bool, Tagged Bar Int, Char, Bool, Char]
+                x = preview (facetL @Bar Proxy) y
+            x `shouldBe` (Just (Tagged 5))
+
         it "can be constructed and destructed by index with 'facetN'" $ do
             let y = review (facetN (Proxy @4)) (5 :: Int) :: Which '[Bool, Int, Char, Bool, Int, Char]
                 x = preview (facetN (Proxy @4)) y
@@ -135,6 +151,12 @@ spec = do
                 y' = diversify @[Int, Bool] y
                 y'' = diversify @[Bool, Int] y'
             switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
+
+        it "can be extended and rearranged by type with 'diversify'" $ do
+            let y = pickOnly (5 :: Tagged Bar Int)
+                y' = diversifyL @'[Bar] Proxy y :: Which '[Tagged Bar Int, Tagged Foo Bool]
+                y'' = diversifyL @'[Bar, Foo] Proxy y' :: Which '[Tagged Foo Bool, Tagged Bar Int]
+            switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Tagged * Bar Int"
 
         it "can be extended and rearranged by index with 'diversifyN'" $ do
             let y = pickOnly (5 :: Int)
@@ -163,6 +185,12 @@ spec = do
             b `shouldBe` Left (pick (5 :: Int))
             let c = reinterpret @[String, Int] y
             c `shouldBe` Right (pick (5 :: Int))
+
+        it "can be 'reinterpretL'ed by label into a totally different Which" $ do
+            let y = pick @[Tagged Bar Int, Tagged Foo Bool, Tagged Hi Char, Tagged Bye Bool] (5 :: Tagged Bar Int)
+                y' = reinterpretL @[Foo, Bar] Proxy y
+                x = pick @[Tagged Foo Bool, Tagged Bar Int] (5 :: Tagged Bar Int)
+            y' `shouldBe` Right x
 
         it "the 'reinterpret' type can contain indistinct fields if they aren't in the original 'Many'" $ do
             let y = pick @[Int, Char] (5 :: Int)
@@ -196,6 +224,14 @@ spec = do
             y `shouldBe` pick (5 :: Int)
             let y' = preview (inject @[String, Int]) y
             y' `shouldBe` Just (pick (5 :: Int))
+
+        it "can be 'diversifyL'ed and 'reinterpretedL' by label with 'injectL'" $ do
+            let t = pick @[Tagged Bar Int, Tagged Foo Bool, Tagged Hi Char, Tagged Bye Bool] (5 :: Tagged Bar Int)
+                b = pick @'[Tagged Foo Bool, Tagged Bar Int] (5 :: Tagged Bar Int)
+                t' = review (injectL @[Foo, Bar] @_ @[Tagged Bar Int, Tagged Foo Bool, Tagged Hi Char, Tagged Bye Bool] Proxy) b
+                b' = preview (injectL @[Foo, Bar] Proxy) t'
+            t `shouldBe` t'
+            b' `shouldBe` Just b
 
         it "can be 'diversifyN'ed and 'reinterpretedN' by index with 'injectN'" $ do
             let x = pick (5 :: Int) :: Which '[String, Int]

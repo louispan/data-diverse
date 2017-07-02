@@ -27,15 +27,18 @@ module Data.Diverse.Which (
     , Diversify
     , diversify
     , diversify0
+    , diversifyL
     , DiversifyN
     , diversifyN
       -- ** Inverse Injection
     , Reinterpret
     , reinterpret
+    , reinterpretL
     , ReinterpretN
     , reinterpretN
       -- ** Lens
     , inject
+    , injectL
     , injectN
 
       -- * Catamorphism

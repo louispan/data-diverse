@@ -41,15 +41,18 @@ module Data.Diverse.Which.Internal (
     , Diversify
     , diversify
     , diversify0
+    , diversifyL
     , DiversifyN
     , diversifyN
       -- ** Inverse Injection
     , Reinterpret
     , reinterpret
+    , reinterpretL
     , ReinterpretN
     , reinterpretN
       -- ** Lens
     , inject
+    , injectL
     , injectN
 
       -- * Catamorphism
@@ -161,6 +164,13 @@ pick = pick_
 pick_ :: forall x xs n. (KnownNat n, n ~ IndexOf x xs) => x -> Which xs
 pick_ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 
+-- | A variation of 'pick' where @x@ is specified via a label
+--
+-- @
+-- let y = 'pickL' \@Foo Proxy (Tagged (5 :: Int)) :: Which '[Bool, Tagged Foo Int, Tagged Bar Char]
+--     x = 'trialL' \@Foo Proxy y
+-- x `shouldBe` (Right (Tagged 5))
+-- @
 pickL :: forall l xs x proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> x -> Which xs
 pickL _ = pick_ @x
 
@@ -221,6 +231,13 @@ trial_ (Which n v) = let i = fromInteger (natVal @n Proxy)
                           then Left (Which (n - 1) v)
                           else Left (Which n v)
 
+-- | A variation of 'trial' where x is specified via a label
+--
+-- @
+-- let y = 'pickL' \@Foo Proxy (Tagged (5 :: Int)) :: Which '[Bool, Tagged Foo Int, Tagged Bar Char]
+--     x = 'trialL' \@Foo Proxy y
+-- x `shouldBe` (Right (Tagged 5))
+-- @
 trialL
     :: forall l xs x proxy.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
@@ -276,6 +293,13 @@ facet :: forall x xs. (UniqueMember x xs) => Prism' (Which xs) x
 facet = prism' pick (hush . trial)
 {-# INLINE facet #-}
 
+-- | 'pickL' ('review' 'facetL') and 'trialL' ('preview' 'facetL') in 'Prism'' form.
+--
+-- @
+-- let y = 'review' ('facetL' \@Bar Proxy) (Tagged (5 :: Int)) :: Which '[Tagged Foo Bool, Tagged Bar Int, Char, Bool, Char]
+--     x = 'preview' ('facetL' \@Bar Proxy) y
+-- x \`shouldBe` (Just (Tagged 5))
+-- @
 facetL :: forall l xs x proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Prism' (Which xs) x
 facetL p = prism' (pickL p) (hush . trialL p)
 {-# INLINE facetL #-}
@@ -333,10 +357,30 @@ diversify0 (Which n v) = Which (n + 1) v
 
 ------------------------------------------------------------------
 
+-- | A variation of 'diversify' where @branch@is additionally specified by a labels list.
+--
+-- @
+-- let y = 'pickOnly' (5 :: Tagged Bar Int)
+--     y' = 'diversifyL' \@'[Bar] Proxy y :: 'Which' '[Tagged Bar Int, Tagged Foo Bool]
+--     y'' = 'diversifyL' \@'[Bar, Foo] Proxy y' :: 'Which' '[Tagged Foo Bool, Tagged Bar Int]
+-- 'switch' y'' ('Data.Diverse.CaseTypeable.CaseTypeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Tagged * Bar Int"
+-- @
+diversifyL
+    :: forall ls tree branch proxy.
+       ( Diversify tree branch
+       , branch ~ KindsAtLabels ls tree
+       , UniqueLabels ls tree
+       , IsDistinct ls
+       )
+    => proxy ls -> Which branch -> Which tree
+diversifyL _ = which (CaseDiversify @tree @branch @branch)
+
+------------------------------------------------------------------
+
 -- | A friendlier constraint synonym for 'diversifyN'.
 type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) = (Reduce Which (SwitchN (CaseDiversifyN indices) 0) (KindsAtIndices indices tree) (Which tree), KindsAtIndices indices tree ~ branch)
 
--- | A variation of 'diversify' which uses a Nat list @n@ to specify how to reorder the fields, where
+-- | A variation of 'diversify' which uses a Nat list @indices@ to specify how to reorder the fields, where
 --
 -- @
 -- indices[branch_idx] = tree_idx
@@ -405,6 +449,28 @@ instance ( MaybeUniqueMemberAt n x branch
 
 ------------------------------------------------------------------
 
+-- | A variation of 'reinterpret' where the @branch@ is additionally specified with a labels list.
+--
+-- @
+-- let y = 'pick' \@[Tagged Bar Int, Tagged Foo Bool, Tagged Hi Char, Tagged Bye Bool] (5 :: Tagged Bar Int)
+--     y' = 'reinterpretL' \@[Foo, Bar] Proxy y
+--     x = 'pick' \@[Tagged Foo Bool, Tagged Bar Int] (5 :: Tagged Bar Int)
+-- y' \`shouldBe` Right x
+-- @
+reinterpretL
+    :: forall ls branch tree proxy.
+       ( Reinterpret branch tree
+       , branch ~ KindsAtLabels ls tree
+       , UniqueLabels ls tree
+       , IsDistinct ls
+       )
+    => proxy ls
+    -> Which tree
+    -> Either (Which (Complement tree branch)) (Which branch)
+reinterpretL _ = which (CaseReinterpret @branch @tree @tree)
+
+------------------------------------------------------------------
+
 -- | A friendlier constraint synonym for 'reinterpretN'.
 type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) = (Reduce Which (SwitchN (CaseReinterpretN indices) 0) tree (Maybe (Which (KindsAtIndices indices tree))), KindsAtIndices indices tree ~ branch)
 
@@ -455,6 +521,29 @@ inject
     => Prism' (Which tree) (Which branch)
 inject = prism' diversify (hush . reinterpret)
 {-# INLINE inject #-}
+
+
+-- | 'diversifyL' ('review' 'injectL') and 'reinterpretL' ('preview' 'injectL') in 'Prism'' form.
+--
+-- @
+-- let t = 'pick' \@[Tagged Bar Int, Tagged Foo Bool, Tagged Hi Char, Tagged Bye Bool] (5 :: Tagged Bar Int)
+--     b = 'pick' \@'[Tagged Foo Bool, Tagged Bar Int] (5 :: Tagged Bar Int)
+--     t' = 'review' ('injectL' \@[Foo, Bar] \@_ \@[Tagged Bar Int, Tagged Foo Bool, Tagged Hi Char, Tagged Bye Bool] Proxy) b
+--     b' = 'preview' ('injectL' \@[Foo, Bar] Proxy) t'
+-- t \`shouldBe` t'
+-- b' \`shouldBe` Just b
+-- @
+injectL
+    :: forall ls branch tree proxy.
+       ( Diversify tree branch
+       , Reinterpret branch tree
+       , branch ~ KindsAtLabels ls tree
+       , UniqueLabels ls tree
+       , IsDistinct ls
+       )
+    => proxy ls -> Prism' (Which tree) (Which branch)
+injectL p = prism' (diversifyL p) (hush . reinterpretL p)
+{-# INLINE injectL #-}
 
 -- | 'diversifyN' ('review' 'injectN') and 'reinterpretN' ('preview' 'injectN') in 'Prism'' form.
 --

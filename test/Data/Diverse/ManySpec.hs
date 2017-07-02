@@ -10,8 +10,8 @@ module Data.Diverse.ManySpec (main, spec) where
 
 import Control.Lens
 import Data.Diverse
-import Data.Typeable
 import Data.Tagged
+import Data.Typeable
 import Test.Hspec
 
 -- `main` is here so that this module can be run from GHCi on its own.  It is
