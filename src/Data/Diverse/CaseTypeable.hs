@@ -9,7 +9,7 @@ module Data.Diverse.CaseTypeable where
 
 import Data.Diverse.Case
 import Data.Diverse.Reiterate
-import Data.Diverse.Type
+import Data.Diverse.TypeLevel
 import Data.Kind
 import Data.Typeable
 

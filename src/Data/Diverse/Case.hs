@@ -6,7 +6,7 @@
 
 module Data.Diverse.Case where
 
-import Data.Diverse.Type
+import Data.Diverse.TypeLevel
 import Data.Kind
 
 -- | This class allows defining handlers that can handle the 'Head' type in the @xs@ typelist.

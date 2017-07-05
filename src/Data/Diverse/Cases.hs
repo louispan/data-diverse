@@ -21,7 +21,7 @@ module Data.Diverse.Cases
 import Data.Diverse.Case
 import Data.Diverse.Many
 import Data.Diverse.Reiterate
-import Data.Diverse.Type
+import Data.Diverse.TypeLevel
 import Data.Kind
 import Data.Proxy
 import GHC.TypeLits

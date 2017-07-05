@@ -103,7 +103,7 @@ import Data.Bool
 import Data.Diverse.AFoldable
 import Data.Diverse.Case
 import Data.Diverse.Reiterate
-import Data.Diverse.Type
+import Data.Diverse.TypeLevel
 import Data.Kind
 import qualified Data.Map.Strict as M
 import Data.Proxy

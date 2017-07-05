@@ -1,5 +1,5 @@
 name:                data-diverse
-version:             0.4.0.0
+version:             0.5.0.0
 synopsis:            Extensible records and polymorphic variants.
 description:         "Data.Diverse.Many" is an extensible record for any size encoded efficiently as (Int, Map Int Any).
                      "Data.Diverse.Which" is a polymorphic variant of possibilities encoded as (Int, Any).
@@ -29,10 +29,10 @@ library
                        Data.Diverse.Many.Internal
                        Data.Diverse.Reduce
                        Data.Diverse.Reiterate
-                       Data.Diverse.Type
+                       Data.Diverse.TypeLevel
+                       Data.Diverse.TypeLevel.Internal
                        Data.Diverse.Which
                        Data.Diverse.Which.Internal
-  other-modules:       Data.Diverse.Type.Internal
   build-depends:       base >= 4.7 && < 5
                      , containers >= 0.5 && < 0.6
                      , ghc-prim >= 0.5 && < 1

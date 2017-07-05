@@ -6,7 +6,7 @@
 
 module Data.Diverse.Reiterate where
 
-import Data.Diverse.Type
+import Data.Diverse.TypeLevel
 import Data.Kind
 import GHC.TypeLits
 

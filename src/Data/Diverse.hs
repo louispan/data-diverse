@@ -6,7 +6,7 @@ module Data.Diverse
     , module Data.Diverse.Many
     , module Data.Diverse.Reduce
     , module Data.Diverse.Reiterate
-    , module Data.Diverse.Type
+    , module Data.Diverse.TypeLevel
     , module Data.Diverse.Which
     ) where
 
@@ -17,5 +17,5 @@ import Data.Diverse.CaseTypeable
 import Data.Diverse.Many
 import Data.Diverse.Reduce
 import Data.Diverse.Reiterate
-import Data.Diverse.Type
+import Data.Diverse.TypeLevel
 import Data.Diverse.Which

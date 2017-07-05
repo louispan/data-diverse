@@ -70,7 +70,7 @@ import Control.Monad
 import Data.Diverse.Case
 import Data.Diverse.Reduce
 import Data.Diverse.Reiterate
-import Data.Diverse.Type
+import Data.Diverse.TypeLevel
 import Data.Kind
 import Data.Proxy
 import qualified GHC.Generics as G
@@ -322,7 +322,7 @@ facetN p = prism' (pickN p) (hush . trialN p)
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversify'.
-type Diversify (tree :: [Type]) (branch :: [Type]) = Reduce Which (Switch (CaseDiversify tree branch)) branch (Which tree)
+type Diversify (tree :: [Type]) (branch :: [Type]) = Reduce (Which branch) (Switch (CaseDiversify tree branch) branch) (Which tree)
 
 -- | Convert a 'Which' to another 'Which' that may include other possibilities.
 -- That is, @branch@ is equal or is a subset of @tree@.
@@ -378,7 +378,9 @@ diversifyL _ = which (CaseDiversify @tree @branch @branch)
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversifyN'.
-type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) = (Reduce Which (SwitchN (CaseDiversifyN indices) 0) (KindsAtIndices indices tree) (Which tree), KindsAtIndices indices tree ~ branch)
+type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) =
+    ( Reduce (Which branch) (SwitchN (CaseDiversifyN indices) 0 branch) (Which tree)
+    , KindsAtIndices indices tree ~ branch)
 
 -- | A variation of 'diversify' which uses a Nat list @indices@ to specify how to reorder the fields, where
 --
@@ -410,7 +412,7 @@ instance MemberAt (KindAtIndex n indices) x tree =>
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'reinterpret'.
-type Reinterpret branch tree = Reduce Which (Switch (CaseReinterpret branch tree)) tree (Either (Which (Complement tree branch)) (Which branch))
+type Reinterpret branch tree = Reduce (Which tree) (Switch (CaseReinterpret branch tree) tree) (Either (Which (Complement tree branch)) (Which branch))
 
 -- | Convert a 'Which' into possibly another 'Which' with a totally different typelist.
 -- Returns either a 'Which' with the 'Right' value, or a 'Which' with the 'Left'over @compliment@ types.
@@ -472,7 +474,9 @@ reinterpretL _ = which (CaseReinterpret @branch @tree @tree)
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'reinterpretN'.
-type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) = (Reduce Which (SwitchN (CaseReinterpretN indices) 0) tree (Maybe (Which (KindsAtIndices indices tree))), KindsAtIndices indices tree ~ branch)
+type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
+    ( Reduce (Which tree) (SwitchN (CaseReinterpretN indices) 0 tree) (Maybe (Which branch))
+    , KindsAtIndices indices tree ~ branch)
 
 -- | A limited variation of 'reinterpret' which uses a Nat list @n@ to specify how to reorder the fields, where
 --
@@ -571,24 +575,26 @@ newtype Switch c (xs :: [Type]) r = Switch (c xs r)
 
 -- | 'trial0' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterate'__
 -- trying the next type in the type list.
-instance (Case c (x ': x' ': xs) r, Reduce Which (Switch c) (x' ': xs) r, Reiterate c (x : x' : xs)) =>
-         Reduce Which (Switch c) (x ': x' ': xs) r where
+instance (Case c (x ': x' ': xs) r, Reduce (Which (x' ': xs)) (Switch c (x' ': xs)) r, Reiterate c (x : x' : xs)) =>
+         Reduce (Which (x ': x' ': xs)) (Switch c (x ': x' ': xs)) r where
     reduce (Switch c) v =
         case trial0 v of
             Right a -> case' c a
             Left v' -> reduce (Switch (reiterate c)) v'
     -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE reduce #-}
+    -- Using INLINEABLE instead of NOLINE so that ghc 8.2.1 can optimize to single case statement
+    -- See https://ghc.haskell.org/trac/ghc/ticket/12877
+    {-# INLINEABLE reduce #-}
 
 -- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
 -- You can't reduce 'impossible'
-instance (Case c '[x] r) => Reduce Which (Switch c) '[x] r where
+instance (Case c '[x] r) => Reduce (Which '[x]) (Switch c '[x]) r where
     reduce (Switch c) v = case obvious v of
             a -> case' c a
 
 -- | Catamorphism for 'Which'. This is equivalent to @flip 'switch'@.
-which :: Reduce Which (Switch case') xs r => case' xs r -> Which xs -> r
+which :: Reduce (Which xs) (Switch case' xs) r => case' xs r -> Which xs -> r
 which = reduce . Switch
 
 -- | A switch/case statement for 'Which'. This is equivalent to @flip 'which'@
@@ -611,7 +617,7 @@ which = reduce . Switch
 -- @
 --
 -- Or you may use your own custom instance of 'Case'.
-switch :: Reduce Which (Switch case') xs r => Which xs -> case' xs r -> r
+switch :: Reduce (Which xs) (Switch case' xs) r => Which xs -> case' xs r -> r
 switch = flip which
 
 ------------------------------------------------------------------
@@ -622,24 +628,26 @@ newtype SwitchN c (n :: Nat) (xs :: [Type]) r = SwitchN (c n xs r)
 
 -- | 'trial0' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterateN'__
 -- trying the next type in the type list.
-instance (Case (c n) (x ': x' ': xs) r, Reduce Which (SwitchN c (n + 1)) (x' ': xs) r, ReiterateN c n (x : x' : xs)) =>
-         Reduce Which (SwitchN c n) (x ': x' ': xs) r where
+instance (Case (c n) (x ': x' ': xs) r, Reduce (Which (x' ': xs)) (SwitchN c (n + 1) (x' ': xs)) r, ReiterateN c n (x : x' : xs)) =>
+         Reduce (Which (x ': x' ': xs)) (SwitchN c n (x ': x' ': xs)) r where
     reduce (SwitchN c) v =
         case trial0 v of
             Right a -> case' c a
             Left v' -> reduce (SwitchN (reiterateN c)) v'
     -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE reduce #-}
+    -- Using INLINEABLE instead of NOLINE so that ghc 8.2.1 can optimize to single case statement
+    -- See https://ghc.haskell.org/trac/ghc/ticket/12877
+    {-# INLINEABLE reduce #-}
 
 -- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
 -- You can't reduce 'impossible'
-instance (Case (c n) '[x] r) => Reduce Which (SwitchN c n) '[x] r where
+instance (Case (c n) '[x] r) => Reduce (Which '[x]) (SwitchN c n '[x]) r where
     reduce (SwitchN c) v = case obvious v of
             a -> case' c a
 
 -- | Catamorphism for 'Which'. This is equivalent to @flip 'switchN'@.
-whichN :: Reduce Which (SwitchN case' n) xs r => case' n xs r -> Which xs -> r
+whichN :: Reduce (Which xs) (SwitchN case' n xs) r => case' n xs r -> Which xs -> r
 whichN = reduce . SwitchN
 
 -- | A switch/case statement for 'Which'. This is equivalent to @flip 'whichN'@
@@ -658,13 +666,13 @@ whichN = reduce . SwitchN
 -- @
 --
 -- Or you may use your own custom instance of 'Case'.
-switchN :: Reduce Which (SwitchN case' n) xs r => Which xs -> case' n xs r -> r
+switchN :: Reduce (Which xs) (SwitchN case' n xs) r => Which xs -> case' n xs r -> r
 switchN = flip whichN
 
 -----------------------------------------------------------------
 
 -- | Two 'Which'es are only equal iff they both contain the equivalnet value at the same type index.
-instance (Reduce Which (Switch CaseEqWhich) (x ': xs) Bool) => Eq (Which (x ': xs)) where
+instance (Reduce (Which (x ': xs)) (Switch CaseEqWhich (x ': xs)) Bool) => Eq (Which (x ': xs)) where
     l@(Which i _) == (Which j u) =
         if i /= j
             then False
@@ -687,7 +695,10 @@ instance (Eq x) => Case CaseEqWhich (x ': xs) Bool where
 -----------------------------------------------------------------
 
 -- | A 'Which' with a type at smaller type index is considered smaller.
-instance (Reduce Which (Switch CaseEqWhich) (x ': xs) Bool, Reduce Which (Switch CaseOrdWhich) (x ': xs) Ordering) => Ord (Which (x ': xs)) where
+instance ( Reduce (Which (x ': xs)) (Switch CaseEqWhich (x ': xs)) Bool
+         , Reduce (Which (x ': xs)) (Switch CaseOrdWhich (x ': xs)) Ordering
+         ) =>
+         Ord (Which (x ': xs)) where
     compare l@(Which i _) (Which j u) =
         if i /= j
             then compare i j
@@ -710,7 +721,7 @@ instance (Ord x) => Case CaseOrdWhich (x ': xs) Ordering where
 ------------------------------------------------------------------
 
 -- | @show ('pick'' \'A') == "pick \'A'"@
-instance (Reduce Which (Switch CaseShowWhich) (x ': xs) ShowS) => Show (Which (x ': xs)) where
+instance (Reduce (Which (x ': xs)) (Switch CaseShowWhich (x ': xs)) ShowS) => Show (Which (x ': xs)) where
     showsPrec d v = showParen (d > app_prec) (which (CaseShowWhich 0) v)
       where app_prec = 10
 
@@ -750,7 +761,9 @@ instance (Read x, WhichRead (Which_ (x' ': xs))) => WhichRead (Which_ (x ': x' '
     whichReadPrec i j = readWhich_ i j
                <|> (diversify0' <$> (whichReadPrec i (j + 1) :: ReadPrec (Which_ (x' ': xs))))
     -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE whichReadPrec #-}
+    -- Using INLINEABLE instead of NOLINE so that ghc 8.2.1 can optimize to single case statement
+    -- See https://ghc.haskell.org/trac/ghc/ticket/12877
+    {-# INLINEABLE whichReadPrec #-}
 
 
 -- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
