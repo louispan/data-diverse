@@ -15,9 +15,6 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- Some constraints are for extra safety and uniqueness so are not actually redundant
-{-# OPTIONS_GHC -Wno-redundant-constraints #-}
-
 module Data.Diverse.Many.Internal (
     -- * 'Many' type
       Many(..) -- Exporting constructor unsafely!
