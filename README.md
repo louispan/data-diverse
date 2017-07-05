@@ -5,7 +5,7 @@
 
 "Data.Diverse.Which" polymorphic variant of possibilities encoded as (Int, Any).
 
-Provides getters, setters, projection, injection, fold, and catamorphisms;
-accessed by type or index.
+Provides getters, setters, projection, injection, folds, and catamorphisms;
+accessed by type or index or label.
 
 Refer to [ManySpec.hs](https://github.com/louispan/data-diverse/blob/master/test/Data/Diverse/ManySpec.hs) and [WhichSpec.hs](https://github.com/louispan/data-diverse/blob/master/test/Data/Diverse/WhichSpec.hs) for example usages.
