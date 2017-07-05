@@ -29,7 +29,7 @@ spec = do
             fromIntegral (natVal @(PositionOf Int '[Bool, String, Char]) Proxy) `shouldBe` (0 :: Int)
 
         it "ComplementOf" $ do
-            let complementTest :: (Complement xs ys ~ comp) => Proxy xs -> Proxy ys -> Proxy comp -> Proxy comp
+            let complementTest :: Proxy xs -> Proxy ys -> Proxy (Complement xs ys) -> Proxy (Complement xs ys)
                 complementTest _ _ comp = comp
 
             complementTest (Proxy @[String, Int]) (Proxy @[Bool, Int]) (Proxy @'[String]) `shouldBe` Proxy
