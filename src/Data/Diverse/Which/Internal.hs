@@ -263,10 +263,6 @@ trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
                           then Left (Which (n - 1) v)
                           else Left (Which n v)
 
--- | Utility to convert Either to Maybe
-hush :: Either a b -> Maybe b
-hush = either (const Nothing) Just
-
 -----------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversify'.
