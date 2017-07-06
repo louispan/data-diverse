@@ -17,10 +17,6 @@ module Data.Diverse.Which (
     , trial0
     , trialL
     , trialN
-      -- ** Lens
-    , facet
-    , facetL
-    , facetN
 
       -- * Multiple types
       -- ** Injection
@@ -36,10 +32,6 @@ module Data.Diverse.Which (
     , reinterpretL
     , ReinterpretN
     , reinterpretN
-      -- ** Lens
-    , inject
-    , injectL
-    , injectN
 
       -- * Catamorphism
     , Switch(..)

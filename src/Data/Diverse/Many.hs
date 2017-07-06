@@ -7,8 +7,6 @@ module Data.Diverse.Many (
     , IsMany(..)
     , fromMany'
     , toMany'
-    , _Many
-    , _Many'
 
       -- * Construction
     , nil
@@ -38,13 +36,6 @@ module Data.Diverse.Many (
     , replaceL'
     , replaceN
     , replaceN'
-    -- ** Lens for a single field
-    , item
-    , item'
-    , itemL
-    , itemL'
-    , itemN
-    , itemN'
 
     -- * Multiple fields
     -- ** Getter for multiple fields
@@ -64,13 +55,6 @@ module Data.Diverse.Many (
     , amendN
     , AmendN'
     , amendN'
-    -- ** Lens for multiple fields
-    , project
-    , project'
-    , projectL
-    , projectL'
-    , projectN
-    , projectN'
 
     -- * Destruction
     -- ** By type

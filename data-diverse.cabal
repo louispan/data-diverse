@@ -1,5 +1,5 @@
 name:                data-diverse
-version:             0.5.0.0
+version:             0.6.0.0
 synopsis:            Extensible records and polymorphic variants.
 description:         "Data.Diverse.Many" is an extensible record for any size encoded efficiently as (Int, Map Int Any).
                      "Data.Diverse.Which" is a polymorphic variant of possibilities encoded as (Int, Any).
@@ -36,7 +36,6 @@ library
   build-depends:       base >= 4.7 && < 5
                      , containers >= 0.5 && < 0.6
                      , ghc-prim >= 0.5 && < 1
-                     , lens >= 4 && < 5
                      , tagged >= 0.8.5 && < 1
   ghc-options:         -Wall
   default-language:    Haskell2010
@@ -49,9 +48,8 @@ test-suite data-diverse-test
                        Data.Diverse.TypeSpec
                        Data.Diverse.WhichSpec
   build-depends:       base
-                     , data-diverse >= 0.2.1 && < 1
+                     , data-diverse
                      , hspec >= 2 && < 3
-                     , lens >= 4 && < 5
                      , tagged >= 0.8.5 && < 1
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-language:    Haskell2010
