@@ -88,7 +88,7 @@ import Data.Diverse.Case
 import Data.Diverse.Reiterate
 import Data.Diverse.TypeLevel
 import Data.Kind
-import qualified Data.Map.Strict as M
+import qualified Data.IntMap.Strict as M
 import Data.Proxy
 import Data.Tagged
 import qualified GHC.Generics as G
@@ -131,7 +131,7 @@ import Prelude as Partial
 --
 -- The constructor will guarantee the correct number and types of the elements.
 -- The constructor is only exported in the "Data.Diverse.Many.Internal" module
-data Many (xs :: [Type]) = Many {-# UNPACK #-} !Int (M.Map Int Any)
+data Many (xs :: [Type]) = Many {-# UNPACK #-} !Int (M.IntMap Any)
 
 -- Inferred role is phantom which is incorrect
 -- representational means:
@@ -164,11 +164,7 @@ instance G.Generic (Many '[]) where
 instance G.Generic (Many (x ': xs)) where
     type Rep (Many (x ': xs)) = (G.Rec0 x) G.:*: (G.Rec0 (Many xs))
     from r = ({- G.Rec0 -} G.K1 (front r)) G.:*: ({- G.Rec0 -} G.K1 (aft r))
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE from #-}
     to (({- G.Rec0 -} G.K1 a) G.:*: ({- G.Rec0 -} G.K1 b)) = a ./ b
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE to #-}
 
 -----------------------------------------------------------------------
 
@@ -281,7 +277,6 @@ instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l
 -- \OldRightKey -> OldRightKey - RightOffset + LeftOffset + LeftSize
 rightKeyForSnoc :: Int -> Int -> Int -> Int -> Int
 rightKeyForSnoc lo ld ro rk = rk - ro + lo + ld
-{-# INLINE rightKeyForSnoc #-}
 
 -- | When appending two maps together, get the function to modify the RightMap's offset
 -- when adding LeftMap into RightMap.
@@ -289,7 +284,6 @@ rightKeyForSnoc lo ld ro rk = rk - ro + lo + ld
 -- NewRightOffset = OldRightOffset - LeftSize
 rightOffsetForCons :: Int -> Int -> Int
 rightOffsetForCons ld ro = ro - ld
-{-# INLINE rightOffsetForCons #-}
 
 -- | When appending two maps together, get the function to 'M.mapKeys' the LeftMap
 -- when adding LeftMap into RightMap.
@@ -302,9 +296,8 @@ rightOffsetForCons ld ro = ro - ld
 -- \OldLeftKey -> OldLeftKey - LeftOffset + NewRightOffset (as above)
 leftKeyForCons :: Int -> Int -> Int -> Int
 leftKeyForCons lo ro lk = lk - lo + ro
-{-# INLINE leftKeyForCons #-}
 
--- | Analogous to 'Prelude.nill'. Named 'nil' to avoid conflicting with 'Prelude.nill'.
+-- | Analogous to 'Prelude.null'. Named 'nil' to avoid conflicting with 'Prelude.null'.
 nil :: Many '[]
 nil = Many 0 M.empty
 
@@ -335,7 +328,7 @@ prefix' x (Many_ xs) = Many_ (unsafeCoerce x : xs)
 infixr 5 ./ -- like Data.List.(:)
 
 -- | Add an element to the right of a Many
--- Not named 'snoc' to avoid conflict with 'Control.Lens.snoc'
+-- Not named @snoc@ to avoid conflict with 'Control.Lens.snoc'
 postfix :: Many xs -> y -> Many (Append xs '[y])
 postfix (Many lo lm) y = Many lo
     (M.insert (rightKeyForSnoc lo (M.size lm) 0 0)
@@ -343,12 +336,16 @@ postfix (Many lo lm) y = Many lo
         lm)
 infixl 5 `postfix`
 
--- | 'snoc' mnemonic: Many is larger '\.' than the smaller element
+-- | Infix version of 'postfix'.
+--
+-- Mnemonic: Many is larger '\.' than the smaller element
 (\.) :: Many xs -> y -> Many (Append xs '[y])
 (\.) = postfix
 infixl 5 \.
 
--- | 'append' mnemonic: 'cons' './' with an extra slash (meaning 'Many') in front.
+-- | Infix version of 'append'.
+--
+-- Mnemonic: 'prefix' './' with an extra slash (meaning 'Many') in front.
 (/./) :: Many xs -> Many ys -> Many (Append xs ys)
 (/./) = append
 infixr 5 /./ -- like (++)
@@ -415,8 +412,8 @@ fetch_ (Many o m) = unsafeCoerce (m M.! (o + i))
 
 -- | Getter by label. Get the value of the field with tag @label@ which can be any type
 -- not just @KnownSymbol@.
--- @
 --
+-- @
 -- let y = False './' Tagged \@Foo \'X' './' Tagged @"Hi" True './' 'nil'
 -- 'fetchL' \@Foo Proxy y \`shouldBe` Tagged \@Foo \'X'
 -- 'fetchL' \@"Hi" Proxy y \`shouldBe` Tagged \@"Hi" True
@@ -510,7 +507,7 @@ replaceN' p (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
 -----------------------------------------------------------------------
 
 -- | Internal function for construction - do not expose!
-fromList' :: Ord k => [(k, WrappedAny)] -> M.Map k Any
+fromList' :: [(Int, WrappedAny)] -> M.IntMap Any
 fromList' xs = M.fromList (coerce xs)
 
 -----------------------------------------------------------------------
@@ -538,8 +535,7 @@ instance ( CaseAny c (x ': xs) r
        -- use of head/tail here is safe as we are guaranteed the length from the typelist
        x = Partial.head xs
        xs' = Partial.tail xs
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE afoldr #-}
+    {-# INLINABLE afoldr #-} -- This makes compiling tests a little faster than with no pragma
 
 forMany' :: c xs r -> Many xs -> CollectorAny c xs r
 forMany' c (Many _ xs) = CollectorAny c (snd <$> M.toAscList xs)
@@ -563,8 +559,7 @@ instance ( CaseAny (c n) (x ': xs) r
        -- use of head/tail here is safe as we are guaranteed the length from the typelist
        x = Partial.head xs
        xs' = Partial.tail xs
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE afoldr #-}
+    {-# INLINABLE afoldr #-} -- This makes compiling tests a little faster than with no pragma
 
 forManyN' :: c n xs r -> Many xs -> CollectorAnyN c n xs r
 forManyN' c (Many _ xs) = CollectorAnyN c (snd <$> M.toAscList xs)
@@ -583,7 +578,7 @@ data Collector c (xs :: [Type]) r = Collector (c xs r) [Any]
 instance AFoldable (Collector c '[]) r where
     afoldr _ z _ = z
 
--- | Folds values by 'reiterate'ing 'Emit'ters through the @xs@ typelist.
+-- | Folds values by 'reiterate'ing 'Case's through the @xs@ typelist.
 instance ( Case c (x ': xs) r
          , Reiterate c (x ': xs)
          , AFoldable (Collector c xs) r
@@ -594,16 +589,13 @@ instance ( Case c (x ': xs) r
        -- use of head/tail here is safe as we are guaranteed the length from the typelist
        v = unsafeCoerce $ Partial.head xs
        xs' = Partial.tail xs
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE afoldr #-}
+    {-# INLINABLE afoldr #-} -- This makes compiling tests a little faster than with no pragma
 
 -----------------------------------------------------------------------
 
 -- | Folds any 'Many', even with indistinct types.
--- Given __distinct__ handlers for the fields in 'Many', create a 'Collector'
+-- Given __distinct__ handlers for the fields in 'Many', create 'AFoldable'
 -- of the results of running the handlers over the fields in 'Many'.
---
--- The 'Collector' is 'AFoldable' to combine the results.
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
@@ -611,7 +603,7 @@ instance ( Case c (x ': xs) r
 -- 'afoldr' (:) [] ('forMany' ('Data.Diverse.Cases.cases' y) x) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-forMany :: c xs r -> Many xs -> Collector c xs r
+forMany :: (t ~ Collector c xs, AFoldable t r, Case c xs r) => c xs r -> Many xs -> t r
 forMany c (Many _ xs) = Collector c (snd <$> M.toAscList xs)
 
 -- | This is @flip 'forMany'@
@@ -622,7 +614,7 @@ forMany c (Many _ xs) = Collector c (snd <$> M.toAscList xs)
 -- 'afoldr' (:) [] ('collect' x ('Data.Diverse.Cases.cases' y)) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-collect :: Many xs -> c xs r -> Collector c xs r
+collect :: (t ~ Collector c xs, AFoldable t r, Case c xs r) => Many xs -> c xs r -> t r
 collect = flip forMany
 
 -----------------------------------------------------------------------
@@ -645,14 +637,11 @@ instance ( Case (c n) (x ': xs) r
        -- use of head/tail here is safe as we are guaranteed the length from the typelist
        v = unsafeCoerce $ Partial.head xs
        xs' = Partial.tail xs
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE afoldr #-}
+    {-# INLINABLE afoldr #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | Folds any 'Many', even with indistinct types.
--- Given __index__ handlers for the fields in 'Many', create a 'CollectorN'
+-- Given __index__ handlers for the fields in 'Many', create 'AFoldable'
 -- of the results of running the handlers over the fields in 'Many'.
---
--- The 'CollectorN' is 'AFoldable' to combine the results.
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
@@ -660,7 +649,7 @@ instance ( Case (c n) (x ': xs) r
 -- 'afoldr' (:) [] ('forManyN' ('Data.Diverse.Cases.casesN' y) x) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-forManyN :: c n xs r -> Many xs -> CollectorN c n xs r
+forManyN :: (t ~ CollectorN c n xs, AFoldable t r, Case (c n) xs r) => c n xs r -> Many xs -> t r
 forManyN c (Many _ xs) = CollectorN c (snd <$> M.toAscList xs)
 
 -- | This is @flip 'forManyN'@
@@ -671,7 +660,7 @@ forManyN c (Many _ xs) = CollectorN c (snd <$> M.toAscList xs)
 -- 'afoldr' (:) [] ('collectN' x ('Data.Diverse.Cases.casesN' y)) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-collectN :: Many xs -> c n xs r -> CollectorN c n xs r
+collectN :: (t ~ CollectorN c n xs, AFoldable t r, Case (c n) xs r) => Many xs -> c n xs r -> t r
 collectN = flip forManyN
 
 -----------------------------------------------------------------------
@@ -956,8 +945,7 @@ instance (Eq x, Eq (Many_ xs)) => Eq (Many_ (x ': xs)) where
     ls == rs = case front' ls == front' rs of
         False -> False
         _ -> (aft' ls) == (aft' rs)
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE (==) #-}
+    {-# INLINABLE (==) #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | Two 'Many's are equal if all their fields equal
 instance Eq (Many_ xs) => Eq (Many xs) where
@@ -973,8 +961,7 @@ instance (Ord x, Ord (Many_ xs)) => Ord (Many_ (x ': xs)) where
         LT -> LT
         GT -> GT
         EQ -> compare (aft' ls) (aft' rs)
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE compare #-}
+    {-# INLINABLE compare #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | Two 'Many's are ordered by 'compare'ing their fields in index order
 instance Ord (Many_ xs) => Ord (Many xs) where
@@ -997,10 +984,9 @@ instance (Show x, Show (Many_ xs)) => Show (Many_ (x ': xs)) where
         cons_prec = 5 -- infixr 5 prefix
         -- use of front here is safe as we are guaranteed the length from the typelist
         v = unsafeCoerce (Partial.head xs) :: x
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE showsPrec #-}
+    {-# INLINABLE showsPrec #-} -- This makes compiling tests a little faster than with no pragma
 
--- | Two 'Many's are equal if all their fields equal
+-- | @show (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil' == "5 ./ False ./ 'X' ./ Just 'O' ./ nil" == @
 instance Show (Many_ xs) => Show (Many xs) where
     showsPrec d xs = showsPrec d (toMany_ xs)
 
@@ -1021,8 +1007,7 @@ instance (Read x, Read (Many_ xs)) => Read (Many_ (x ': xs)) where
         pure $ prefix' a as
       where
         cons_prec = 5 -- infixr `prefix`
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    {-# NOINLINE readPrec #-}
+    {-# INLINABLE readPrec #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nil" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'@
 instance Read (Many_ xs) => Read (Many xs) where

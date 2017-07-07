@@ -464,10 +464,8 @@ instance (Case c (x ': x' ': xs) r, Reduce (Which (x' ': xs)) (Switch c (x' ': x
         case trial0 v of
             Right a -> case' c a
             Left v' -> reduce (Switch (reiterate c)) v'
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    -- Using INLINEABLE instead of NOLINE so that ghc 8.2.1 can optimize to single case statement
-    -- See https://ghc.haskell.org/trac/ghc/ticket/12877
-    {-# INLINEABLE reduce #-}
+    -- Ghc 8.2.1 can optimize to single case statement. See https://ghc.haskell.org/trac/ghc/ticket/12877
+    {-# INLINABLE reduce #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
@@ -517,10 +515,8 @@ instance (Case (c n) (x ': x' ': xs) r, Reduce (Which (x' ': xs)) (SwitchN c (n 
         case trial0 v of
             Right a -> case' c a
             Left v' -> reduce (SwitchN (reiterateN c)) v'
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    -- Using INLINEABLE instead of NOLINE so that ghc 8.2.1 can optimize to single case statement
-    -- See https://ghc.haskell.org/trac/ghc/ticket/12877
-    {-# INLINEABLE reduce #-}
+    -- Ghc 8.2.1 can optimize to single case statement. See https://ghc.haskell.org/trac/ghc/ticket/12877
+    {-# INLINABLE reduce #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
@@ -643,11 +639,7 @@ instance Read x => WhichRead (Which_ '[x]) where
 instance (Read x, WhichRead (Which_ (x' ': xs))) => WhichRead (Which_ (x ': x' ': xs)) where
     whichReadPrec i j = readWhich_ i j
                <|> (diversify0' <$> (whichReadPrec i (j + 1) :: ReadPrec (Which_ (x' ': xs))))
-    -- GHC compilation is SLOW if there is no pragma for recursive typeclass functions for different types
-    -- Using INLINEABLE instead of NOLINE so that ghc 8.2.1 can optimize to single case statement
-    -- See https://ghc.haskell.org/trac/ghc/ticket/12877
-    {-# INLINEABLE whichReadPrec #-}
-
+    {-# INLINABLE whichReadPrec #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
 instance WhichRead (Which_ (x ': xs)) =>
