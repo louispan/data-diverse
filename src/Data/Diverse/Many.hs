@@ -19,6 +19,8 @@ module Data.Diverse.Many (
     , (/./)
 
     -- * Simple queries
+    , sliceL
+    , sliceR
     , front
     , back
     , aft
