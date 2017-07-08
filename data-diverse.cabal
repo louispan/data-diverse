@@ -1,7 +1,7 @@
 name:                data-diverse
-version:             0.7.0.0
+version:             0.8.0.0
 synopsis:            Extensible records and polymorphic variants.
-description:         "Data.Diverse.Many" is an extensible record for any size encoded efficiently as (Int, Map Int Any).
+description:         "Data.Diverse.Many" is an extensible record for any size encoded efficiently as (Seq Any).
                      "Data.Diverse.Which" is a polymorphic variant of possibilities encoded as (Int, Any).
                      Provides getters, setters, projection, injection, folds, and catamorphisms;
                      accessed by type, index or label.
@@ -39,6 +39,7 @@ library
                        Data.Diverse.Which.Internal
   build-depends:       base >= 4.7 && < 5
                      , containers >= 0.5 && < 0.6
+                     , deepseq >= 1.4 && < 2
                      , ghc-prim >= 0.5 && < 1
                      , tagged >= 0.8.5 && < 1
   ghc-options:         -Wall

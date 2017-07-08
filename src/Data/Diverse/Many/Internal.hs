@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -35,6 +36,8 @@ module Data.Diverse.Many.Internal (
     , (/./)
 
     -- * Simple queries
+    , sliceL
+    , sliceR
     , front
     , back
     , aft
@@ -82,14 +85,16 @@ module Data.Diverse.Many.Internal (
     ) where
 
 import Control.Applicative
+import Control.DeepSeq
 import Data.Bool
 import Data.Diverse.AFoldable
 import Data.Diverse.Case
 import Data.Diverse.Reiterate
 import Data.Diverse.TypeLevel
+import Data.Foldable
 import Data.Kind
-import qualified Data.IntMap.Strict as M
 import Data.Proxy
+import qualified Data.Sequence as S
 import Data.Tagged
 import qualified GHC.Generics as G
 import GHC.Prim (Any, coerce)
@@ -131,7 +136,7 @@ import Prelude as Partial
 --
 -- The constructor will guarantee the correct number and types of the elements.
 -- The constructor is only exported in the "Data.Diverse.Many.Internal" module
-data Many (xs :: [Type]) = Many {-# UNPACK #-} !Int (M.IntMap Any)
+data Many (xs :: [Type]) = Many (S.Seq Any)
 
 -- Inferred role is phantom which is incorrect
 -- representational means:
@@ -147,10 +152,14 @@ data Many_ (xs :: [Type]) = Many_ [Any]
 type role Many_ representational
 
 toMany_ :: Many xs -> Many_ xs
-toMany_ (Many _ m) = Many_ (snd <$> M.toAscList m)
+toMany_ (Many m) = Many_ (toList m)
 
 fromMany_ :: Many_ xs -> Many xs
-fromMany_ (Many_ xs) = Many 0 (M.fromList (zip [(0 :: Int)..] xs))
+fromMany_ (Many_ xs) = Many (S.fromList xs)
+-----------------------------------------------------------------------
+
+instance NFData (Many '[])
+instance (NFData x, NFData (Many xs)) => NFData (Many (x ': xs))
 -----------------------------------------------------------------------
 
 -- | A terminating 'G.Generic' instance encoded as a 'nil'.
@@ -266,55 +275,18 @@ instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l
 
 -----------------------------------------------------------------------
 
--- | When appending two maps together, get the function to 'M.mapKeys' the RightMap
--- when adding RightMap into LeftMap.
--- The existing contents of LeftMap will not be changed.
--- LeftMap Offset will also not change.
--- The desired key for element from the RightMap = RightIndex (of the element) + LeftOffset + LeftSize
--- OldRightKey = RightIndex + RightOffset, therefore RightIndex = OldRightKey - RightOffset
--- So we need to adjust the existing index on the RightMap by
--- \OldRightKey -> RightIndex + LeftOffset + LeftSize (as above)
--- \OldRightKey -> OldRightKey - RightOffset + LeftOffset + LeftSize
-rightKeyForSnoc :: Int -> Int -> Int -> Int -> Int
-rightKeyForSnoc lo ld ro rk = rk - ro + lo + ld
-
--- | When appending two maps together, get the function to modify the RightMap's offset
--- when adding LeftMap into RightMap.
--- The existing contents of RightMap will not be changed.
--- NewRightOffset = OldRightOffset - LeftSize
-rightOffsetForCons :: Int -> Int -> Int
-rightOffsetForCons ld ro = ro - ld
-
--- | When appending two maps together, get the function to 'M.mapKeys' the LeftMap
--- when adding LeftMap into RightMap.
--- The existing contents of RightMap will not be changed.
--- The RightMap's offset will be adjusted using 'rightOffsetWithRightMapUnchanged'
--- The desired key for the elements in the the LeftMap = LeftIndex (of the element) + NewRightOffset
--- OldLeftKey = LeftIndex + LeftOffset, therefore LeftIndex = OldLeftKey - LeftOffset
--- So we need to adjust the existing index on the LeftMap by
--- \OldLeftKey -> LeftIndex + NewRightOffset (as above)
--- \OldLeftKey -> OldLeftKey - LeftOffset + NewRightOffset (as above)
-leftKeyForCons :: Int -> Int -> Int -> Int
-leftKeyForCons lo ro lk = lk - lo + ro
-
 -- | Analogous to 'Prelude.null'. Named 'nil' to avoid conflicting with 'Prelude.null'.
 nil :: Many '[]
-nil = Many 0 M.empty
+nil = Many S.empty
 
 -- | Create a Many from a single value. Analogous to 'M.singleton'
 single :: x -> Many '[x]
-single v = Many 0 (M.singleton 0 (unsafeCoerce v))
+single v = Many (S.singleton (unsafeCoerce v))
 
 -- | Add an element to the left of a Many.
 -- Not named @cons@ to avoid conflict with 'Control.Lens.cons'
 prefix :: x -> Many xs -> Many (x ': xs)
-prefix x (Many ro rm) = Many nro
-    (M.insert
-        (leftKeyForCons 0 nro 0)
-        (unsafeCoerce x)
-        rm)
-  where
-    nro = rightOffsetForCons 1 ro
+prefix x (Many rs) = Many ((unsafeCoerce x) S.<| rs)
 infixr 5 `prefix`
 
 prefix' :: x -> Many_ xs -> Many_ (x ': xs)
@@ -330,10 +302,7 @@ infixr 5 ./ -- like Data.List.(:)
 -- | Add an element to the right of a Many
 -- Not named @snoc@ to avoid conflict with 'Control.Lens.snoc'
 postfix :: Many xs -> y -> Many (Append xs '[y])
-postfix (Many lo lm) y = Many lo
-    (M.insert (rightKeyForSnoc lo (M.size lm) 0 0)
-        (unsafeCoerce y)
-        lm)
+postfix (Many ls) y = Many (ls S.|> (unsafeCoerce y))
 infixl 5 `postfix`
 
 -- | Infix version of 'postfix'.
@@ -352,25 +321,29 @@ infixr 5 /./ -- like (++)
 
 -- | Appends two Manys together
 append :: Many xs -> Many ys -> Many (Append xs ys)
-append (Many lo lm) (Many ro rm) = if ld >= rd
-    then Many
-         lo
-         (lm `M.union` (M.mapKeys (rightKeyForSnoc lo ld ro) rm))
-    else Many
-         nro
-         ((M.mapKeys (leftKeyForCons lo nro) lm) `M.union` rm)
-  where
-    ld = M.size lm
-    rd = M.size rm
-    nro = rightOffsetForCons ld ro
+append (Many ls) (Many rs) = Many (ls S.>< rs)
 infixr 5 `append` -- like Data.List (++)
 
 -----------------------------------------------------------------------
 
+-- | Split a non-empty Many into the first element, then the rest of the Many.
+-- Analogous to 'S.viewl'
+sliceL :: Many (x ': xs) -> (x, Many xs)
+sliceL (Many xs) = case S.viewl xs of
+    S.EmptyL -> error "no front"
+    a S.:< ys -> (unsafeCoerce a, Many ys)
+
+-- | Split a non-empty Many into initial part of Many, and the last element.
+-- Analogous to 'S.viewr'
+sliceR :: Many (x ': xs) -> (Many (Init (x ': xs)), Last (x ': xs))
+sliceR (Many xs) = case S.viewr xs of
+    S.EmptyR -> error "no back"
+    ys S.:> a -> (Many ys, unsafeCoerce a)
+
 -- | Extract the first element of a Many, which guaranteed to be non-empty.
 -- Analogous to 'Partial.head'
 front :: Many (x ': xs) -> x
-front (Many _ m) = unsafeCoerce (snd . Partial.head $ M.toAscList m)
+front = fst . sliceL
 
 front' :: Many_ (x ': xs) -> x
 front' (Many_ xs) = unsafeCoerce (Partial.head xs)
@@ -378,12 +351,12 @@ front' (Many_ xs) = unsafeCoerce (Partial.head xs)
 -- | Extract the 'back' element of a Many, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.last'
 back :: Many (x ': xs) -> Last (x ': xs)
-back (Many _ m) = unsafeCoerce (snd . Partial.head $ M.toDescList m)
+back = snd . sliceR
 
 -- | Extract the elements after the front of a Many, which guaranteed to be non-empty.
 -- Analogous to 'Partial.tail'
 aft :: Many (x ': xs) -> Many xs
-aft (Many o m) = Many (o + 1) (M.delete o m)
+aft = snd . sliceL
 
 aft' :: Many_ (x ': xs) -> Many_ xs
 aft' (Many_ xs) = Many_ (Partial.tail xs)
@@ -391,7 +364,7 @@ aft' (Many_ xs) = Many_ (Partial.tail xs)
 -- | Return all the elements of a Many except the 'back' one, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.init'
 fore :: Many (x ': xs) -> Many (Init (x ': xs))
-fore (Many o m) = Many o (M.delete (o + M.size m - 1) m)
+fore = fst . sliceR
 
 --------------------------------------------------
 
@@ -404,8 +377,9 @@ fore (Many o m) = Many o (M.delete (o + M.size m - 1) m)
 fetch :: forall x xs. UniqueMember x xs => Many xs -> x
 fetch = fetch_
 
+-- | Using S.lookup to ensure Seq is not stored in a thunk
 fetch_ :: forall x xs n. (KnownNat n, n ~ IndexOf x xs) => Many xs -> x
-fetch_ (Many o m) = unsafeCoerce (m M.! (o + i))
+fetch_ (Many xs) = let !x = S.index xs i in (unsafeCoerce x) -- forcing x to avoid storing Seq in thunk
   where i = fromInteger (natVal @n Proxy)
 
 --------------------------------------------------
@@ -430,7 +404,7 @@ fetchL _ = fetch_ @x
 -- 'fetchN' @1 Proxy x \`shouldBe` False
 -- @
 fetchN :: forall n x xs proxy. MemberAt n x xs => proxy n -> Many xs -> x
-fetchN p (Many o m) = unsafeCoerce (m M.! (o + i))
+fetchN p (Many xs) = let !x = S.index xs i in (unsafeCoerce x) -- forcing x to avoid storing Seq in thunk
   where i = fromInteger (natVal p)
 
 --------------------------------------------------
@@ -445,7 +419,7 @@ replace :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
 replace = replace_
 
 replace_ :: forall x xs n. (KnownNat n, n ~ IndexOf x xs) => Many xs -> x -> Many xs
-replace_ (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
+replace_ (Many xs) v = Many (S.update i (unsafeCoerce v) xs)
   where i = fromInteger (natVal @n Proxy)
 
 -- | Polymorphic setter by unique type. Set the field with type @x@, and replace with type @y@
@@ -458,7 +432,7 @@ replace' :: forall x y xs proxy. UniqueMember x xs => proxy x -> Many xs -> y ->
 replace' = replace'_
 
 replace'_ :: forall x y xs n proxy. (KnownNat n, n ~ IndexOf x xs) => proxy x -> Many xs -> y -> Many (Replace x y xs)
-replace'_ _ (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
+replace'_ _ (Many xs) v = Many (S.update i (unsafeCoerce v) xs)
   where i = fromInteger (natVal @n Proxy)
 
 --------------------------------------------------
@@ -496,21 +470,21 @@ replaceL' _ = replace'_ @x Proxy
 -- 'replaceN' \@0 Proxy x 7 `shouldBe`
 -- @
 replaceN :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many xs
-replaceN p (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
+replaceN p (Many xs) v = Many (S.update i (unsafeCoerce v) xs)
   where i = fromInteger (natVal p)
 
 -- | Polymorphic version of 'replaceN'
 replaceN' :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
-replaceN' p (Many o m) v = Many o (M.insert (o + i) (unsafeCoerce v) m)
+replaceN' p (Many xs) v = Many (S.update i (unsafeCoerce v) xs)
   where i = fromInteger (natVal p)
 
 -----------------------------------------------------------------------
 
 -- | Internal function for construction - do not expose!
-fromList' :: [(Int, WrappedAny)] -> M.IntMap Any
-fromList' xs = M.fromList (coerce xs)
+fromList' :: [(Int, WrappedAny)] -> S.Seq Any
+fromList' = fmap (\(_, a) -> coerce a) . S.unstableSortBy (\(i, _) (j, _) -> compare i j) . S.fromList
 
------------------------------------------------------------------------
+------------------------------------------------------------------------
 
 class CaseAny c (xs :: [Type]) r where
     -- | Return the handler/continuation when x is observed.
@@ -538,7 +512,7 @@ instance ( CaseAny c (x ': xs) r
     {-# INLINABLE afoldr #-} -- This makes compiling tests a little faster than with no pragma
 
 forMany' :: c xs r -> Many xs -> CollectorAny c xs r
-forMany' c (Many _ xs) = CollectorAny c (snd <$> M.toAscList xs)
+forMany' c (Many xs) = CollectorAny c (toList xs)
 
 -----------------------------------------------------------------------
 
@@ -562,7 +536,7 @@ instance ( CaseAny (c n) (x ': xs) r
     {-# INLINABLE afoldr #-} -- This makes compiling tests a little faster than with no pragma
 
 forManyN' :: c n xs r -> Many xs -> CollectorAnyN c n xs r
-forManyN' c (Many _ xs) = CollectorAnyN c (snd <$> M.toAscList xs)
+forManyN' c (Many xs) = CollectorAnyN c (toList xs)
 
 -----------------------------------------------------------------------
 
@@ -604,7 +578,7 @@ instance ( Case c (x ': xs) r
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
 forMany :: (t ~ Collector c xs, AFoldable t r, Case c xs r) => c xs r -> Many xs -> t r
-forMany c (Many _ xs) = Collector c (snd <$> M.toAscList xs)
+forMany c (Many xs) = Collector c (toList xs)
 
 -- | This is @flip 'forMany'@
 --
@@ -650,7 +624,7 @@ instance ( Case (c n) (x ': xs) r
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
 forManyN :: (t ~ CollectorN c n xs, AFoldable t r, Case (c n) xs r) => c n xs r -> Many xs -> t r
-forManyN c (Many _ xs) = CollectorN c (snd <$> M.toAscList xs)
+forManyN c (Many xs) = CollectorN c (toList xs)
 
 -- | This is @flip 'forManyN'@
 --
@@ -680,7 +654,7 @@ type Select (smaller :: [Type]) (larger :: [Type]) =
 -- 'select' \@'[Bool, Char] x \`shouldBe` False './' \'X' './' 'nil'
 -- @
 select :: forall smaller larger. Select smaller larger => Many larger -> Many smaller
-select t = Many 0 (fromList' xs')
+select t = Many (fromList' xs')
   where
     xs' = afoldr (\a z -> maybe z (: z) a) [] (forMany' (CaseSelect @smaller @larger @larger) t)
 
@@ -743,7 +717,7 @@ selectN
     :: forall ns smaller larger proxy.
        SelectN ns smaller larger
     => proxy ns -> Many larger -> Many smaller
-selectN _ xs = Many 0 (fromList' xs')
+selectN _ xs = Many (fromList' xs')
   where
     xs' = afoldr (\a z -> maybe z (: z) a) [] (forManyN' (CaseSelectN @ns @smaller @0 @larger) xs)
 
@@ -777,18 +751,18 @@ type Amend smaller larger = (AFoldable (CollectorAny (CaseAmend larger) smaller)
 --     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nil'
 -- @
 amend :: forall smaller larger. Amend smaller larger => Many larger -> Many smaller -> Many larger
-amend (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
+amend (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forMany' (CaseAmend @larger @smaller lo) t)
+    xs' = afoldr (:) [] (forMany' (CaseAmend @larger @smaller) t)
 
-newtype CaseAmend (larger :: [Type]) (xs :: [Type]) r = CaseAmend Int
+data CaseAmend (larger :: [Type]) (xs :: [Type]) r = CaseAmend
 
 instance Reiterate (CaseAmend larger) (x ': xs) where
     reiterate = coerce
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
 instance UniqueMemberAt n x larger => CaseAny (CaseAmend larger) (x ': xs) (Int, WrappedAny) where
-    caseAny (CaseAmend lo) v = (lo + i, WrappedAny v)
+    caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @n Proxy)
 
@@ -822,21 +796,21 @@ type Amend' smaller smaller' larger zipped =
 
 amend' :: forall smaller smaller' larger proxy zipped. Amend' smaller smaller' larger zipped
     => proxy smaller -> Many larger -> Many smaller' -> Many (Replaces smaller smaller' larger)
-amend' _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
+amend' _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forMany'' @smaller Proxy (CaseAmend' @larger @zipped lo) t)
+    xs' = afoldr (:) [] (forMany'' @smaller Proxy (CaseAmend' @larger @zipped) t)
 
 forMany'' :: Proxy xs -> c (Zip xs ys) r -> Many ys -> CollectorAny c (Zip xs ys) r
-forMany'' _ c (Many _ ys) = CollectorAny c (snd <$> M.toAscList ys)
+forMany'' _ c (Many ys) = CollectorAny c (toList ys)
 
-newtype CaseAmend' (larger :: [Type]) (zs :: [Type]) r = CaseAmend' Int
+data CaseAmend' (larger :: [Type]) (zs :: [Type]) r = CaseAmend'
 
 instance Reiterate (CaseAmend' larger) (z ': zs) where
     reiterate = coerce
 
 -- | for each y in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
 instance (UniqueMemberAt n x larger) => CaseAny (CaseAmend' larger) ((x, y) ': zs) (Int, WrappedAny) where
-    caseAny (CaseAmend' lo) v = (lo + i, WrappedAny v)
+    caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @n Proxy)
 
@@ -888,11 +862,11 @@ type AmendN ns smaller larger =
 amendN :: forall ns smaller larger proxy.
        (AmendN ns smaller larger)
     => proxy ns -> Many larger -> Many smaller -> Many larger
-amendN _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
+amendN _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forManyN' (CaseAmendN @ns @larger @0 @smaller lo) t)
+    xs' = afoldr (:) [] (forManyN' (CaseAmendN @ns @larger @0 @smaller) t)
 
-newtype CaseAmendN (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseAmendN Int
+data CaseAmendN (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseAmendN
 
 instance ReiterateN (CaseAmendN indices larger) n (x ': xs) where
     reiterateN = coerce
@@ -900,7 +874,7 @@ instance ReiterateN (CaseAmendN indices larger) n (x ': xs) where
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt n' x larger, n' ~ KindAtIndex n indices) =>
          CaseAny (CaseAmendN indices larger n) (x ': xs) (Int, WrappedAny) where
-    caseAny (CaseAmendN lo) v = (lo + i, WrappedAny v)
+    caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @n' Proxy)
 
@@ -917,14 +891,14 @@ type AmendN' ns smaller smaller' larger zipped =
 amendN' :: forall ns smaller smaller' larger proxy zipped.
        (AmendN' ns smaller smaller' larger zipped)
     => proxy ns -> Many larger -> Many smaller' -> Many (ReplacesIndex ns smaller' larger)
-amendN' _ (Many lo lm) t = Many lo (fromList' xs' `M.union` lm)
+amendN' _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forManyN'' @smaller Proxy (CaseAmendN' @ns @larger @0 @zipped lo) t)
+    xs' = afoldr (:) [] (forManyN'' @smaller Proxy (CaseAmendN' @ns @larger @0 @zipped) t)
 
 forManyN'' :: Proxy xs -> c n (Zip xs ys) r -> Many ys -> CollectorAnyN c n (Zip xs ys) r
-forManyN'' _ c (Many _ ys) = CollectorAnyN c (snd <$> M.toAscList ys)
+forManyN'' _ c (Many ys) = CollectorAnyN c (toList ys)
 
-newtype CaseAmendN' (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (zs :: [Type]) r = CaseAmendN' Int
+data CaseAmendN' (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (zs :: [Type]) r = CaseAmendN'
 
 instance ReiterateN (CaseAmendN' indices larger) n (z ': zs) where
     reiterateN = coerce
@@ -932,7 +906,7 @@ instance ReiterateN (CaseAmendN' indices larger) n (z ': zs) where
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt n' x larger, n' ~ KindAtIndex n indices) =>
          CaseAny (CaseAmendN' indices larger n) ((x, y) ': zs) (Int, WrappedAny) where
-    caseAny (CaseAmendN' lo) v = (lo + i, WrappedAny v)
+    caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @n' Proxy)
 
