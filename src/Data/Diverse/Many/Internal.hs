@@ -160,6 +160,7 @@ fromMany_ (Many_ xs) = Many (S.fromList xs)
 
 instance NFData (Many '[])
 instance (NFData x, NFData (Many xs)) => NFData (Many (x ': xs))
+
 -----------------------------------------------------------------------
 
 -- | A terminating 'G.Generic' instance encoded as a 'nil'.

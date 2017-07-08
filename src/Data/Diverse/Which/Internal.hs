@@ -57,6 +57,7 @@ module Data.Diverse.Which.Internal (
     ) where
 
 import Control.Applicative
+import Control.DeepSeq
 import Control.Monad
 import Data.Diverse.Case
 import Data.Diverse.Reduce
@@ -105,6 +106,12 @@ data Which (xs :: [Type]) = Which {-# UNPACK #-} !Int Any
 -- Coercible '[Int] '[IntLike] => Coercible (Which '[Int]) (Which '[IntLike])
 -- @
 type role Which representational
+
+----------------------------------------------
+
+instance NFData (Which '[])
+instance (NFData x) => NFData (Which '[x])
+instance (NFData x, NFData (Which (x' ': xs))) => NFData (Which (x ': x' ': xs))
 
 ----------------------------------------------
 
