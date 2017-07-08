@@ -33,3 +33,8 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 * 0.8.0.0
     Changed internal representation to (Data.Seq Any) for a further 2x append speedup.
+    Added NFData instance for Many
+
+* 0.8.1.0
+    Added NFData instance for Which
+    Forgot to expose Many.sliceL and Many.sliceR
