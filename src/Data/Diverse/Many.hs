@@ -14,8 +14,10 @@ module Data.Diverse.Many (
     , prefix
     , (./)
     , postfix
+    , postfix'
     , (\.)
     , append
+    , append'
     , (/./)
 
     -- * Simple queries

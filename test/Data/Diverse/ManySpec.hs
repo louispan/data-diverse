@@ -77,6 +77,16 @@ spec = do
             a /./ b `shouldBe` x
             a `append` b `shouldBe` x
 
+        it "can 'postfix'' a value only if that type doesn't already exist" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
+                y = x `postfix'` True
+            y `shouldBe` x
+
+        it "can 'append'' the unique types from another Many" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
+                y = (5 :: Int) ./ Just True ./ 'X' ./ Just False ./ Just (6 :: Int) ./ Just 'O' ./ nil
+            (x `append'` y) `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ Just True ./ Just (6 :: Int) ./ nil
+
         it "can contain multiple fields of the same type" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
                 y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil

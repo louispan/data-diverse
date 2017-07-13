@@ -16,25 +16,29 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 # Changelog
 
 * 0.1.0.0
-    Initial version represented as (Int, Data.Map Int Any)
+  - Initial version represented as (Int, Data.Map Int Any)
 
 * 0.4.0.0
-    Removed Emit typeclass, breaking renames. Added label accessors.
+  - Removed Emit typeclass, breaking renames. Added label accessors.
 
 * 0.5.0.0
-    Renamed type level functions module from Type to TypeLevel
+  - Renamed type level functions module from Type to TypeLevel
 
 * 0.6.0.0
-    Moved lens to data-diverse-lens
+  - Moved lens to data-diverse-lens
 
 * 0.7.0.0
-    Removed NOINLINE pragmas.
-    Changed internal representation to (Int, Data.IntMap Any) for a 2.5x append speedup.
+  - Removed NOINLINE pragmas.
+  - Changed internal representation to (Int, Data.IntMap Any) for a 2.5x append speedup.
 
 * 0.8.0.0
-    Changed internal representation to (Data.Seq Any) for a further 2x append speedup.
-    Added NFData instance for Many
+  - Changed internal representation to (Data.Seq Any) for a further 2x append speedup.
+  - Added NFData instance for Many.
 
 * 0.8.1.0
-    Added NFData instance for Which
-    Forgot to expose Many.sliceL and Many.sliceR
+  - Added NFData instance for Which.
+  - Forgot to expose Many.sliceL and Many.sliceR.
+
+* 0.8.2.0
+  - Renamed TypeLevel.Internal.MissingImpl to IsUniqueImpl.
+  - Added postifx' with SnocUnique and append' with AppendUnique.

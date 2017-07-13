@@ -31,8 +31,10 @@ module Data.Diverse.Many.Internal (
     , prefix
     , (./)
     , postfix
+    , postfix'
     , (\.)
     , append
+    , append'
     , (/./)
 
     -- * Simple queries
@@ -290,8 +292,8 @@ prefix :: x -> Many xs -> Many (x ': xs)
 prefix x (Many rs) = Many ((unsafeCoerce x) S.<| rs)
 infixr 5 `prefix`
 
-prefix' :: x -> Many_ xs -> Many_ (x ': xs)
-prefix' x (Many_ xs) = Many_ (unsafeCoerce x : xs)
+prefix_ :: x -> Many_ xs -> Many_ (x ': xs)
+prefix_ x (Many_ xs) = Many_ (unsafeCoerce x : xs)
 
 -- | Infix version of 'prefix'.
 --
@@ -305,6 +307,16 @@ infixr 5 ./ -- like Data.List.(:)
 postfix :: Many xs -> y -> Many (Append xs '[y])
 postfix (Many ls) y = Many (ls S.|> (unsafeCoerce y))
 infixl 5 `postfix`
+
+-- | Add an element to the right of a Many iff the field doesn't already exist.
+postfix'
+    :: forall xs y n.
+       MaybeUniqueMemberAt n y xs
+    => Many xs -> y -> Many (SnocUnique xs y)
+postfix'(Many ls) y = if i /= 0 then Many ls else Many (ls S.|> (unsafeCoerce y))
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+infixl 5 `postfix'`
 
 -- | Infix version of 'postfix'.
 --
@@ -324,6 +336,20 @@ infixr 5 /./ -- like (++)
 append :: Many xs -> Many ys -> Many (Append xs ys)
 append (Many ls) (Many rs) = Many (ls S.>< rs)
 infixr 5 `append` -- like Data.List (++)
+
+class CanAppendUnique xs ys where
+   -- | Appends the unique fields fields from the right Many using 'postfix''
+   append' :: Many xs -> Many ys -> Many (AppendUnique xs ys)
+
+instance CanAppendUnique xs '[] where
+   append' ls _ = ls
+
+instance (MaybeUniqueMemberAt n y xs, CanAppendUnique (SnocUnique xs y) ys) => CanAppendUnique xs (y ': ys) where
+   append' ls rs = append' (postfix' ls r) rs'
+     where (r, rs') = sliceL rs
+   {-# INLINABLE append' #-} -- This makes compiling tests a little faster than with no pragma
+
+infixr 5 `append'` -- like Data.List (++)
 
 -----------------------------------------------------------------------
 
@@ -346,8 +372,8 @@ sliceR (Many xs) = case S.viewr xs of
 front :: Many (x ': xs) -> x
 front = fst . sliceL
 
-front' :: Many_ (x ': xs) -> x
-front' (Many_ xs) = unsafeCoerce (Partial.head xs)
+front_ :: Many_ (x ': xs) -> x
+front_ (Many_ xs) = unsafeCoerce (Partial.head xs)
 
 -- | Extract the 'back' element of a Many, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.last'
@@ -359,8 +385,8 @@ back = snd . sliceR
 aft :: Many (x ': xs) -> Many xs
 aft = snd . sliceL
 
-aft' :: Many_ (x ': xs) -> Many_ xs
-aft' (Many_ xs) = Many_ (Partial.tail xs)
+aft_ :: Many_ (x ': xs) -> Many_ xs
+aft_ (Many_ xs) = Many_ (Partial.tail xs)
 
 -- | Return all the elements of a Many except the 'back' one, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.init'
@@ -917,9 +943,9 @@ instance Eq (Many_ '[]) where
     _ == _ = True
 
 instance (Eq x, Eq (Many_ xs)) => Eq (Many_ (x ': xs)) where
-    ls == rs = case front' ls == front' rs of
+    ls == rs = case front_ ls == front_ rs of
         False -> False
-        _ -> (aft' ls) == (aft' rs)
+        _ -> (aft_ ls) == (aft_ rs)
     {-# INLINABLE (==) #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | Two 'Many's are equal if all their fields equal
@@ -932,10 +958,10 @@ instance Ord (Many_ '[]) where
     compare _ _ = EQ
 
 instance (Ord x, Ord (Many_ xs)) => Ord (Many_ (x ': xs)) where
-    compare ls rs = case compare (front' ls) (front' rs) of
+    compare ls rs = case compare (front_ ls) (front_ rs) of
         LT -> LT
         GT -> GT
-        EQ -> compare (aft' ls) (aft' rs)
+        EQ -> compare (aft_ ls) (aft_ rs)
     {-# INLINABLE compare #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | Two 'Many's are ordered by 'compare'ing their fields in index order
@@ -954,7 +980,7 @@ instance (Show x, Show (Many_ xs)) => Show (Many_ (x ': xs)) where
         showParen (d > cons_prec) $
         showsPrec (cons_prec + 1) v .
         showString " ./ " .
-        showsPrec cons_prec (aft' ls) -- not (cons-prec+1) for right associativity
+        showsPrec cons_prec (aft_ ls) -- not (cons-prec+1) for right associativity
       where
         cons_prec = 5 -- infixr 5 prefix
         -- use of front here is safe as we are guaranteed the length from the typelist
@@ -979,7 +1005,7 @@ instance (Read x, Read (Many_ xs)) => Read (Many_ (x ': xs)) where
         a <- step (readPrec @x)
         lift $ L.expect (Symbol "./")
         as <- readPrec @(Many_ xs) -- no 'step' to allow right associatitive './'
-        pure $ prefix' a as
+        pure $ prefix_ a as
       where
         cons_prec = 5 -- infixr `prefix`
     {-# INLINABLE readPrec #-} -- This makes compiling tests a little faster than with no pragma

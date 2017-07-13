@@ -31,6 +31,17 @@ type MemberAt n x xs = (KnownNat n, x ~ KindAtIndex n xs)
 -- | Ensures that @x@ is a member of @xs@ at @n@ if it exists, and that 'natVal' can be used.
 type MaybeMemberAt n x xs = (KnownNat n, KindAtPositionIs n x xs)
 
+-- | Snoc @x@ to end of @xs@ if @x@ doesn't already exist in @xs@
+type family SnocUnique (xs :: [k]) (x :: k) :: [k] where
+    SnocUnique '[] x  = '[x]
+    SnocUnique (x ': xs) x = x ': xs
+    SnocUnique (y ': xs) x = y ': SnocUnique xs x
+
+-- | For each @y@ in @ys@, snocs them to end of @xs@ if @y@ doesn't already exist in @xs@
+type family AppendUnique (xs :: [k]) (ys :: [k]) :: [k] where
+    AppendUnique xs '[] = xs
+    AppendUnique xs (y ': ys) = AppendUnique (SnocUnique xs y) ys
+
 -- | Ensures x is a unique member in @xs@ iff it exists in @ys@
 type family UniqueIfExists ys x xs :: Constraint where
     UniqueIfExists '[] x xs = ()
@@ -80,6 +91,7 @@ type family KindsAtIndices (ns :: [Nat]) (xs :: [k]) :: [k] where
     KindsAtIndices '[] xs = '[]
     KindsAtIndices (n ': ns) xs = KindAtIndex n xs ': KindsAtIndices ns xs
 
+-- | Get the types with labels @ls@ from @xs@
 type family KindsAtLabels (ls :: [k1]) (xs :: [k]) :: [k] where
     KindsAtLabels '[] xs = '[]
     KindsAtLabels (l ': ls) xs = KindAtLabel l xs ': KindsAtLabels ls xs
