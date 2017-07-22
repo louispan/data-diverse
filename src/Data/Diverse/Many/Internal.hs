@@ -38,8 +38,8 @@ module Data.Diverse.Many.Internal (
     , (/./)
 
     -- * Simple queries
-    , sliceL
-    , sliceR
+    , viewf
+    , viewb
     , front
     , back
     , aft
@@ -346,7 +346,7 @@ instance CanAppendUnique xs '[] where
 
 instance (MaybeUniqueMemberAt n y xs, CanAppendUnique (SnocUnique xs y) ys) => CanAppendUnique xs (y ': ys) where
    append' ls rs = append' (postfix' ls r) rs'
-     where (r, rs') = sliceL rs
+     where (r, rs') = viewf rs
    {-# INLINABLE append' #-} -- This makes compiling tests a little faster than with no pragma
 
 infixr 5 `append'` -- like Data.List (++)
@@ -355,22 +355,22 @@ infixr 5 `append'` -- like Data.List (++)
 
 -- | Split a non-empty Many into the first element, then the rest of the Many.
 -- Analogous to 'S.viewl'
-sliceL :: Many (x ': xs) -> (x, Many xs)
-sliceL (Many xs) = case S.viewl xs of
-    S.EmptyL -> error "no front"
-    a S.:< ys -> (unsafeCoerce a, Many ys)
+viewf :: Many (x ': xs) -> (x, Many xs)
+viewf (Many xs) = case S.viewl xs of
+    -- S.EmptyL -> error "no front"
+    ~(a S.:< ys) -> (unsafeCoerce a, Many ys)
 
 -- | Split a non-empty Many into initial part of Many, and the last element.
 -- Analogous to 'S.viewr'
-sliceR :: Many (x ': xs) -> (Many (Init (x ': xs)), Last (x ': xs))
-sliceR (Many xs) = case S.viewr xs of
-    S.EmptyR -> error "no back"
-    ys S.:> a -> (Many ys, unsafeCoerce a)
+viewb :: Many (x ': xs) -> (Many (Init (x ': xs)), Last (x ': xs))
+viewb (Many xs) = case S.viewr xs of
+    -- S.EmptyR -> error "no back"
+    ~(ys S.:> a) -> (Many ys, unsafeCoerce a)
 
 -- | Extract the first element of a Many, which guaranteed to be non-empty.
 -- Analogous to 'Partial.head'
 front :: Many (x ': xs) -> x
-front = fst . sliceL
+front = fst . viewf
 
 front_ :: Many_ (x ': xs) -> x
 front_ (Many_ xs) = unsafeCoerce (Partial.head xs)
@@ -378,12 +378,12 @@ front_ (Many_ xs) = unsafeCoerce (Partial.head xs)
 -- | Extract the 'back' element of a Many, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.last'
 back :: Many (x ': xs) -> Last (x ': xs)
-back = snd . sliceR
+back = snd . viewb
 
 -- | Extract the elements after the front of a Many, which guaranteed to be non-empty.
 -- Analogous to 'Partial.tail'
 aft :: Many (x ': xs) -> Many xs
-aft = snd . sliceL
+aft = snd . viewf
 
 aft_ :: Many_ (x ': xs) -> Many_ xs
 aft_ (Many_ xs) = Many_ (Partial.tail xs)
@@ -391,7 +391,7 @@ aft_ (Many_ xs) = Many_ (Partial.tail xs)
 -- | Return all the elements of a Many except the 'back' one, which guaranteed to be non-empty.
 -- Analogous to 'Prelude.init'
 fore :: Many (x ': xs) -> Many (Init (x ': xs))
-fore = fst . sliceR
+fore = fst . viewb
 
 --------------------------------------------------
 
