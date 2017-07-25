@@ -65,6 +65,7 @@ import Data.Diverse.Reiterate
 import Data.Diverse.TypeLevel
 import Data.Kind
 import Data.Proxy
+import Data.Semigroup (Semigroup(..))
 import qualified GHC.Generics as G
 import GHC.Prim (Any, coerce)
 import GHC.TypeLits
@@ -141,6 +142,13 @@ instance G.Generic (Which (x ': x' ': xs)) where
         G.R1 ({- G.Rec0 -} G.K1 v) -> diversify0 v
 
 -----------------------------------------------------------------------
+
+instance Semigroup (Which '[]) where
+    _ <> _ = impossible
+
+instance Monoid (Which '[]) where
+    mempty = impossible
+    mappend = (<>)
 
 -- | A 'Which' with no alternatives. You can't do anything with 'impossible'
 -- except Eq, Read, and Show it.

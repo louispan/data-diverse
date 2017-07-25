@@ -97,6 +97,7 @@ import Data.Foldable
 import Data.Kind
 import Data.Proxy
 import qualified Data.Sequence as S
+import Data.Semigroup (Semigroup(..))
 import Data.Tagged
 import qualified GHC.Generics as G
 import GHC.Prim (Any, coerce)
@@ -277,6 +278,13 @@ instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l
                         , fetchN (Proxy @10) r, fetchN (Proxy @11) r, fetchN (Proxy @12) r, fetchN (Proxy @13) r, fetchN (Proxy @14) r)
 
 -----------------------------------------------------------------------
+
+instance Semigroup (Many '[]) where
+    _ <> _ = nil
+
+instance Monoid (Many '[]) where
+    mempty = nil
+    mappend = (<>)
 
 -- | Analogous to 'Prelude.null'. Named 'nil' to avoid conflicting with 'Prelude.null'.
 nil :: Many '[]

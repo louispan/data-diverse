@@ -39,6 +39,8 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Added NFData instance for Which.
   - Forgot to expose Many.sliceL and Many.sliceR.
 
-* 0.8.2.0
+* 0.9.0.0
   - Renamed TypeLevel.Internal.MissingImpl to IsUniqueImpl.
   - Added postifx' with SnocUnique and append' with AppendUnique.
+  - Renamed Many.sliceL/R to Many.viewf/b
+  - Added Semigroup & Monoid instances for `Many '[]` and `Which '[]`
