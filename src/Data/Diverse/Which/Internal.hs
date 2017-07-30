@@ -67,7 +67,7 @@ import Data.Kind
 import Data.Proxy
 import Data.Semigroup (Semigroup(..))
 import qualified GHC.Generics as G
-import GHC.Prim (Any, coerce)
+import GHC.Exts (Any, coerce)
 import GHC.TypeLits
 import Text.ParserCombinators.ReadPrec
 import Text.Read

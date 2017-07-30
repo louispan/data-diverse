@@ -40,7 +40,8 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Forgot to expose Many.sliceL and Many.sliceR.
 
 * 0.9.0.0
+  - Breaking changes: Renamed Many.sliceL/R to Many.viewf/b
   - Renamed TypeLevel.Internal.MissingImpl to IsUniqueImpl.
   - Added postifx' with SnocUnique and append' with AppendUnique.
-  - Renamed Many.sliceL/R to Many.viewf/b
   - Added Semigroup & Monoid instances for `Many '[]` and `Which '[]`
+  - Fixed GHC 8.2 compile error with importing GHC.Prim (Any)

@@ -100,7 +100,7 @@ import qualified Data.Sequence as S
 import Data.Semigroup (Semigroup(..))
 import Data.Tagged
 import qualified GHC.Generics as G
-import GHC.Prim (Any, coerce)
+import GHC.Exts (Any, coerce)
 import GHC.TypeLits
 import Text.ParserCombinators.ReadPrec
 import Text.Read
@@ -365,15 +365,15 @@ infixr 5 `append'` -- like Data.List (++)
 -- Analogous to 'S.viewl'
 viewf :: Many (x ': xs) -> (x, Many xs)
 viewf (Many xs) = case S.viewl xs of
-    -- S.EmptyL -> error "no front"
-    ~(a S.:< ys) -> (unsafeCoerce a, Many ys)
+    S.EmptyL -> error "no front"
+    (a S.:< ys) -> (unsafeCoerce a, Many ys)
 
 -- | Split a non-empty Many into initial part of Many, and the last element.
 -- Analogous to 'S.viewr'
 viewb :: Many (x ': xs) -> (Many (Init (x ': xs)), Last (x ': xs))
 viewb (Many xs) = case S.viewr xs of
-    -- S.EmptyR -> error "no back"
-    ~(ys S.:> a) -> (Many ys, unsafeCoerce a)
+    S.EmptyR -> error "no back"
+    (ys S.:> a) -> (Many ys, unsafeCoerce a)
 
 -- | Extract the first element of a Many, which guaranteed to be non-empty.
 -- Analogous to 'Partial.head'
