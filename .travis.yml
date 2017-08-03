@@ -38,6 +38,7 @@ before_install:
  - HCPKG=${HC/ghc/ghc-pkg}
  - unset CC
  - PATH=/opt/ghc/bin:/opt/ghc-ppa-tools/bin:$PATH
+ - PATH=$HOME/.cabal/bin:$PATH
  - PKGNAME='data-diverse'
 
 install:
