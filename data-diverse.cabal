@@ -1,5 +1,5 @@
 name:                data-diverse
-version:             0.9.0.0
+version:             0.9.0.1
 synopsis:            Extensible records and polymorphic variants.
 description:         "Data.Diverse.Many" is an extensible record for any size encoded efficiently as (Seq Any).
                      "Data.Diverse.Which" is a polymorphic variant of possibilities encoded as (Int, Any).
@@ -20,7 +20,7 @@ category:            Data, Records
 build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
-tested-with:         GHC == 8.0.2
+tested-with:         GHC == 8.0.2, GHC == 8.2.1
 
 library
   hs-source-dirs:      src

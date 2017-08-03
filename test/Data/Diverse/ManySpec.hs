@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -30,7 +31,12 @@ spec = do
                 z = cast x :: Maybe (Many '[Int, Bool])
             y `shouldBe` Nothing
             z `shouldBe` Just x
-            (show . typeRep . (pure @Proxy) $ x) `shouldBe` "Many (': * Int (': * Bool '[]))"
+#if __GLASGOW_HASKELL__ >= 821
+            let expected = "Many (': * Int (': * Bool ('[] *)))"
+#else
+            let expected = "Many (': * Int (': * Bool '[]))"
+#endif
+            (show . typeRep . (pure @Proxy) $ x) `shouldBe` expected
 
         it "is a Read and Show" $ do
             let s = "5 ./ False ./ 'X' ./ Just 'O' ./ nil"

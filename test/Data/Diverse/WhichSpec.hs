@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -233,7 +234,12 @@ spec = do
         it "can be switched with a single 'CaseTypeable' handler" $ do
             let y = pick (5 :: Int) :: Which '[Int, Bool]
             switch y (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
-            (show . typeRep . (pure @Proxy) $ y) `shouldBe` "Which (': * Int (': * Bool '[]))"
+#if __GLASGOW_HASKELL__ >= 821
+            let expected = "Which (': * Int (': * Bool ('[] *)))"
+#else
+            let expected = "Which (': * Int (': * Bool '[]))"
+#endif
+            (show . typeRep . (pure @Proxy) $ y) `shouldBe` expected
 
         it "is a compile error to 'trial', 'diversify', 'reinterpret 'impossible'" $ do
             -- let a = diversify @[Int, Bool] impossible
