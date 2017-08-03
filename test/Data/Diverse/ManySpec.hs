@@ -31,7 +31,7 @@ spec = do
                 z = cast x :: Maybe (Many '[Int, Bool])
             y `shouldBe` Nothing
             z `shouldBe` Just x
-#if __GLASGOW_HASKELL__ >= 821
+#if __GLASGOW_HASKELL__ >= 802
             let expected = "Many (': * Int (': * Bool ('[] *)))"
 #else
             let expected = "Many (': * Int (': * Bool '[]))"

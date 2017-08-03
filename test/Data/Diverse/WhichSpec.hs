@@ -234,7 +234,7 @@ spec = do
         it "can be switched with a single 'CaseTypeable' handler" $ do
             let y = pick (5 :: Int) :: Which '[Int, Bool]
             switch y (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
-#if __GLASGOW_HASKELL__ >= 821
+#if __GLASGOW_HASKELL__ >= 802
             let expected = "Which (': * Int (': * Bool ('[] *)))"
 #else
             let expected = "Which (': * Int (': * Bool '[]))"
