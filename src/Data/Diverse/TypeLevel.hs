@@ -155,3 +155,10 @@ type family Init (xs :: [k]) :: [k] where
 
 -- | Takes two lists which must be the same length and returns a list of corresponding pairs.
 type Zip (xs :: [k]) (ys :: [k]) = ZipImpl xs ys xs ys
+
+type family CasesResult (fs :: [k1]) :: k2 where
+    CasesResult ((a -> r) ': fs) = CasesResultImpl ((a -> r) ': fs) r fs
+    CasesResult fs = TypeError ('Text "CasesResult error: ‘"
+                              ':<>: 'ShowType fs
+                              ':<>: 'Text "’"
+                              ':<>: 'Text " doesn't return anything")

@@ -34,10 +34,12 @@ module Data.Diverse.Which (
     , reinterpretN
 
       -- * Catamorphism
-    , Switch(..)
+    , Switch
+    , Switcher(..)
     , which
     , switch
-    , SwitchN(..)
+    , SwitchN
+    , SwitcherN(..)
     , whichN
     , switchN
     ) where

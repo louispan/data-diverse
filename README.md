@@ -48,3 +48,7 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 * 0.9.0.1
   - Fixed GHC 8.2.1 test failure due to changed TypeRep show instance.
+
+* 0.10.0.0
+  - Renamed 'Switch' to 'Switcher'. Switch is now a type synonym for 'switch' constraints
+  - Added CasesResult type family to help infer the result of 'cases'

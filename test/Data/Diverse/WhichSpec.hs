@@ -214,11 +214,11 @@ spec = do
             let y = pick (5 :: Int) :: Which '[Int, Bool]
             switch y (
                 -- contrast with lowercase 'cases' which disallows extraneous content
-                Cases (show @Int
+                cases' (show @Int
                     ./ show @Bool
                     ./ show @Char
-                    ./ 'X'
-                    ./ False
+                    ./ show @(Maybe Char)
+                    ./ show @(Maybe Int)
                     ./ nil
                 )) `shouldBe` "5"
 

@@ -12,10 +12,12 @@
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
 module Data.Diverse.Cases
-    ( Cases(..)
+    ( Cases
     , cases
+    , cases'
     , CasesN
     , casesN
+    , casesN'
     ) where
 
 import Data.Diverse.Case
@@ -30,7 +32,6 @@ import GHC.TypeLits
 -- This uses __'fetch'__ to get the unique handler for the type at the 'Head' of @xs@.
 --
 -- Use 'cases' to construct this with 'SameLength' constraint to reduce programming confusion.
--- However, the 'Cases' constructor is still exported to allow creating a master-of-all-'Case'.
 newtype Cases (fs :: [Type]) (xs :: [Type]) r = Cases (Many fs)
 
 instance Reiterate (Cases fs) xs where
@@ -62,8 +63,12 @@ instance UniqueMember (Head xs -> r) fs => Case (Cases fs) xs r where
 -- This function imposes additional @SameLength@ constraints than when using the 'Cases' constructor directly.
 -- It is better practice to use 'cases' to prevent programming confusion with dead code.
 -- However, the 'Cases' constructor is still exported to allow creating a master-of-all-'Case'.
-cases :: SameLength fs (Nub xs) => Many fs -> (Cases fs) xs r
+cases :: forall r xs fs. (CasesResult fs ~ r, SameLength fs (Nub xs)) => Many fs -> Cases fs xs r
 cases = Cases
+
+-- | A variation of 'cases' without the @SameLength@ constraint to allow creating a master-of-all-'Case'.
+cases' :: forall r xs fs. (CasesResult fs ~ r) => Many fs -> Cases fs xs r
+cases' = Cases
 
 -----------------------------------------------
 
@@ -101,5 +106,9 @@ instance (MemberAt n (Head xs -> r) fs) => Case (CasesN fs n) xs r where
 -- 'Data.Diverse.AFoldable.afoldr' (:) [] ('collectN' x ('casesN' y)) \`shouldBe`
 --     [\"5", \"False", \"'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-casesN :: SameLength fs xs => Many fs -> CasesN fs 0 xs r
+casesN :: forall r xs fs. SameLength fs xs => Many fs -> CasesN fs 0 xs r
 casesN = CasesN
+
+-- | A variation of 'casesN' without the @SameLength@ constraint to allow creating a master-of-all-'Case'.
+casesN' :: forall r xs fs. (CasesResult fs ~ r) => Many fs -> CasesN fs 0 xs r
+casesN' = CasesN
