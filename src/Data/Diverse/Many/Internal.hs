@@ -159,6 +159,10 @@ toMany_ (Many m) = Many_ (toList m)
 
 fromMany_ :: Many_ xs -> Many xs
 fromMany_ (Many_ xs) = Many (S.fromList xs)
+
+getMany_ :: Many_ xs -> [Any]
+getMany_ (Many_ xs) = xs
+
 -----------------------------------------------------------------------
 
 instance NFData (Many '[])
@@ -278,13 +282,6 @@ instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l
                         , fetchN (Proxy @10) r, fetchN (Proxy @11) r, fetchN (Proxy @12) r, fetchN (Proxy @13) r, fetchN (Proxy @14) r)
 
 -----------------------------------------------------------------------
-
-instance Semigroup (Many '[]) where
-    _ <> _ = nil
-
-instance Monoid (Many '[]) where
-    mempty = nil
-    mappend = (<>)
 
 -- | Analogous to 'Prelude.null'. Named 'nil' to avoid conflicting with 'Prelude.null'.
 nil :: Many '[]
@@ -975,6 +972,43 @@ instance (Ord x, Ord (Many_ xs)) => Ord (Many_ (x ': xs)) where
 -- | Two 'Many's are ordered by 'compare'ing their fields in index order
 instance Ord (Many_ xs) => Ord (Many xs) where
     compare xs ys = compare (toMany_ xs) (toMany_ ys)
+
+
+-----------------------------------------------------------------------
+
+instance Semigroup (Many_ '[]) where
+    _ <> _ = Many_ []
+
+instance (Semigroup x, Semigroup (Many_ xs)) => Semigroup (Many_ (x ': xs)) where
+    Many_ (a : as) <> Many_ (b : bs) = Many_ (c : cs)
+      where
+        c = unsafeCoerce (unsafeCoerce a <> (unsafeCoerce b :: x))
+        cs = getMany_ (Many_ @xs as <> Many_ @xs bs)
+    _ <> _ = error "invalid Many_ Semigroup"
+
+instance Semigroup (Many_ xs) => Semigroup (Many xs) where
+    as <> bs = fromMany_ (toMany_ as <> toMany_ bs)
+
+-----------------------------------------------------------------------
+
+instance Monoid (Many_ '[]) where
+    mempty = Many_ []
+    mappend = (<>)
+
+instance (Monoid x, Monoid (Many_ xs)) => Monoid (Many_ (x ': xs)) where
+    mempty = Many_ (c : cs)
+      where
+        c = unsafeCoerce (mempty :: x)
+        cs = getMany_ (mempty :: Many_ xs)
+    Many_ (a : as) `mappend` Many_ (b : bs) = Many_ (c : cs)
+      where
+        c = unsafeCoerce (unsafeCoerce a `mappend` (unsafeCoerce b :: x))
+        cs = getMany_ (Many_ @xs as `mappend` Many_ @xs bs)
+    _ `mappend` _ = error "invalid Many_ Monoid"
+
+instance Monoid (Many_ xs) => Monoid (Many xs) where
+    mempty = fromMany_ (mempty :: Many_ xs)
+    as `mappend` bs = fromMany_ (toMany_ as `mappend` toMany_ bs)
 
 -----------------------------------------------------------------------
 
