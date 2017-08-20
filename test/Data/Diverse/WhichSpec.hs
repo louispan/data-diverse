@@ -198,8 +198,8 @@ spec = do
 
         it "can be 'reinterpretN'ed by index into a subset Which" $ do
             let y = pick @[Char, String, Int, Bool] (5 :: Int)
-                a = reinterpretN @[2, 0] @[Int, Char] Proxy y
-                a' = reinterpretN @[3, 0] @[Bool, Char] Proxy y
+                a = reinterpretN' @[2, 0] @[Int, Char] Proxy y
+                a' = reinterpretN' @[3, 0] @[Bool, Char] Proxy y
             a `shouldBe` Just (pick (5 :: Int))
             a' `shouldBe` Nothing
 

@@ -53,3 +53,5 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Renamed 'Switch' to 'Switcher'. Switch is now a type synonym for 'switch' constraints
   - Added CasesResult type family to help infer the result of 'cases'
   - Added Semigroup and Monoid instances for all Many xs.
+  - Added Maybe versions of trial, and reinterpret
+  - Renamed 'reinterpetN' to 'reinterpretN''

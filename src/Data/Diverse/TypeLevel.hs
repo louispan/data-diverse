@@ -144,6 +144,7 @@ type family Complement (xs :: [k]) (ys :: [k]) :: [k] where
 
 -- | Returns a @xs@ appended with @ys@
 type family Append (xs :: [k]) (ys :: [k]) :: [k] where
+    Append xs '[] = xs
     Append '[] ys = ys
     Append (x ': xs) ys = x ': Append xs ys
 

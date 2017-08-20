@@ -14,9 +14,13 @@ module Data.Diverse.Which (
       -- ** Destruction
     , obvious
     , trial
+    , trial'
     , trial0
+    , trial0'
     , trialL
+    , trialL'
     , trialN
+    , trialN'
 
       -- * Multiple types
       -- ** Injection
@@ -29,9 +33,12 @@ module Data.Diverse.Which (
       -- ** Inverse Injection
     , Reinterpret
     , reinterpret
+    , Reinterpret'
+    , reinterpret'
     , reinterpretL
-    , ReinterpretN
-    , reinterpretN
+    , reinterpretL'
+    , ReinterpretN'
+    , reinterpretN'
 
       -- * Catamorphism
     , Switch

@@ -28,9 +28,13 @@ module Data.Diverse.Which.Internal (
       -- ** Destruction
     , obvious
     , trial
+    , trial'
     , trial0
+    , trial0'
     , trialL
+    , trialL'
     , trialN
+    , trialN'
 
       -- * Multiple types
       -- ** Injection
@@ -43,9 +47,12 @@ module Data.Diverse.Which.Internal (
       -- ** Inverse Injection
     , Reinterpret
     , reinterpret
+    , Reinterpret'
+    , reinterpret'
     , reinterpretL
-    , ReinterpretN
-    , reinterpretN
+    , reinterpretL'
+    , ReinterpretN'
+    , reinterpretN'
 
       -- * Catamorphism
     , Switch
@@ -239,6 +246,22 @@ trial_ (Which n v) = let i = fromInteger (natVal @n Proxy)
                           then Left (Which (n - 1) v)
                           else Left (Which n v)
 
+-- | Variation of 'trial' which returns a Maybe
+trial'
+    :: forall x xs.
+       (UniqueMember x xs)
+    => Which xs -> Maybe x
+trial' = trial_'
+
+trial_'
+    :: forall x xs n.
+       (KnownNat n, n ~ IndexOf x xs)
+    => Which xs -> Maybe x
+trial_' (Which n v) = let i = fromInteger (natVal @n Proxy)
+                  in if n == i
+                     then Just (unsafeCoerce v)
+                     else Nothing
+
 -- | A variation of 'trial' where x is specified via a label
 --
 -- @
@@ -252,6 +275,13 @@ trialL
     => proxy l -> Which xs -> Either (Which (Without x xs)) x
 trialL _ = trial_ @x
 
+-- | Variation of 'trialL' which returns a Maybe
+trialL'
+    :: forall l xs x proxy.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> Which xs -> Maybe x
+trialL' _ = trial_' @x
+
 -- | A variation of a 'Which' 'trial' which 'trial's the first type in the type list.
 --
 -- @
@@ -262,6 +292,12 @@ trial0 :: Which (x ': xs) -> Either (Which xs) x
 trial0 (Which n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Which (n - 1) v)
+
+-- | Variation of 'trial0' which returns a Maybe
+trial0' :: Which (x ': xs) -> Maybe x
+trial0' (Which n v) = if n == 0
+           then Just (unsafeCoerce v)
+           else Nothing
 
 -- | 'trialN' the n-th type of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
 --
@@ -279,6 +315,16 @@ trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
                      else if n > i
                           then Left (Which (n - 1) v)
                           else Left (Which n v)
+
+-- | Variation of 'trialN' which returns a Maybe
+trialN'
+    :: forall n xs x proxy.
+       (MemberAt n x xs)
+    => proxy n -> Which xs -> Maybe x
+trialN' _ (Which n v) = let i = fromInteger (natVal @n Proxy)
+                  in if n == i
+                     then Just (unsafeCoerce v)
+                     else Nothing
 
 -----------------------------------------------------------------
 
@@ -412,6 +458,31 @@ instance ( MaybeUniqueMemberAt n x branch
 
 ------------------------------------------------------------------
 
+-- | A friendlier constraint synonym for 'reinterpret''.
+type Reinterpret' branch tree = Reduce (Which tree) (Switcher (CaseReinterpret' branch tree) tree) (Maybe (Which branch))
+
+-- | Variation of 'reinterpret' which returns a Maybe.
+reinterpret' :: forall branch tree. Reinterpret' branch tree => Which tree -> Maybe (Which branch)
+reinterpret' = which (CaseReinterpret' @branch @tree @tree)
+
+data CaseReinterpret' (branch :: [Type]) (tree :: [Type]) (tree' :: [Type]) r = CaseReinterpret'
+
+instance Reiterate (CaseReinterpret' branch tree) tree' where
+    reiterate CaseReinterpret' = CaseReinterpret'
+
+instance ( MaybeUniqueMemberAt n x branch
+         , comp ~ Complement tree branch
+         -- , MaybeUniqueMemberAt n' x comp
+         , Unique x tree -- Compile error to ensure reinterpret only works with unique fields
+         ) =>
+         Case (CaseReinterpret' branch tree) (x ': tree') (Maybe (Which branch)) where
+    case' CaseReinterpret' a =
+        case fromInteger (natVal @n Proxy) of
+            0 -> Nothing
+            i -> Just $ Which (i - 1) (unsafeCoerce a)
+
+------------------------------------------------------------------
+
 -- | A variation of 'reinterpret' where the @branch@ is additionally specified with a labels list.
 --
 -- @
@@ -432,11 +503,24 @@ reinterpretL
     -> Either (Which (Complement tree branch)) (Which branch)
 reinterpretL _ = which (CaseReinterpret @branch @tree @tree)
 
+-- | Variation of 'reinterpretL' which returns a Maybe.
+reinterpretL'
+    :: forall ls branch tree proxy.
+       ( Reinterpret' branch tree
+       , branch ~ KindsAtLabels ls tree
+       , UniqueLabels ls tree
+       , IsDistinct ls
+       )
+    => proxy ls
+    -> Which tree
+    -> Maybe (Which branch)
+reinterpretL' _ = which (CaseReinterpret' @branch @tree @tree)
+
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'reinterpretN'.
-type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
-    ( Reduce (Which tree) (SwitcherN (CaseReinterpretN indices) 0 tree) (Maybe (Which branch))
+type ReinterpretN' (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
+    ( Reduce (Which tree) (SwitcherN (CaseReinterpretN' indices) 0 tree) (Maybe (Which branch))
     , KindsAtIndices indices tree ~ branch)
 
 -- | A limited variation of 'reinterpret' which uses a Nat list @n@ to specify how to reorder the fields, where
@@ -453,16 +537,16 @@ type ReinterpretN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
 -- Also it returns a Maybe instead of Either.
 --
 -- This is so that the same @indices@ can be used in 'narrowN'.
-reinterpretN :: forall (indices :: [Nat]) branch tree proxy. (ReinterpretN indices branch tree) => proxy indices -> Which tree -> Maybe (Which branch)
-reinterpretN _ = whichN (CaseReinterpretN @indices @0 @tree)
+reinterpretN' :: forall (indices :: [Nat]) branch tree proxy. (ReinterpretN' indices branch tree) => proxy indices -> Which tree -> Maybe (Which branch)
+reinterpretN' _ = whichN (CaseReinterpretN' @indices @0 @tree)
 
-data CaseReinterpretN (indices :: [Nat]) (n :: Nat) (tree' :: [Type]) r = CaseReinterpretN
+data CaseReinterpretN' (indices :: [Nat]) (n :: Nat) (tree' :: [Type]) r = CaseReinterpretN'
 
-instance ReiterateN (CaseReinterpretN indices) n tree' where
-    reiterateN CaseReinterpretN = CaseReinterpretN
+instance ReiterateN (CaseReinterpretN' indices) n tree' where
+    reiterateN CaseReinterpretN' = CaseReinterpretN'
 
-instance (MaybeMemberAt n' x branch, n' ~ PositionOf n indices) => Case (CaseReinterpretN indices n) (x ': tree) (Maybe (Which branch)) where
-    case' CaseReinterpretN a =
+instance (MaybeMemberAt n' x branch, n' ~ PositionOf n indices) => Case (CaseReinterpretN' indices n) (x ': tree) (Maybe (Which branch)) where
+    case' CaseReinterpretN' a =
         case fromInteger (natVal @n' Proxy) of
             0 -> Nothing
             i -> Just $ Which (i - 1) (unsafeCoerce a)
