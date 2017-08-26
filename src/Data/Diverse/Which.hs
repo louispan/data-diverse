@@ -5,7 +5,7 @@ module Data.Diverse.Which (
 
       -- * Single type
       -- ** Construction
-    , impossible
+    , zilch
     , pick
     , pick0
     , pickOnly

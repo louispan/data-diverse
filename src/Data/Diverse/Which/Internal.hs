@@ -19,7 +19,7 @@ module Data.Diverse.Which.Internal (
 
       -- * Single type
       -- ** Construction
-    , impossible
+    , zilch
     , pick
     , pick0
     , pickOnly
@@ -125,12 +125,12 @@ instance (NFData x, NFData (Which (x' ': xs))) => NFData (Which (x ': x' ': xs))
 
 ----------------------------------------------
 
--- | A terminating 'G.Generic' instance for no types encoded as a 'impossible'.
+-- | A terminating 'G.Generic' instance for no types encoded as a 'zilch'.
 -- The 'G.C1' and 'G.S1' metadata are not encoded.
 instance G.Generic (Which '[]) where
   type Rep (Which '[]) = G.U1
   from _ = {- G.U1 -} G.U1
-  to G.U1 = impossible
+  to G.U1 = zilch
 
 -- | A terminating 'G.Generic' instance for one type encoded with 'pick''.
 -- The 'G.C1' and 'G.S1' metadata are not encoded.
@@ -153,18 +153,18 @@ instance G.Generic (Which (x ': x' ': xs)) where
 -----------------------------------------------------------------------
 
 instance Semigroup (Which '[]) where
-    _ <> _ = impossible
+    _ <> _ = zilch
 
 instance Monoid (Which '[]) where
-    mempty = impossible
+    mempty = zilch
     mappend = (<>)
 
--- | A 'Which' with no alternatives. You can't do anything with 'impossible'
+-- | A 'Which' with no alternatives. You can't do anything with 'zilch'
 -- except Eq, Read, and Show it.
--- Using functions like 'switch' and 'trial' with 'impossible' is a compile error.
--- 'impossible' is only useful as a 'Left'-over from 'trial'ing a @Which '[x]@ with one type.
-impossible :: Which '[]
-impossible = Which (-1) (unsafeCoerce ())
+-- Using functions like 'switch' and 'trial' with 'zilch' is a compile error.
+-- 'zilch' is useful as a 'Left'-over from 'trial'ing a @Which '[x]@ with one type.
+zilch :: Which '[]
+zilch = Which (-1) (unsafeCoerce ())
 
 -- | Lift a value into a 'Which' of possibly other types @xs@.
 -- @xs@ can be inferred or specified with TypeApplications.
@@ -570,7 +570,7 @@ instance (Case c (x ': x' ': xs) r, Reduce (Which (x' ': xs)) (Switcher c (x' ':
 
 -- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
--- You can't reduce 'impossible'
+-- You can't reduce 'zilch'
 instance (Case c '[x] r) => Reduce (Which '[x]) (Switcher c '[x]) r where
     reduce (Switcher c) v = case obvious v of
             a -> case' c a
@@ -624,7 +624,7 @@ instance (Case (c n) (x ': x' ': xs) r, Reduce (Which (x' ': xs)) (SwitcherN c (
 
 -- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
--- You can't reduce 'impossible'
+-- You can't reduce 'zilch'
 instance (Case (c n) '[x] r) => Reduce (Which '[x]) (SwitcherN c n '[x]) r where
     reduce (SwitcherN c) v = case obvious v of
             a -> case' c a
@@ -664,7 +664,7 @@ instance (Reduce (Which (x ': xs)) (Switcher CaseEqWhich (x ': xs)) Bool) => Eq 
             then False
             else switch l (CaseEqWhich u)
 
--- | @('impossible' == 'impossible') == True@
+-- | @('zilch' == 'zilch') == True@
 instance Eq (Which '[]) where
     _ == _ = True
 
@@ -690,7 +690,7 @@ instance ( Reduce (Which (x ': xs)) (Switcher CaseEqWhich (x ': xs)) Bool
             then compare i j
             else switch l (CaseOrdWhich u)
 
--- | @('compare' 'impossible' 'impossible') == EQ@
+-- | @('compare' 'zilch' 'zilch') == EQ@
 instance Ord (Which '[]) where
     compare _ _ = EQ
 
@@ -711,9 +711,9 @@ instance (Reduce (Which (x ': xs)) (Switcher CaseShowWhich (x ': xs)) ShowS) => 
     showsPrec d v = showParen (d > app_prec) (which (CaseShowWhich 0) v)
       where app_prec = 10
 
--- | @read "impossible" == 'impossible'@
+-- | @read "zilch" == 'zilch'@
 instance Show (Which '[]) where
-    showsPrec d _ = showParen (d > app_prec) (showString "impossible")
+    showsPrec d _ = showParen (d > app_prec) (showString "zilch")
       where app_prec = 10
 
 newtype CaseShowWhich (xs :: [Type]) r = CaseShowWhich Int
@@ -762,11 +762,11 @@ instance WhichRead (Which_ (x ': xs)) =>
       where
         app_prec = 10
 
--- | @read "impossible" == 'impossible'@
+-- | @read "zilch" == 'zilch'@
 instance Read (Which '[]) where
     readPrec =
         parens $ prec app_prec $ do
-            lift $ L.expect (Ident "impossible")
-            pure impossible
+            lift $ L.expect (Ident "zilch")
+            pure zilch
       where
         app_prec = 10

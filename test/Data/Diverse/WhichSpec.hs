@@ -40,14 +40,14 @@ spec = do
             let s = "pickN @0 Proxy 5"
                 x = read s :: Which '[Int, Bool]
             show x `shouldBe` s
-            "impossible" `shouldBe` show impossible
-            "impossible" `shouldBe` show (read "impossible" :: Which '[])
+            "zilch" `shouldBe` show zilch
+            "zilch" `shouldBe` show (read "zilch" :: Which '[])
 
         it "is an Eq" $ do
             let y = pick (5 :: Int) :: Which '[Int, Bool]
             let y' = pick (5 :: Int) :: Which '[Int, Bool]
             y `shouldBe` y'
-            read (show impossible) `shouldBe` impossible
+            read (show zilch) `shouldBe` zilch
 
         it "is an Ord" $ do
             let y5 = pick (5 :: Int) :: Which '[Int, Bool]
@@ -55,7 +55,7 @@ spec = do
             compare y5 y5 `shouldBe` EQ
             compare y5 y6 `shouldBe` LT
             compare y6 y5 `shouldBe` GT
-            compare impossible impossible `shouldBe` EQ
+            compare zilch zilch `shouldBe` EQ
 
         it "can be constructed by type with 'pick' and destructed with 'trial'" $ do
             let y = pick (5 :: Int) :: Which '[Bool, Int, Char]
@@ -94,7 +94,7 @@ spec = do
             trial @Int c `shouldBe` Right 5
             trial @String c `shouldBe` Left d
             trial @Int d `shouldBe` Right 5
-            trial @Int d `shouldNotBe` Left impossible
+            trial @Int d `shouldNotBe` Left zilch
             obvious d `shouldBe` 5
 
         it "can be 'trialN'led until its final 'obvious' value" $ do
@@ -127,7 +127,7 @@ spec = do
             trial0 e `shouldBe` Left f
 
             trial @Int f `shouldBe` Right 5
-            trial @Int f `shouldNotBe` Left impossible
+            trial @Int f `shouldNotBe` Left zilch
             trial0 f `shouldBe` Right 5
             obvious f `shouldBe` 5
 
@@ -241,10 +241,10 @@ spec = do
 #endif
             (show . typeRep . (pure @Proxy) $ y) `shouldBe` expected
 
-        it "is a compile error to 'trial', 'diversify', 'reinterpret 'impossible'" $ do
-            -- let a = diversify @[Int, Bool] impossible
-            -- let a = trial @Int impossible
-            -- let a = trialN (Proxy @0) impossible
-            -- let a = reinterpret @[Int, Bool] impossible
-            -- let a = reinterpretN (Proxy @'[0]) impossible
-            impossible `shouldBe` impossible
+        it "is a compile error to 'trial', 'diversify', 'reinterpret 'zilch'" $ do
+            -- let a = diversify @[Int, Bool] zilch
+            -- let a = trial @Int zilch
+            -- let a = trialN (Proxy @0) zilch
+            -- let a = reinterpret @[Int, Bool] zilch
+            -- let a = reinterpretN (Proxy @'[0]) zilch
+            zilch `shouldBe` zilch
