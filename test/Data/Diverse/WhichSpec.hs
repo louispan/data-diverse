@@ -241,10 +241,18 @@ spec = do
 #endif
             (show . typeRep . (pure @Proxy) $ y) `shouldBe` expected
 
-        it "is a compile error to 'trial', 'diversify', 'reinterpret 'zilch'" $ do
+        it "is a compile error to 'trial', 'diversify', 'reinterpret from non-zilch to 'zilch'" $ do
             -- let a = diversify @[Int, Bool] zilch
             -- let a = trial @Int zilch
             -- let a = trialN (Proxy @0) zilch
             -- let a = reinterpret @[Int, Bool] zilch
             -- let a = reinterpretN (Proxy @'[0]) zilch
             zilch `shouldBe` zilch
+
+        it "is ok to 'reinterpret' and 'diversity' into 'zilch'" $ do
+            let x = pick @'[Int] (5 :: Int)
+            reinterpret' @'[] x `shouldBe` Nothing
+            reinterpret' @'[] zilch `shouldBe` Just zilch
+            reinterpret @'[] x `shouldBe` Left x
+            reinterpret @'[] zilch `shouldBe` Right zilch
+            diversify @'[] zilch `shouldBe` zilch

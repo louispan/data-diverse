@@ -575,6 +575,18 @@ instance (Case c '[x] r) => Reduce (Which '[x]) (Switcher c '[x]) r where
     reduce (Switcher c) v = case obvious v of
             a -> case' c a
 
+-- | Allow 'zilch' to be 'reinterpret''ed into 'zilch'
+instance Reduce (Which '[]) s (Maybe (Which '[])) where
+    reduce _ = Just
+
+-- | Allow 'zilch' to be 'reinterpret'ed into 'zilch'
+instance Reduce (Which '[]) s (Either a (Which '[])) where
+    reduce _ = Right
+
+-- | Allow 'zilch' to be 'diversify'ed into 'zilch'
+instance Reduce (Which '[]) s (Which '[]) where
+    reduce _ = id
+
 -- | A friendlier constraint synonym for 'switch'.
 type Switch case' xs r = Reduce (Which xs) (Switcher case' xs) r
 

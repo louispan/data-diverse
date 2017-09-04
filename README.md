@@ -55,4 +55,5 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Added Semigroup and Monoid instances for all Many xs.
   - Added Maybe versions of trial, and reinterpret
   - Renamed 'reinterpetN' to 'reinterpretN''
-  - Renamed 'impossible' to 'zilch'. Added 'pickZilch'
+  - Renamed 'impossible' to 'zilch'.
+  - Allowed 'reintepret'ing and 'diversify'ing 'zilch' to 'zilch'
