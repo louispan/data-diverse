@@ -39,6 +39,7 @@ type family SnocUnique (xs :: [k]) (x :: k) :: [k] where
 
 -- | For each @y@ in @ys@, snocs them to end of @xs@ if @y@ doesn't already exist in @xs@
 type family AppendUnique (xs :: [k]) (ys :: [k]) :: [k] where
+    AppendUnique xs xs = xs
     AppendUnique xs '[] = xs
     AppendUnique xs (y ': ys) = AppendUnique (SnocUnique xs y) ys
 

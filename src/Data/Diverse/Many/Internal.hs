@@ -34,7 +34,7 @@ module Data.Diverse.Many.Internal (
     , postfix'
     , (\.)
     , append
-    , append'
+    , CanAppendUnique(..)
     , (/./)
 
     -- * Simple queries
@@ -318,7 +318,7 @@ postfix'
     :: forall xs y n.
        MaybeUniqueMemberAt n y xs
     => Many xs -> y -> Many (SnocUnique xs y)
-postfix'(Many ls) y = if i /= 0 then Many ls else Many (ls S.|> (unsafeCoerce y))
+postfix'(Many ls) y = if i /= 0 then Many ls else Many (ls S.|> unsafeCoerce y)
   where
     i = fromInteger (natVal @n Proxy) :: Int
 infixl 5 `postfix'`
@@ -349,7 +349,9 @@ class CanAppendUnique xs ys where
 instance CanAppendUnique xs '[] where
    append' ls _ = ls
 
-instance (MaybeUniqueMemberAt n y xs, CanAppendUnique (SnocUnique xs y) ys) => CanAppendUnique xs (y ': ys) where
+instance ( MaybeUniqueMemberAt n y xs
+         , CanAppendUnique (SnocUnique xs y) ys
+         , AppendUnique (SnocUnique xs y) ys ~ AppendUnique xs (y : ys)) => CanAppendUnique xs (y ': ys) where
    append' ls rs = append' (postfix' ls r) rs'
      where (r, rs') = viewf rs
    {-# INLINABLE append' #-} -- This makes compiling tests a little faster than with no pragma
