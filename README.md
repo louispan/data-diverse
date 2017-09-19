@@ -57,3 +57,5 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Renamed 'reinterpetN' to 'reinterpretN''
   - Renamed 'impossible' to 'zilch'.
   - Allowed 'reintepret'ing and 'diversify'ing 'zilch' to 'zilch'
+  - Added Strong' and Choice' profunctor-like typeclasses.
+  - Removed zipped type variable from 'Amend' constraints.

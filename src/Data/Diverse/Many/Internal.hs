@@ -823,16 +823,15 @@ amendL _ = amend @(KindsAtLabels ls larger)
 -----------------------------------------------------------------------
 
 -- | A friendlier type constraint synomyn for 'amend''
-type Amend' smaller smaller' larger zipped =
-    ( AFoldable (CollectorAny (CaseAmend' larger) zipped) (Int, WrappedAny)
-    , IsDistinct smaller
-    , zipped ~ Zip smaller smaller')
+type Amend' smaller smaller' larger =
+    ( AFoldable (CollectorAny (CaseAmend' larger) (Zip smaller smaller')) (Int, WrappedAny)
+    , IsDistinct smaller)
 
-amend' :: forall smaller smaller' larger proxy zipped. Amend' smaller smaller' larger zipped
+amend' :: forall smaller smaller' larger proxy. Amend' smaller smaller' larger
     => proxy smaller -> Many larger -> Many smaller' -> Many (Replaces smaller smaller' larger)
 amend' _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forMany'' @smaller Proxy (CaseAmend' @larger @zipped) t)
+    xs' = afoldr (:) [] (forMany'' @smaller Proxy (CaseAmend' @larger @(Zip smaller smaller')) t)
 
 forMany'' :: Proxy xs -> c (Zip xs ys) r -> Many ys -> CollectorAny c (Zip xs ys) r
 forMany'' _ c (Many ys) = CollectorAny c (toList ys)
@@ -860,8 +859,8 @@ instance (UniqueMemberAt n x larger) => CaseAny (CaseAmend' larger) ((x, y) ': z
 --     False './' True './' Tagged \@Foo False './' Tagged \@Bar \'X' './' Tagged \@\"Changed" True './' 'nil'
 -- @
 amendL'
-    :: forall ls smaller smaller' larger proxy zipped.
-       ( Amend' smaller smaller' larger zipped
+    :: forall ls smaller smaller' larger proxy.
+       ( Amend' smaller smaller' larger
        , smaller ~ KindsAtLabels ls larger
        , IsDistinct ls
        , UniqueLabels ls larger
@@ -915,19 +914,18 @@ instance (MemberAt n' x larger, n' ~ KindAtIndex n indices) =>
 -----------------------------------------------------------------------
 
 -- | A friendlier type constraint synomyn for 'amendN'
-type AmendN' ns smaller smaller' larger zipped =
-    ( AFoldable (CollectorAnyN (CaseAmendN' ns larger) 0 zipped) (Int, WrappedAny)
+type AmendN' ns smaller smaller' larger =
+    ( AFoldable (CollectorAnyN (CaseAmendN' ns larger) 0 (Zip smaller smaller')) (Int, WrappedAny)
     , smaller ~ KindsAtIndices ns larger
-    , IsDistinct ns
-    , zipped ~ Zip smaller smaller')
+    , IsDistinct ns)
 
 -- | A polymorphic variation of 'amendN'
-amendN' :: forall ns smaller smaller' larger proxy zipped.
-       (AmendN' ns smaller smaller' larger zipped)
+amendN' :: forall ns smaller smaller' larger proxy.
+       (AmendN' ns smaller smaller' larger)
     => proxy ns -> Many larger -> Many smaller' -> Many (ReplacesIndex ns smaller' larger)
 amendN' _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forManyN'' @smaller Proxy (CaseAmendN' @ns @larger @0 @zipped) t)
+    xs' = afoldr (:) [] (forManyN'' @smaller Proxy (CaseAmendN' @ns @larger @0 @(Zip smaller smaller')) t)
 
 forManyN'' :: Proxy xs -> c n (Zip xs ys) r -> Many ys -> CollectorAnyN c n (Zip xs ys) r
 forManyN'' _ c (Many ys) = CollectorAnyN c (toList ys)

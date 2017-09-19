@@ -16,6 +16,11 @@ import GHC.TypeLits
 -- | Ensures that @x@ is a unique member of @xs@, and that 'natVal' can be used.
 type UniqueMember x xs = (Unique x xs, KnownNat (IndexOf x xs))
 
+-- | Every x in @xs@ is a `UniqueMember x ys`
+type family UniqueMembers (xs :: [k]) (ys :: [k]) :: Constraint where
+    UniqueMembers '[] ys = ()
+    UniqueMembers (x ': xs) ys = (UniqueMember x ys, UniqueMembers xs ys)
+
 -- | Ensures that @x@ is a unique member of @xs@, and that 'natVal' can be used.
 type UniqueMemberAt n x xs = (Unique x xs, KnownNat n, n ~ IndexOf x xs)
 
