@@ -4,7 +4,6 @@ module Data.Diverse
     , module Data.Diverse.Cases
     , module Data.Diverse.CaseTypeable
     , module Data.Diverse.Many
-    , module Data.Diverse.Profunctor
     , module Data.Diverse.Reduce
     , module Data.Diverse.Reiterate
     , module Data.Diverse.TypeLevel
@@ -16,7 +15,6 @@ import Data.Diverse.Case
 import Data.Diverse.Cases
 import Data.Diverse.CaseTypeable
 import Data.Diverse.Many
-import Data.Diverse.Profunctor
 import Data.Diverse.Reduce
 import Data.Diverse.Reiterate
 import Data.Diverse.TypeLevel
