@@ -58,3 +58,4 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Renamed 'impossible' to 'zilch'.
   - Allowed 'reintepret'ing and 'diversify'ing 'zilch' to 'zilch'
   - Removed zipped type variable from 'Amend' constraints.
+  - Removed r type variable from 'Reduce' typeclass.
