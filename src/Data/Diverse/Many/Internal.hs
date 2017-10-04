@@ -315,7 +315,7 @@ infixl 5 `postfix`
 
 -- | Add an element to the right of a Many iff the field doesn't already exist.
 postfix'
-    :: forall xs y n.
+    :: forall y xs n.
        MaybeUniqueMemberAt n y xs
     => Many xs -> y -> Many (SnocUnique xs y)
 postfix'(Many ls) y = if i /= 0 then Many ls else Many (ls S.|> unsafeCoerce y)
@@ -426,7 +426,7 @@ fetch_ (Many xs) = let !x = S.index xs i in (unsafeCoerce x) -- forcing x to avo
 -- 'fetchL' \@Foo Proxy y \`shouldBe` Tagged \@Foo \'X'
 -- 'fetchL' \@"Hi" Proxy y \`shouldBe` Tagged \@"Hi" True
 -- @
-fetchL :: forall l xs x proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> x
+fetchL :: forall l x xs proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> x
 fetchL _ = fetch_ @x
 
 --------------------------------------------------
@@ -480,7 +480,7 @@ replace'_ _ (Many xs) v = Many (S.update i (unsafeCoerce v) xs)
 -- 'replaceL' \@\"Hello" Proxy y (Tagged \@\"Hello" 7) \`shouldBe`
 --     (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" (7 :: Int) './' 'nil'
 -- @
-replaceL :: forall l xs x proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> x -> Many xs
+replaceL :: forall l x xs proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> x -> Many xs
 replaceL _ = replace_ @x
 
 -- | Polymorphic setter by unique type. Set the field with type @x@, and replace with type @y@
@@ -492,7 +492,7 @@ replaceL _ = replace_ @x
 -- replaceL' \@\"Hello" Proxy y (Tagged \@\"Hello" False) \`shouldBe`
 --     (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" False './' 'nil'
 -- @
-replaceL' :: forall l y xs x proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> y -> Many (Replace x y xs)
+replaceL' :: forall l x y xs proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> y -> Many (Replace x y xs)
 replaceL' _ = replace'_ @x Proxy
 
 --------------------------------------------------

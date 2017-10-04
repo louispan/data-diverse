@@ -83,10 +83,10 @@ spec = do
             x `shouldBe` (Just 5)
 
         it "can be 'trial'led until its final 'obvious' value" $ do
-            let a = pick @'[Char, Int, Bool, String] (5 :: Int)
-                b = pick @'[Char, Int, String] (5 :: Int)
-                c = pick @'[Int, String] (5 :: Int)
-                d = pick @'[Int] (5 :: Int)
+            let a = pick @_ @'[Char, Int, Bool, String] (5 :: Int)
+                b = pick @_ @'[Char, Int, String] (5 :: Int)
+                c = pick @_ @'[Int, String] (5 :: Int)
+                d = pick @_ @'[Int] (5 :: Int)
             trial @Int a `shouldBe` Right 5
             trial @Bool a `shouldBe` Left b
             trial @Int b `shouldBe` Right 5
@@ -98,12 +98,12 @@ spec = do
             obvious d `shouldBe` 5
 
         it "can be 'trialN'led until its final 'obvious' value" $ do
-            let a = pickN @2 @'[Char, Bool, Int, Bool, Char, String] Proxy (5 :: Int)
-                b = pickN @2 @'[Char, Bool, Int, Char, String] Proxy (5 :: Int)
-                c = pickN @2 @'[Char, Bool, Int, String] Proxy (5 :: Int)
-                d = pickN @1 @'[Bool, Int, String] Proxy (5 :: Int)
-                e = pickN @1 @'[Bool, Int] Proxy (5 :: Int)
-                f = pickN @0 @'[Int] Proxy (5 :: Int)
+            let a = pickN @2 @_ @'[Char, Bool, Int, Bool, Char, String] Proxy (5 :: Int)
+                b = pickN @2 @_ @'[Char, Bool, Int, Char, String] Proxy (5 :: Int)
+                c = pickN @2 @_ @'[Char, Bool, Int, String] Proxy (5 :: Int)
+                d = pickN @1 @_ @'[Bool, Int, String] Proxy (5 :: Int)
+                e = pickN @1 @_ @'[Bool, Int] Proxy (5 :: Int)
+                f = pickN @0 @_ @'[Int] Proxy (5 :: Int)
             trial @Int a `shouldBe` Right 5
             trialN @2 Proxy a `shouldBe` Right 5
             trialN @3 Proxy a `shouldBe` Left b
@@ -133,8 +133,8 @@ spec = do
 
         it "can be extended and rearranged by type with 'diversify'" $ do
             let y = pickOnly (5 :: Int)
-                y' = diversify @[Int, Bool] y
-                y'' = diversify @[Bool, Int] y'
+                y' = diversify @_ @[Int, Bool] y
+                y'' = diversify @_ @[Bool, Int] y'
             switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
 
         it "can be extended and rearranged by type with 'diversify'" $ do
@@ -145,25 +145,25 @@ spec = do
 
         it "can be extended and rearranged by index with 'diversifyN'" $ do
             let y = pickOnly (5 :: Int)
-                y' = diversifyN @'[0] @[Int, Bool] Proxy y
-                y'' = diversifyN @[1,0] @[Bool, Int] Proxy y'
+                y' = diversifyN @'[0] @_ @[Int, Bool] Proxy y
+                y'' = diversifyN @[1,0] @_ @[Bool, Int] Proxy y'
             switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
 
         it "the 'diversify'ed type can contain multiple fields if they aren't in the original 'Many'" $ do
-            let y = pick @[Int, Char] (5 :: Int)
-                x = diversify @[String, String, Char, Bool, Int] y
+            let y = pick @_ @[Int, Char] (5 :: Int)
+                x = diversify @_ @[String, String, Char, Bool, Int] y
                 -- Compile error: Char is a duplicate
                 -- z = diversify @[String, String, Char, Bool, Int, Char] y
             x `shouldBe` pick (5 :: Int)
 
         it "the 'diversify'ed type can't use indistinct fields from the original 'Many'" $ do
-            let y = pickN @0 @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
+            let y = pickN @0 @_ @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
                 -- Compile error: Int is a duplicate
                 -- x = diversify @[String, String, Char, Bool, Int] y
             y `shouldBe` y
 
         it "can be 'reinterpret'ed by type into a totally different Which" $ do
-            let y = pick @[Int, Char] (5 :: Int)
+            let y = pick @_ @[Int, Char] (5 :: Int)
                 a = reinterpret @[String, Bool] y
             a `shouldBe` Left y
             let  b = reinterpret @[String, Char] y
@@ -172,32 +172,32 @@ spec = do
             c `shouldBe` Right (pick (5 :: Int))
 
         it "can be 'reinterpretL'ed by label into a totally different Which" $ do
-            let y = pick @[Tagged Bar Int, Tagged Foo Bool, Tagged Hi Char, Tagged Bye Bool] (5 :: Tagged Bar Int)
+            let y = pick @_ @[Tagged Bar Int, Tagged Foo Bool, Tagged Hi Char, Tagged Bye Bool] (5 :: Tagged Bar Int)
                 y' = reinterpretL @[Foo, Bar] Proxy y
-                x = pick @[Tagged Foo Bool, Tagged Bar Int] (5 :: Tagged Bar Int)
+                x = pick @_ @[Tagged Foo Bool, Tagged Bar Int] (5 :: Tagged Bar Int)
             y' `shouldBe` Right x
 
         it "the 'reinterpret' type can contain indistinct fields if they aren't in the original 'Many'" $ do
-            let y = pick @[Int, Char] (5 :: Int)
+            let y = pick @_ @[Int, Char] (5 :: Int)
                 x = reinterpret @[String, String, Char, Bool] y
                 -- Compile error: Char is a duplicate
                 -- z = reinterpret @[String, Char, Char, Bool] y
             x `shouldBe` Left (pick (5 :: Int))
 
         it "the 'reinterpret'ed from type can't indistinct fields'" $ do
-            let y = pickN @0 @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
+            let y = pickN @0 @_ @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
                 -- Compile error: Int is a duplicate
                 -- x = reinterpret @[String, String, Char, Bool] y
             y `shouldBe` y
 
         it "the 'reinterpret' type can't use indistinct fields from the original 'Many'" $ do
-            let y = pickN @0 @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
+            let y = pickN @0 @_ @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
                 -- Compile error: Int is a duplicate
                 -- x = reinterpret @[String, String, Char, Bool, Int] y
             y `shouldBe` y
 
         it "can be 'reinterpretN'ed by index into a subset Which" $ do
-            let y = pick @[Char, String, Int, Bool] (5 :: Int)
+            let y = pick @_ @[Char, String, Int, Bool] (5 :: Int)
                 a = reinterpretN' @[2, 0] @[Int, Char] Proxy y
                 a' = reinterpretN' @[3, 0] @[Bool, Char] Proxy y
             a `shouldBe` Just (pick (5 :: Int))
@@ -250,7 +250,7 @@ spec = do
             zilch `shouldBe` zilch
 
         it "is ok to 'reinterpret' and 'diversity' into 'zilch'" $ do
-            let x = pick @'[Int] (5 :: Int)
+            let x = pick @_ @'[Int] (5 :: Int)
             reinterpret' @'[] x `shouldBe` Nothing
             reinterpret' @'[] zilch `shouldBe` Just zilch
             reinterpret @'[] x `shouldBe` Left x

@@ -59,3 +59,5 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Allowed 'reintepret'ing and 'diversify'ing 'zilch' to 'zilch'
   - Removed zipped type variable from 'Amend' constraints.
   - Removed r type variable from 'Reduce' typeclass.
+  - Rearranged type variables in 'fetch', 'replace', 'pick', 'trial', 'Diversify' type parameters,
+    so the type variable ordering is consistently smaller to larger, ie. 'x', 'xs', 'branch', 'tree'

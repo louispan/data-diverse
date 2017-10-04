@@ -171,9 +171,9 @@ zilch = Which (-1) (unsafeCoerce ())
 -- NB. forall is used to specify @xs@ first, so TypeApplications can be used to specify @xs@ first
 --
 -- @
--- 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: Which '[Int, Bool, Char, Maybe String]
+-- 'pick' \'A' \@_ \@'[Int, Bool, Char, Maybe String] :: Which '[Int, Bool, Char, Maybe String]
 -- @
-pick :: forall xs x. UniqueMember x xs => x -> Which xs
+pick :: forall x xs. UniqueMember x xs => x -> Which xs
 pick = pick_
 
 pick_ :: forall x xs n. (KnownNat n, n ~ IndexOf x xs) => x -> Which xs
@@ -186,7 +186,7 @@ pick_ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 --     x = 'trialL' \@Foo Proxy y
 -- x `shouldBe` (Right (Tagged 5))
 -- @
-pickL :: forall l xs x proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> x -> Which xs
+pickL :: forall l x xs proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> x -> Which xs
 pickL _ = pick_ @x
 
 -- | A variation of 'pick' into a 'Which' of a single type.
@@ -210,7 +210,7 @@ pick0 = Which 0 . unsafeCoerce
 -- @
 -- 'pickN' (Proxy \@4) (5 :: Int) :: Which '[Bool, Int, Char, Bool, Int, Char]
 -- @
-pickN :: forall n xs x proxy. MemberAt n x xs => proxy n -> x -> Which xs
+pickN :: forall n x xs proxy. MemberAt n x xs => proxy n -> x -> Which xs
 pickN _ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 
 -- | It is 'obvious' what value is inside a 'Which' of one type.
@@ -236,7 +236,7 @@ trial
 trial = trial_
 
 trial_
-    :: forall x xs n.
+    :: forall n x xs.
        (KnownNat n, n ~ IndexOf x xs)
     => Which xs -> Either (Which (Without x xs)) x
 trial_ (Which n v) = let i = fromInteger (natVal @n Proxy)
@@ -254,7 +254,7 @@ trial'
 trial' = trial_'
 
 trial_'
-    :: forall x xs n.
+    :: forall n x xs.
        (KnownNat n, n ~ IndexOf x xs)
     => Which xs -> Maybe x
 trial_' (Which n v) = let i = fromInteger (natVal @n Proxy)
@@ -273,14 +273,14 @@ trialL
     :: forall l xs x proxy.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
     => proxy l -> Which xs -> Either (Which (Without x xs)) x
-trialL _ = trial_ @x
+trialL _ = trial_ @_ @x
 
 -- | Variation of 'trialL' which returns a Maybe
 trialL'
     :: forall l xs x proxy.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
     => proxy l -> Which xs -> Maybe x
-trialL' _ = trial_' @x
+trialL' _ = trial_' @_ @x
 
 -- | A variation of a 'Which' 'trial' which 'trial's the first type in the type list.
 --
@@ -302,11 +302,11 @@ trial0' (Which n v) = if n == 0
 -- | 'trialN' the n-th type of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
 --
 -- @
--- let x = 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
--- 'trialN' @1 Proxy x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Int, Char, Maybe String]
+-- let x = 'pick' \'A' \@_ \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
+-- 'trialN' \@_ \@1 Proxy x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Int, Char, Maybe String]
 -- @
 trialN
-    :: forall n xs x proxy.
+    :: forall n x xs proxy.
        (MemberAt n x xs)
     => proxy n -> Which xs -> Either (Which (WithoutIndex n xs)) x
 trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
@@ -318,7 +318,7 @@ trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
 
 -- | Variation of 'trialN' which returns a Maybe
 trialN'
-    :: forall n xs x proxy.
+    :: forall n x xs proxy.
        (MemberAt n x xs)
     => proxy n -> Which xs -> Maybe x
 trialN' _ (Which n v) = let i = fromInteger (natVal @n Proxy)
@@ -329,7 +329,7 @@ trialN' _ (Which n v) = let i = fromInteger (natVal @n Proxy)
 -----------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversify'.
-type Diversify (tree :: [Type]) (branch :: [Type]) = Reduce (Which branch) (Switcher (CaseDiversify tree branch) branch (Which tree))
+type Diversify (branch :: [Type]) (tree :: [Type]) = Reduce (Which branch) (Switcher (CaseDiversify branch tree) branch (Which tree))
 
 -- | Convert a 'Which' to another 'Which' that may include other possibilities.
 -- That is, @branch@ is equal or is a subset of @tree@.
@@ -345,17 +345,17 @@ type Diversify (tree :: [Type]) (branch :: [Type]) = Reduce (Which branch) (Swit
 --     b = 'diversify' \@[Int, Bool] a :: 'Which' '[Int, Bool]
 --     c = 'diversify' \@[Bool, Int] b :: 'Which' '[Bool, Int]
 -- @
-diversify :: forall tree branch. Diversify tree branch => Which branch -> Which tree
-diversify = which (CaseDiversify @tree @branch @branch)
+diversify :: forall branch tree. Diversify branch tree => Which branch -> Which tree
+diversify = which (CaseDiversify @branch @tree @branch)
 
-data CaseDiversify (tree :: [Type]) (branch :: [Type]) (branch' :: [Type]) r = CaseDiversify
+data CaseDiversify (branch :: [Type]) (tree :: [Type]) (branch' :: [Type]) r = CaseDiversify
 
-instance Reiterate (CaseDiversify tree branch) branch' where
+instance Reiterate (CaseDiversify branch tree) branch' where
     reiterate CaseDiversify = CaseDiversify
 
 -- | The @Unique x branch@ is important to get a compile error if the from @branch@ doesn't have a unique x
 instance (UniqueMember x tree, Unique x branch) =>
-         Case (CaseDiversify tree branch) (x ': branch') (Which tree) where
+         Case (CaseDiversify branch tree) (x ': branch') (Which tree) where
     case' CaseDiversify = pick
 
 -- | A simple version of 'diversify' which add another type to the front of the typelist.
@@ -373,19 +373,19 @@ diversify0 (Which n v) = Which (n + 1) v
 -- 'switch' y'' ('Data.Diverse.CaseTypeable.CaseTypeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Tagged * Bar Int"
 -- @
 diversifyL
-    :: forall ls tree branch proxy.
-       ( Diversify tree branch
+    :: forall ls branch tree proxy.
+       ( Diversify branch tree
        , branch ~ KindsAtLabels ls tree
        , UniqueLabels ls tree
        , IsDistinct ls
        )
     => proxy ls -> Which branch -> Which tree
-diversifyL _ = which (CaseDiversify @tree @branch @branch)
+diversifyL _ = which (CaseDiversify @branch @tree @branch)
 
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversifyN'.
-type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) =
+type DiversifyN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
     ( Reduce (Which branch) (SwitcherN (CaseDiversifyN indices) 0 branch (Which tree))
     , KindsAtIndices indices tree ~ branch)
 
@@ -404,7 +404,7 @@ type DiversifyN (indices :: [Nat]) (tree :: [Type]) (branch :: [Type]) =
 --     y'' = 'diversifyN' \@[1,0] \@[Bool, Int] Proxy y'
 -- 'switch' y'' ('Data.Diverse.CaseTypeable.CaseTypeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Int"
 -- @
-diversifyN :: forall indices tree branch proxy. (DiversifyN indices tree branch) => proxy indices -> Which branch -> Which tree
+diversifyN :: forall indices branch tree proxy. (DiversifyN indices branch tree) => proxy indices -> Which branch -> Which tree
 diversifyN _ = whichN (CaseDiversifyN @indices @0 @branch)
 
 data CaseDiversifyN (indices :: [Nat]) (n :: Nat) (branch' :: [Type]) r = CaseDiversifyN
