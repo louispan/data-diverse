@@ -270,14 +270,14 @@ trial_' (Which n v) = let i = fromInteger (natVal @n Proxy)
 -- x `shouldBe` (Right (Tagged 5))
 -- @
 trialL
-    :: forall l xs x proxy.
+    :: forall l x xs proxy.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
     => proxy l -> Which xs -> Either (Which (Without x xs)) x
 trialL _ = trial_ @_ @x
 
 -- | Variation of 'trialL' which returns a Maybe
 trialL'
-    :: forall l xs x proxy.
+    :: forall l x xs proxy.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
     => proxy l -> Which xs -> Maybe x
 trialL' _ = trial_' @_ @x
@@ -288,13 +288,13 @@ trialL' _ = trial_' @_ @x
 -- let x = 'pick' \'A' \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
 -- 'trial0' x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Bool, Char, Maybe String]
 -- @
-trial0 :: Which (x ': xs) -> Either (Which xs) x
+trial0 :: forall x xs. Which (x ': xs) -> Either (Which xs) x
 trial0 (Which n v) = if n == 0
            then Right (unsafeCoerce v)
            else Left (Which (n - 1) v)
 
 -- | Variation of 'trial0' which returns a Maybe
-trial0' :: Which (x ': xs) -> Maybe x
+trial0' :: forall x xs.  Which (x ': xs) -> Maybe x
 trial0' (Which n v) = if n == 0
            then Just (unsafeCoerce v)
            else Nothing
