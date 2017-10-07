@@ -26,6 +26,7 @@ module Data.Diverse.Which (
       -- ** Injection
     , Diversify
     , diversify
+    , diversify'
     , diversify0
     , diversifyL
     , DiversifyN

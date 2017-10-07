@@ -61,3 +61,4 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Removed r type variable from 'Reduce' typeclass.
   - Rearranged type variables in 'fetch', 'replace', 'pick', 'trial', 'Diversify' type parameters,
     so the type variable ordering is consistently smaller to larger, ie. 'x', 'xs', 'branch', 'tree'
+  - Added 'diversify'' for allowing rearranging the types only.
