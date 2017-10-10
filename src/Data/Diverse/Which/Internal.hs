@@ -1,5 +1,6 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -20,6 +21,7 @@ module Data.Diverse.Which.Internal (
       -- * Single type
       -- ** Construction
     , zilch
+    , impossible
     , pick
     , pick0
     , pickOnly
@@ -161,11 +163,22 @@ instance Monoid (Which '[]) where
     mappend = (<>)
 
 -- | A 'Which' with no alternatives. You can't do anything with 'zilch'
--- except Eq, Read, and Show it.
+-- except 'impossible' (like 'Data.Void.absurd'), 'diversify'/'reinterpret' from 'zilch' into 'zilch',
+-- and typeclasses 'Eq', 'Read', 'Show', 'Semigroup', 'Monoid', 'G.Generic.
 -- Using functions like 'switch' and 'trial' with 'zilch' is a compile error.
 -- 'zilch' is useful as a 'Left'-over from 'trial'ing a @Which '[x]@ with one type.
 zilch :: Which '[]
 zilch = Which (-1) (unsafeCoerce ())
+
+-- | Analogous to 'Data.Void.absurd'. Renamed 'impossible' to avoid conflicts.
+--
+-- Since 'Which '[]' values logically don't exist, this witnesses the
+-- logical reasoning tool of \"ex falso quodlibet\",
+-- ie "from falsehood, anything follows".
+--
+-- Copied from http://hackage.haskell.org/package/base/docs/src/Data.Void.html
+impossible :: Which '[] -> a
+impossible a = case a of {}
 
 -- | Lift a value into a 'Which' of possibly other types @xs@.
 -- @xs@ can be inferred or specified with TypeApplications.

@@ -62,3 +62,6 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Rearranged type variables in 'fetch', 'replace', 'pick', 'trial', 'Diversify' type parameters,
     so the type variable ordering is consistently smaller to larger, ie. 'x', 'xs', 'branch', 'tree'
   - Added 'diversify'' for allowing rearranging the types only.
+
+* 0.10.0.1
+  - Added 'impossible' modelled after 'Data.Void.absurd'

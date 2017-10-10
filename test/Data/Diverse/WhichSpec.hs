@@ -256,3 +256,9 @@ spec = do
             reinterpret @'[] x `shouldBe` Left x
             reinterpret @'[] zilch `shouldBe` Right zilch
             diversify @'[] zilch `shouldBe` zilch
+
+        it "'impossible' is just like 'absurd'" $ do
+            let x = pick @_ @'[Int] (5 :: Int)
+            case trial @Int x of
+                Right y -> y `shouldBe` y
+                Left y -> impossible y
