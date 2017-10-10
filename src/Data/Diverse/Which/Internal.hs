@@ -20,7 +20,6 @@ module Data.Diverse.Which.Internal (
 
       -- * Single type
       -- ** Construction
-    , zilch
     , impossible
     , pick
     , pick0
@@ -77,7 +76,6 @@ import Data.Diverse.Reiterate
 import Data.Diverse.TypeLevel
 import Data.Kind
 import Data.Proxy
-import Data.Semigroup (Semigroup(..))
 import qualified GHC.Generics as G
 import GHC.Exts (Any, coerce)
 import GHC.TypeLits
@@ -131,9 +129,9 @@ instance (NFData x, NFData (Which (x' ': xs))) => NFData (Which (x ': x' ': xs))
 -- | A terminating 'G.Generic' instance for no types encoded as a 'zilch'.
 -- The 'G.C1' and 'G.S1' metadata are not encoded.
 instance G.Generic (Which '[]) where
-  type Rep (Which '[]) = G.U1
-  from _ = {- G.U1 -} G.U1
-  to G.U1 = zilch
+    type Rep (Which '[]) = G.V1
+    from _ = {- G.V1 -} error "No generic representation for Which '[]"
+    to _ = error "No values for Which '[]"
 
 -- | A terminating 'G.Generic' instance for one type encoded with 'pick''.
 -- The 'G.C1' and 'G.S1' metadata are not encoded.
@@ -155,30 +153,19 @@ instance G.Generic (Which (x ': x' ': xs)) where
 
 -----------------------------------------------------------------------
 
-instance Semigroup (Which '[]) where
-    _ <> _ = zilch
-
-instance Monoid (Which '[]) where
-    mempty = zilch
-    mappend = (<>)
-
--- | A 'Which' with no alternatives. You can't do anything with 'zilch'
--- except 'impossible' (like 'Data.Void.absurd'), 'diversify'/'reinterpret' from 'zilch' into 'zilch',
--- and typeclasses 'Eq', 'Read', 'Show', 'Semigroup', 'Monoid', 'G.Generic.
--- Using functions like 'switch' and 'trial' with 'zilch' is a compile error.
--- 'zilch' is useful as a 'Left'-over from 'trial'ing a @Which '[x]@ with one type.
-zilch :: Which '[]
-zilch = Which (-1) (unsafeCoerce ())
-
 -- | Analogous to 'Data.Void.absurd'. Renamed 'impossible' to avoid conflicts.
 --
 -- Since 'Which '[]' values logically don't exist, this witnesses the
 -- logical reasoning tool of \"ex falso quodlibet\",
 -- ie "from falsehood, anything follows".
 --
--- Copied from http://hackage.haskell.org/package/base/docs/src/Data.Void.html
+-- A 'Which'[]' is a Which with no alternatives, which may occur as a 'Left'-over from 'trial'ing a @Which '[x]@ with one type.
+-- It is an uninhabited type, just like 'Data.Void.Void'
+-- You can't do anything with a 'Which '[]' except 'impossible' (like 'Data.Void.absurd'),
+-- 'diversify'/'reinterpret' from 'Which '[]' into 'Which '[]', and typeclasses 'Eq', and 'Ord'.
 impossible :: Which '[] -> a
 impossible a = case a of {}
+-- Copied from http://hackage.haskell.org/package/base/docs/src/Data.Void.html
 
 -- | Lift a value into a 'Which' of possibly other types @xs@.
 -- @xs@ can be inferred or specified with TypeApplications.
@@ -743,10 +730,8 @@ instance (Reduce (Which (x ': xs)) (Switcher CaseShowWhich (x ': xs) ShowS)) => 
     showsPrec d v = showParen (d > app_prec) (which (CaseShowWhich 0) v)
       where app_prec = 10
 
--- | @read "zilch" == 'zilch'@
 instance Show (Which '[]) where
-    showsPrec d _ = showParen (d > app_prec) (showString "zilch")
-      where app_prec = 10
+    showsPrec _ = impossible
 
 newtype CaseShowWhich (xs :: [Type]) r = CaseShowWhich Int
 
@@ -794,11 +779,7 @@ instance WhichRead (Which_ (x ': xs)) =>
       where
         app_prec = 10
 
--- | @read "zilch" == 'zilch'@
+-- | Reading a 'Which '[]' value is always a parse error, considering
+-- 'Which '[]' as a data type with no constructors.
 instance Read (Which '[]) where
-    readPrec =
-        parens $ prec app_prec $ do
-            lift $ L.expect (Ident "zilch")
-            pure zilch
-      where
-        app_prec = 10
+    readsPrec _ _ = []

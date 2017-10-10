@@ -50,18 +50,21 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Fixed GHC 8.2.1 test failure due to changed TypeRep show instance.
 
 * 0.10.0.0
-  - Renamed 'Switch' to 'Switcher'. Switch is now a type synonym for 'switch' constraints
-  - Added CasesResult type family to help infer the result of 'cases'
+  - Renamed `Switch` to `Switcher`. Switch is now a type synonym for `switch` constraints
+  - Added CasesResult type family to help infer the result of `cases`
   - Added Semigroup and Monoid instances for all Many xs.
   - Added Maybe versions of trial, and reinterpret
-  - Renamed 'reinterpetN' to 'reinterpretN''
-  - Renamed 'impossible' to 'zilch'.
-  - Allowed 'reintepret'ing and 'diversify'ing 'zilch' to 'zilch'
-  - Removed zipped type variable from 'Amend' constraints.
-  - Removed r type variable from 'Reduce' typeclass.
-  - Rearranged type variables in 'fetch', 'replace', 'pick', 'trial', 'Diversify' type parameters,
+  - Renamed `reinterpetN` to `reinterpretN'`
+  - Renamed `impossible` to `zilch`.
+  - Allowed `reintepret`ing and `diversify`ing `zilch` to `zilch`
+  - Removed zipped type variable from `Amend` constraints.
+  - Removed r type variable from `Reduce` typeclass.
+  - Rearranged type variables in `fetch`, `replace`, `pick`, `trial`, `Diversify` type parameters,
     so the type variable ordering is consistently smaller to larger, ie. 'x', 'xs', 'branch', 'tree'
-  - Added 'diversify'' for allowing rearranging the types only.
+  - Added `diversify'` for allowing rearranging the types only.
 
-* 0.10.0.1
-  - Added 'impossible' modelled after 'Data.Void.absurd'
+* 0.11.0.0
+  - Added `impossible` modelled after `Data.Void.absurd`
+  - Which '[] is now uninhabited like `Data.Void.Void`.
+  - Removed `Semigroup` and `Monoid` for `Which '[]`
+  - Changed `Show`, `Read` and `Generic` instances for `Which '[]` to be partial, since it is uninhabited.
