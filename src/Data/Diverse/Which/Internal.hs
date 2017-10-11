@@ -76,6 +76,7 @@ import Data.Diverse.Reiterate
 import Data.Diverse.TypeLevel
 import Data.Kind
 import Data.Proxy
+import Data.Semigroup (Semigroup(..))
 import qualified GHC.Generics as G
 import GHC.Exts (Any, coerce)
 import GHC.TypeLits
@@ -153,16 +154,17 @@ instance G.Generic (Which (x ': x' ': xs)) where
 
 -----------------------------------------------------------------------
 
+instance Semigroup (Which '[]) where
+    a <> _ = a
+
 -- | Analogous to 'Data.Void.absurd'. Renamed 'impossible' to avoid conflicts.
 --
--- Since 'Which '[]' values logically don't exist, this witnesses the
+-- Since 'Which \'[]' values logically don't exist, this witnesses the
 -- logical reasoning tool of \"ex falso quodlibet\",
 -- ie "from falsehood, anything follows".
 --
--- A 'Which'[]' is a Which with no alternatives, which may occur as a 'Left'-over from 'trial'ing a @Which '[x]@ with one type.
+-- A 'Which \'[]' is a 'Which' with no alternatives, which may occur as a 'Left'-over from 'trial'ing a @Which '[x]@ with one type.
 -- It is an uninhabited type, just like 'Data.Void.Void'
--- You can't do anything with a 'Which '[]' except 'impossible' (like 'Data.Void.absurd'),
--- 'diversify'/'reinterpret' from 'Which '[]' into 'Which '[]', and typeclasses 'Eq', and 'Ord'.
 impossible :: Which '[] -> a
 impossible a = case a of {}
 -- Copied from http://hackage.haskell.org/package/base/docs/src/Data.Void.html
@@ -339,12 +341,12 @@ type Diversify (branch :: [Type]) (tree :: [Type]) = Reduce (Which branch) (Swit
 --
 -- It is a compile error if @tree@ has duplicate types with @branch@.
 --
--- NB. forall is used to @tree@ is ordered first, so TypeApplications can be used to specify @tree@ first.
+-- NB. Use TypeApplications with @_ to specify @tree@.
 --
 -- @
 -- let a = 'pick'' (5 :: Int) :: 'Which' '[Int]
---     b = 'diversify' \@[Int, Bool] a :: 'Which' '[Int, Bool]
---     c = 'diversify' \@[Bool, Int] b :: 'Which' '[Bool, Int]
+--     b = 'diversify' \@_ \@[Int, Bool] a :: 'Which' '[Int, Bool]
+--     c = 'diversify' \@_ \@[Bool, Int] b :: 'Which' '[Bool, Int]
 -- @
 diversify :: forall branch tree. Diversify branch tree => Which branch -> Which tree
 diversify = which (CaseDiversify @branch @tree @branch)
@@ -405,8 +407,8 @@ type DiversifyN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
 --
 -- @
 -- let y = 'pickOnly' (5 :: Int)
---     y' = 'diversifyN' \@'[0] \@[Int, Bool] Proxy y
---     y'' = 'diversifyN' \@[1,0] \@[Bool, Int] Proxy y'
+--     y' = 'diversifyN' \@'[0] \@_ \@[Int, Bool] Proxy y
+--     y'' = 'diversifyN' \@[1,0] \@_ \@[Bool, Int] Proxy y'
 -- 'switch' y'' ('Data.Diverse.CaseTypeable.CaseTypeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Int"
 -- @
 diversifyN :: forall indices branch tree proxy. (DiversifyN indices branch tree) => proxy indices -> Which branch -> Which tree
@@ -581,17 +583,13 @@ instance (Case c '[x] r) => Reduce (Which '[x]) (Switcher c '[x] r) where
     reduce (Switcher c) v = case obvious v of
             a -> case' c a
 
--- | Allow 'zilch' to be 'reinterpret''ed into 'zilch'
-instance Reduce (Which '[]) (Switcher (CaseReinterpret' '[] '[]) '[] (Maybe (Which '[]))) where
-    reduce _ = Just
+-- | Allow 'Which \'[]' to be 'reinterpret''ed or 'diversify'ed into anything else
+-- This is safe because @Which '[]@ is uninhabited, and this is already something that
+-- can be done with 'impossible'
+instance Reduce (Which '[]) (Switcher c '[] r) where
+    reduce _ = impossible
 
--- | Allow 'zilch' to be 'reinterpret'ed into 'zilch'
-instance Reduce (Which '[]) (Switcher (CaseReinterpret '[] '[]) '[] (Either (Which '[]) (Which '[]))) where
-    reduce _ = Right
-
--- | Allow 'zilch' to be 'diversify'ed into 'zilch'
-instance Reduce (Which '[]) (Switcher (CaseDiversify '[] '[]) '[] (Which '[])) where
-    reduce _ = id
+------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'switch'.
 type Switch case' xs r = Reduce (Which xs) (Switcher case' xs r)

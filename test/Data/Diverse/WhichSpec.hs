@@ -247,11 +247,15 @@ spec = do
             -- let a = reinterpretN (Proxy @'[0]) zilch
             -- zilch `shouldBe` zilch
 
-        it "is ok to 'reinterpret' and 'diversity' into 'zilch'" $ do
+        it "is ok to 'reinterpret' and 'diversity' from Which '[]" $ do
             let x = pick @_ @'[Int] (5 :: Int)
             case trial @Int x of
                 Right y -> y `shouldBe` y
                 Left zilch -> do
+                    -- Which '[] can be diversified into anything
+                    -- This is safe because Which '[] is uninhabited like Data.Void
+                    -- and so like Data.Void.absurd, "if given a falsehood, anything follows"
+                    diversify @'[] @'[Int, Bool] zilch `shouldBe` impossible zilch
                     reinterpret' @'[] zilch `shouldBe` Just zilch
                     reinterpret @'[] zilch `shouldBe` Right zilch
                     diversify @'[] zilch `shouldBe` zilch
@@ -260,7 +264,7 @@ spec = do
             reinterpret' @'[] x `shouldBe` Nothing
             reinterpret @'[] x `shouldBe` Left x
 
-        it "'impossible' is just like 'absurd'" $ do
+        it "'impossible' is just like 'absurd'. Once given an impossible Which '[], anything follows" $ do
             let x = pick @_ @'[Int] (5 :: Int)
             case trial @Int x of
                 Right y -> y `shouldBe` y

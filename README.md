@@ -64,7 +64,9 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Added `diversify'` for allowing rearranging the types only.
 
 * 0.11.0.0
+  - Fixed https://github.com/louispan/data-diverse/issues/4
   - Added `impossible` modelled after `Data.Void.absurd`
-  - Which '[] is now uninhabited like `Data.Void.Void`.
-  - Removed `Semigroup` and `Monoid` for `Which '[]`
-  - Changed `Show`, `Read` and `Generic` instances for `Which '[]` to be partial, since it is uninhabited.
+  - Removed `zilch` so `Which '[]` is uninhabited like `Data.Void.Void`, making 'impossible' safe to use.
+  - Removed `Monoid` and changed `Show`, `Read` and `Generic` instances for `Which '[]` to be partial
+    just like Data.Void.Void.
+  - Added instance Reduce (Which '[]) (Switcher c '[] r), which follows from 'impossible'.
