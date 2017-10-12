@@ -12,42 +12,25 @@ Refer to [ManySpec.hs](https://github.com/louispan/data-diverse/blob/master/test
 
 Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.org/package/data-diverse-lens)
 
-
 # Changelog
 
-* 0.1.0.0
-  - Initial version represented as (Int, Data.Map Int Any)
+* 1.0.0.0
+  - The exposed api shouldn't break, but there are a lot of internal changes.
+  - Added `AFunctor` which can map over the types in the 'Many'.
+  - Added friendlier type synomyns `Collect` and `CollectN` for `collect` and `collectN`
+  - Expose type of 'Collector' and 'CollectorN'
+  - Replace type parameter `r` from `Case` typeclass with `CaseResult` type family.
+  - Replaced `CasesResult` type function with `IsAll` and `CasesResults` type functions.
+  - All `CaseXxx` type variables now end with r xs.
+  - All `CaseXxxN` type variables now end with r n xs.
 
-* 0.4.0.0
-  - Removed Emit typeclass, breaking renames. Added label accessors.
-
-* 0.5.0.0
-  - Renamed type level functions module from Type to TypeLevel
-
-* 0.6.0.0
-  - Moved lens to data-diverse-lens
-
-* 0.7.0.0
-  - Removed NOINLINE pragmas.
-  - Changed internal representation to (Int, Data.IntMap Any) for a 2.5x append speedup.
-
-* 0.8.0.0
-  - Changed internal representation to (Data.Seq Any) for a further 2x append speedup.
-  - Added NFData instance for Many.
-
-* 0.8.1.0
-  - Added NFData instance for Which.
-  - Forgot to expose Many.sliceL and Many.sliceR.
-
-* 0.9.0.0
-  - Breaking changes: Renamed Many.sliceL/R to Many.viewf/b
-  - Renamed TypeLevel.Internal.MissingImpl to IsUniqueImpl.
-  - Added postifx' with SnocUnique and append' with AppendUnique.
-  - Added Semigroup & Monoid instances for `Many '[]` and `Which '[]`
-  - Fixed GHC 8.2 compile error with importing GHC.Prim (Any)
-
-* 0.9.0.1
-  - Fixed GHC 8.2.1 test failure due to changed TypeRep show instance.
+* 0.11.0.0
+  - Fixed https://github.com/louispan/data-diverse/issues/4
+  - Added `impossible` modelled after `Data.Void.absurd`
+  - Removed `zilch` so `Which '[]` is uninhabited like `Data.Void.Void`, making 'impossible' safe to use.
+  - Removed `Monoid` and changed `Show`, `Read` and `Generic` instances for `Which '[]` to be partial
+    just like Data.Void.Void.
+  - Added instance Reduce (Which '[]) (Switcher c '[] r), which follows from 'impossible'.
 
 * 0.10.0.0
   - Renamed `Switch` to `Switcher`. Switch is now a type synonym for `switch` constraints
@@ -63,16 +46,36 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
     so the type variable ordering is consistently smaller to larger, ie. 'x', 'xs', 'branch', 'tree'
   - Added `diversify'` for allowing rearranging the types only.
 
-* 0.11.0.0
-  - Fixed https://github.com/louispan/data-diverse/issues/4
-  - Added `impossible` modelled after `Data.Void.absurd`
-  - Removed `zilch` so `Which '[]` is uninhabited like `Data.Void.Void`, making 'impossible' safe to use.
-  - Removed `Monoid` and changed `Show`, `Read` and `Generic` instances for `Which '[]` to be partial
-    just like Data.Void.Void.
-  - Added instance Reduce (Which '[]) (Switcher c '[] r), which follows from 'impossible'.
+* 0.9.0.1
+  - Fixed GHC 8.2.1 test failure due to changed TypeRep show instance.
 
-* 1.0.0.0
-  - Added `AFunctor` which can map over the types in the Many.
-  - Added `Collector'` to support AFunctor
-  - Added friendlier type synomyns `Collect` and `CollectN` for `collect` and `collectN`
-  - Replace type parameter `r` from `Case` with `CaseResult` type family.
+* 0.9.0.0
+  - Breaking changes: Renamed Many.sliceL/R to Many.viewf/b
+  - Renamed TypeLevel.Internal.MissingImpl to IsUniqueImpl.
+  - Added postifx' with SnocUnique and append' with AppendUnique.
+  - Added Semigroup & Monoid instances for `Many '[]` and `Which '[]`
+  - Fixed GHC 8.2 compile error with importing GHC.Prim (Any)
+
+* 0.8.1.0
+  - Added NFData instance for Which.
+  - Forgot to expose Many.sliceL and Many.sliceR.
+
+* 0.8.0.0
+  - Changed internal representation to (Data.Seq Any) for a further 2x append speedup.
+  - Added NFData instance for Many.
+
+* 0.7.0.0
+  - Removed NOINLINE pragmas.
+  - Changed internal representation to (Int, Data.IntMap Any) for a 2.5x append speedup.
+
+* 0.6.0.0
+  - Moved lens to data-diverse-lens
+
+* 0.5.0.0
+  - Renamed type level functions module from Type to TypeLevel
+
+* 0.4.0.0
+  - Removed Emit typeclass, breaking renames. Added label accessors.
+
+* 0.1.0.0
+  - Initial version represented as (Int, Data.Map Int Any)

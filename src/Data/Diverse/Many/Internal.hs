@@ -88,9 +88,6 @@ module Data.Diverse.Many.Internal (
     , CollectorN
     , forManyN
     , collectN
-
-    -- * Mapping
-    , Collector'
     ) where
 
 import Control.Applicative
@@ -158,7 +155,7 @@ type role Many representational
 
 -- | Many stored as a list. This is useful when folding over 'Many' efficienty
 -- so that the conversion to List is only done once
-newtype Many_ (xs :: [Type]) = Many_ [Any]
+newtype Many_ (xs :: [Type]) = Many_ { runMany_ :: [Any] }
 
 type role Many_ representational
 
@@ -612,27 +609,24 @@ instance ( Case (c r) (x ': xs)
 
 -----------------------------------------------------------------------
 
--- | Store the intermediate results of mapping over the items
-newtype Collector' (xs :: [Type]) = Collector' { runCollector' :: [Any] }
-
 -- | Terminating AFunctor instance for empty type list
-instance AFunctor Collector' c '[] where
+instance AFunctor Many_ c '[] where
     afmap _ = id
 
 -- | Recursive AFunctor instance for non empty type list
 -- delegate afmap'ing the remainder to an instance of Collector' with one less type in the type list
 instance ( Reiterate c (a ': as)
-         , AFunctor Collector' c as
+         , AFunctor Many_ c as
          , Case c (a ': as)
          ) =>
-         AFunctor Collector' c (a ': as) where
-    afmap c (Collector' as) =
-        Collector' $
+         AFunctor Many_ c (a ': as) where
+    afmap c (Many_ as) =
+        Many_ $
         unsafeCoerce (case' c a) :
-        runCollector'
+        runMany_
             (afmap
                  (reiterate c)
-                 (Collector' as' :: Collector' as))
+                 (Many_ as' :: Many_ as))
       where
         a = unsafeCoerce (Partial.head as)
         as' = Partial.tail as
@@ -641,16 +635,8 @@ instance ( Reiterate c (a ': as)
 
 -- | Given a 'Data.Diverse.Case' that transforms each type in the
 -- typelist, convert a @Many xs@ to @Many (CaseResults c xs)@
-instance AFunctor Collector' c as => AFunctor Many c as where
-    afmap c m = fromCollector' c (afmap c (toCollector' c m))
-
--- | Internal function
-toCollector' :: c as -> Many as -> Collector' as
-toCollector' _ (Many m') = Collector' (toList m')
-
--- | Internal function
-fromCollector' :: c as -> Collector' (CaseResults c as) -> Many (CaseResults c as)
-fromCollector' _ (Collector' bs) = Many $ S.fromList bs
+instance AFunctor Many_ c as => AFunctor Many c as where
+    afmap c m = fromMany_ (afmap c (toMany_ m))
 
 -- -----------------------------------------------------------------------
 -- | A friendlier type constraint synomyn for 'collect' and 'forMany'

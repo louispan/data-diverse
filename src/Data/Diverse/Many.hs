@@ -62,9 +62,13 @@ module Data.Diverse.Many (
 
     -- * Destruction
     -- ** By type
+    , Collect
+    , Collector
     , forMany
     , collect
     -- ** By Nat index offset
+    , CollectN
+    , CollectorN
     , forManyN
     , collectN
     ) where

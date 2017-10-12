@@ -19,13 +19,13 @@ import Test.Hspec
 
 
 -- `main` is here so that this module can be run from GHCi on its own.  It is
--- not needed for automatic spec dovery.
+-- not needed for automatic spec dicovery.
 main :: IO ()
 main = hspec spec
 
-data Foo
-data Bar
+--------------------------------
 
+-- | Create an instance of 'Case' that can handle all 'Num'
 newtype CaseNum' (xs :: [Type]) = CaseNum' (forall x. Num x => x -> x)
 
 type instance CaseResult CaseNum' x = x
@@ -36,6 +36,9 @@ instance Reiterate CaseNum' (x ': xs) where
 instance Num x => Case CaseNum' (x ': xs) where
     case' (CaseNum' f) = f
 
+--------------------------------
+
+-- | Create an instance of 'Case' that can handle all 'Show' and convert to a specified type
 newtype CaseShow r (xs :: [Type]) = CaseShow (forall x. Show x => x -> r)
 
 type instance CaseResult (CaseShow r) x = r
@@ -45,6 +48,11 @@ instance Reiterate (CaseShow r) (x ': xs) where
 
 instance Show x => Case (CaseShow r) (x ': xs) where
     case' (CaseShow f) = f
+
+--------------------------------
+
+data Foo
+data Bar
 
 spec :: Spec
 spec = do
