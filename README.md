@@ -16,7 +16,7 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 * 1.0.0.0
   - The exposed api shouldn't break, but there are a lot of internal changes.
-  - Added `AFunctor` which can map over the types in the 'Many'.
+  - Added `AFunctor` which can map over the types in the 'Many' <https://github.com/louispan/data-diverse/issues/5>.
   - Added friendlier type synomyns `Collect` and `CollectN` for `collect` and `collectN`
   - Expose type of 'Collector' and 'CollectorN'
   - Replace type parameter `r` from `Case` typeclass with `CaseResult` type family.
@@ -25,8 +25,7 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - All `CaseXxxN` type variables now end with r n xs.
 
 * 0.11.0.0
-  - Fixed https://github.com/louispan/data-diverse/issues/4
-  - Added `impossible` modelled after `Data.Void.absurd`
+  - Added `impossible` modelled after `Data.Void.absurd` <https://github.com/louispan/data-diverse/issues/4>
   - Removed `zilch` so `Which '[]` is uninhabited like `Data.Void.Void`, making 'impossible' safe to use.
   - Removed `Monoid` and changed `Show`, `Read` and `Generic` instances for `Which '[]` to be partial
     just like Data.Void.Void.
