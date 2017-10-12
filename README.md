@@ -70,3 +70,9 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Removed `Monoid` and changed `Show`, `Read` and `Generic` instances for `Which '[]` to be partial
     just like Data.Void.Void.
   - Added instance Reduce (Which '[]) (Switcher c '[] r), which follows from 'impossible'.
+
+* 1.0.0.0
+  - Added `AFunctor` which can map over the types in the Many.
+  - Added `Collector'` to support AFunctor
+  - Added friendlier type synomyns `Collect` and `CollectN` for `collect` and `collectN`
+  - Replace type parameter `r` from `Case` with `CaseResult` type family.

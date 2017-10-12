@@ -332,7 +332,7 @@ trialN' _ (Which n v) = let i = fromInteger (natVal @n Proxy)
 -----------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversify'.
-type Diversify (branch :: [Type]) (tree :: [Type]) = Reduce (Which branch) (Switcher (CaseDiversify branch tree) branch (Which tree))
+type Diversify (branch :: [Type]) (tree :: [Type]) = Reduce (Which branch) (Switcher (CaseDiversify branch tree) (Which tree) branch)
 
 -- | Convert a 'Which' to another 'Which' that may include other possibilities.
 -- That is, @branch@ is equal or is a subset of @tree@.
@@ -349,16 +349,18 @@ type Diversify (branch :: [Type]) (tree :: [Type]) = Reduce (Which branch) (Swit
 --     c = 'diversify' \@_ \@[Bool, Int] b :: 'Which' '[Bool, Int]
 -- @
 diversify :: forall branch tree. Diversify branch tree => Which branch -> Which tree
-diversify = which (CaseDiversify @branch @tree @branch)
+diversify = which (CaseDiversify @branch @tree @_ @branch)
 
-data CaseDiversify (branch :: [Type]) (tree :: [Type]) (branch' :: [Type]) r = CaseDiversify
+data CaseDiversify (branch :: [Type]) (tree :: [Type]) r (branch' :: [Type]) = CaseDiversify
 
-instance Reiterate (CaseDiversify branch tree) branch' where
+type instance CaseResult (CaseDiversify branch tree r) x = r
+
+instance Reiterate (CaseDiversify r branch tree) branch' where
     reiterate CaseDiversify = CaseDiversify
 
 -- | The @Unique x branch@ is important to get a compile error if the from @branch@ doesn't have a unique x
 instance (UniqueMember x tree, Unique x branch) =>
-         Case (CaseDiversify branch tree) (x ': branch') (Which tree) where
+         Case (CaseDiversify branch tree (Which tree)) (x ': branch') where
     case' CaseDiversify = pick
 
 -- | A simple version of 'diversify' which add another type to the front of the typelist.
@@ -387,13 +389,13 @@ diversifyL
        , IsDistinct ls
        )
     => proxy ls -> Which branch -> Which tree
-diversifyL _ = which (CaseDiversify @branch @tree @branch)
+diversifyL _ = which (CaseDiversify @branch @tree @_ @branch)
 
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversifyN'.
 type DiversifyN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
-    ( Reduce (Which branch) (SwitcherN (CaseDiversifyN indices) 0 branch (Which tree))
+    ( Reduce (Which branch) (SwitcherN (CaseDiversifyN indices) (Which tree) 0 branch)
     , KindsAtIndices indices tree ~ branch)
 
 -- | A variation of 'diversify' which uses a Nat list @indices@ to specify how to reorder the fields, where
@@ -412,21 +414,23 @@ type DiversifyN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
 -- 'switch' y'' ('Data.Diverse.CaseTypeable.CaseTypeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Int"
 -- @
 diversifyN :: forall indices branch tree proxy. (DiversifyN indices branch tree) => proxy indices -> Which branch -> Which tree
-diversifyN _ = whichN (CaseDiversifyN @indices @0 @branch)
+diversifyN _ = whichN (CaseDiversifyN @indices @_ @0 @branch)
 
-data CaseDiversifyN (indices :: [Nat]) (n :: Nat) (branch' :: [Type]) r = CaseDiversifyN
+data CaseDiversifyN (indices :: [Nat]) r (n :: Nat) (branch' :: [Type]) = CaseDiversifyN
 
-instance ReiterateN (CaseDiversifyN indices) n branch' where
+type instance CaseResult (CaseDiversifyN indices r n) x = r
+
+instance ReiterateN (CaseDiversifyN indices r) n branch' where
     reiterateN CaseDiversifyN = CaseDiversifyN
 
 instance MemberAt (KindAtIndex n indices) x tree =>
-         Case (CaseDiversifyN indices n) (x ': branch') (Which tree) where
+         Case (CaseDiversifyN indices (Which tree) n) (x ': branch') where
     case' CaseDiversifyN v = pickN (Proxy @(KindAtIndex n indices)) v
 
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'reinterpret'.
-type Reinterpret branch tree = Reduce (Which tree) (Switcher (CaseReinterpret branch tree) tree (Either (Which (Complement tree branch)) (Which branch)))
+type Reinterpret branch tree = Reduce (Which tree) (Switcher (CaseReinterpret branch tree) (Either (Which (Complement tree branch)) (Which branch)) tree)
 
 -- | Convert a 'Which' into possibly another 'Which' with a totally different typelist.
 -- Returns either a 'Which' with the 'Right' value, or a 'Which' with the 'Left'over @compliment@ types.
@@ -443,11 +447,13 @@ type Reinterpret branch tree = Reduce (Which tree) (Switcher (CaseReinterpret br
 --     c \`shouldBe` Right ('pick' (5 :: Int)) :: 'Which' '[String, Int]
 -- @
 reinterpret :: forall branch tree. Reinterpret branch tree => Which tree -> Either (Which (Complement tree branch)) (Which branch)
-reinterpret = which (CaseReinterpret @branch @tree @tree)
+reinterpret = which (CaseReinterpret @branch @tree @_ @tree)
 
-data CaseReinterpret (branch :: [Type]) (tree :: [Type]) (tree' :: [Type]) r = CaseReinterpret
+data CaseReinterpret (branch :: [Type]) (tree :: [Type]) r (tree' :: [Type]) = CaseReinterpret
 
-instance Reiterate (CaseReinterpret branch tree) tree' where
+type instance CaseResult (CaseReinterpret branch tree r) x = r
+
+instance Reiterate (CaseReinterpret branch tree r) tree' where
     reiterate CaseReinterpret = CaseReinterpret
 
 instance ( MaybeUniqueMemberAt n x branch
@@ -455,7 +461,7 @@ instance ( MaybeUniqueMemberAt n x branch
          , MaybeUniqueMemberAt n' x comp
          , Unique x tree -- Compile error to ensure reinterpret only works with unique fields
          ) =>
-         Case (CaseReinterpret branch tree) (x ': tree') (Either (Which comp) (Which branch)) where
+         Case (CaseReinterpret branch tree (Either (Which comp) (Which branch))) (x ': tree') where
     case' CaseReinterpret a =
         case fromInteger (natVal @n Proxy) of
             0 -> let j = fromInteger (natVal @n' Proxy)
@@ -466,15 +472,17 @@ instance ( MaybeUniqueMemberAt n x branch
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'reinterpret''.
-type Reinterpret' branch tree = Reduce (Which tree) (Switcher (CaseReinterpret' branch tree) tree (Maybe (Which branch)))
+type Reinterpret' branch tree = Reduce (Which tree) (Switcher (CaseReinterpret' branch tree) (Maybe (Which branch)) tree)
 
 -- | Variation of 'reinterpret' which returns a Maybe.
 reinterpret' :: forall branch tree. Reinterpret' branch tree => Which tree -> Maybe (Which branch)
-reinterpret' = which (CaseReinterpret' @branch @tree @tree)
+reinterpret' = which (CaseReinterpret' @branch @tree @_ @tree)
 
-data CaseReinterpret' (branch :: [Type]) (tree :: [Type]) (tree' :: [Type]) r = CaseReinterpret'
+data CaseReinterpret' (branch :: [Type]) (tree :: [Type]) r (tree' :: [Type]) = CaseReinterpret'
 
-instance Reiterate (CaseReinterpret' branch tree) tree' where
+type instance CaseResult (CaseReinterpret' branch tree r) x = r
+
+instance Reiterate (CaseReinterpret' branch tree r) tree' where
     reiterate CaseReinterpret' = CaseReinterpret'
 
 instance ( MaybeUniqueMemberAt n x branch
@@ -482,7 +490,7 @@ instance ( MaybeUniqueMemberAt n x branch
          -- , MaybeUniqueMemberAt n' x comp
          , Unique x tree -- Compile error to ensure reinterpret only works with unique fields
          ) =>
-         Case (CaseReinterpret' branch tree) (x ': tree') (Maybe (Which branch)) where
+         Case (CaseReinterpret' branch tree (Maybe (Which branch))) (x ': tree') where
     case' CaseReinterpret' a =
         case fromInteger (natVal @n Proxy) of
             0 -> Nothing
@@ -508,7 +516,7 @@ reinterpretL
     => proxy ls
     -> Which tree
     -> Either (Which (Complement tree branch)) (Which branch)
-reinterpretL _ = which (CaseReinterpret @branch @tree @tree)
+reinterpretL _ = which (CaseReinterpret @branch @tree @_ @tree)
 
 -- | Variation of 'reinterpretL' which returns a Maybe.
 reinterpretL'
@@ -521,13 +529,13 @@ reinterpretL'
     => proxy ls
     -> Which tree
     -> Maybe (Which branch)
-reinterpretL' _ = which (CaseReinterpret' @branch @tree @tree)
+reinterpretL' _ = which (CaseReinterpret' @branch @tree @_ @tree)
 
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'reinterpretN'.
 type ReinterpretN' (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
-    ( Reduce (Which tree) (SwitcherN (CaseReinterpretN' indices) 0 tree (Maybe (Which branch)))
+    ( Reduce (Which tree) (SwitcherN (CaseReinterpretN' indices) (Maybe (Which branch)) 0 tree)
     , KindsAtIndices indices tree ~ branch)
 
 -- | A limited variation of 'reinterpret' which uses a Nat list @n@ to specify how to reorder the fields, where
@@ -545,14 +553,17 @@ type ReinterpretN' (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
 --
 -- This is so that the same @indices@ can be used in 'narrowN'.
 reinterpretN' :: forall (indices :: [Nat]) branch tree proxy. (ReinterpretN' indices branch tree) => proxy indices -> Which tree -> Maybe (Which branch)
-reinterpretN' _ = whichN (CaseReinterpretN' @indices @0 @tree)
+reinterpretN' _ = whichN (CaseReinterpretN' @indices @_ @0 @tree)
 
-data CaseReinterpretN' (indices :: [Nat]) (n :: Nat) (tree' :: [Type]) r = CaseReinterpretN'
+data CaseReinterpretN' (indices :: [Nat]) r (n :: Nat) (tree' :: [Type]) = CaseReinterpretN'
 
-instance ReiterateN (CaseReinterpretN' indices) n tree' where
+type instance CaseResult (CaseReinterpretN' indices r n) x = r
+
+instance ReiterateN (CaseReinterpretN' indices r) n tree' where
     reiterateN CaseReinterpretN' = CaseReinterpretN'
 
-instance (MaybeMemberAt n' x branch, n' ~ PositionOf n indices) => Case (CaseReinterpretN' indices n) (x ': tree) (Maybe (Which branch)) where
+instance (MaybeMemberAt n' x branch, n' ~ PositionOf n indices) =>
+         Case (CaseReinterpretN' indices (Maybe (Which branch)) n) (x ': tree) where
     case' CaseReinterpretN' a =
         case fromInteger (natVal @n' Proxy) of
             0 -> Nothing
@@ -562,40 +573,46 @@ instance (MaybeMemberAt n' x branch, n' ~ PositionOf n indices) => Case (CaseRei
 
 -- | 'Switcher' is an instance of 'Reduce' for which __'reiterate'__s through the possibilities in a 'Which',
 -- delegating handling to 'Case', ensuring termination when 'Which' only contains one type.
-newtype Switcher c (xs :: [Type]) r = Switcher (c xs r)
-type instance Reduced (Switcher c xs r) = r
+newtype Switcher c r (xs :: [Type]) = Switcher (c r xs)
+
+type instance Reduced (Switcher c r xs) = r
 
 -- | 'trial0' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterate'__
 -- trying the next type in the type list.
-instance (Case c (x ': x' ': xs) r, Reduce (Which (x' ': xs)) (Switcher c (x' ': xs) r), Reiterate c (x : x' : xs)) =>
-         Reduce (Which (x ': x' ': xs)) (Switcher c (x ': x' ': xs) r) where
+instance ( Case (c r) (x ': x' ': xs)
+         , Reduce (Which (x' ': xs)) (Switcher c r (x' ': xs))
+         , Reiterate (c r) (x : x' : xs)
+         , r ~ CaseResult (c r) x -- This means all @r@ for all typelist must be the same @r@
+         ) =>
+         Reduce (Which (x ': x' ': xs)) (Switcher c r (x ': x' ': xs)) where
     reduce (Switcher c) v =
         case trial0 v of
             Right a -> case' c a
             Left v' -> reduce (Switcher (reiterate c)) v'
-    -- Ghc 8.2.1 can optimize to single case statement. See https://ghc.haskell.org/trac/ghc/ticket/12877
-    {-# INLINABLE reduce #-} -- This makes compiling tests a little faster than with no pragma
+    -- GHC 8.2.1 can optimize to single case statement. See https://ghc.haskell.org/trac/ghc/ticket/12877
+    {-# INLINABLE reduce #-}
+     -- This makes compiling tests a little faster than with no pragma
 
 -- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
 -- You can't reduce 'zilch'
-instance (Case c '[x] r) => Reduce (Which '[x]) (Switcher c '[x] r) where
+instance (Case (c r) '[x], r ~ CaseResult (c r) x) => Reduce (Which '[x]) (Switcher c r '[x]) where
     reduce (Switcher c) v = case obvious v of
             a -> case' c a
 
 -- | Allow 'Which \'[]' to be 'reinterpret''ed or 'diversify'ed into anything else
 -- This is safe because @Which '[]@ is uninhabited, and this is already something that
 -- can be done with 'impossible'
-instance Reduce (Which '[]) (Switcher c '[] r) where
+instance Reduce (Which '[]) (Switcher c r '[]) where
     reduce _ = impossible
 
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'switch'.
-type Switch case' xs r = Reduce (Which xs) (Switcher case' xs r)
+type Switch c r xs = Reduce (Which xs) (Switcher c r xs)
 
 -- | Catamorphism for 'Which'. This is equivalent to @flip 'switch'@.
-which :: Switch case' xs r => case' xs r -> Which xs -> r
+which :: Switch c r xs => c r xs -> Which xs -> r
 which = reduce . Switcher
 
 -- | A switch/case statement for 'Which'. This is equivalent to @flip 'which'@
@@ -618,39 +635,45 @@ which = reduce . Switcher
 -- @
 --
 -- Or you may use your own custom instance of 'Case'.
-switch :: Switch case' xs r => Which xs -> case' xs r -> r
+switch :: Switch c r xs => Which xs -> c r xs -> r
 switch = flip which
 
 ------------------------------------------------------------------
 
 -- | 'SwitcherN' is a variation of 'Switcher' which __'reiterateN'__s through the possibilities in a 'Which',
 -- delegating work to 'CaseN', ensuring termination when 'Which' only contains one type.
-newtype SwitcherN c (n :: Nat) (xs :: [Type]) r = SwitcherN (c n xs r)
-type instance Reduced (SwitcherN c n xs r) = r
+newtype SwitcherN c r (n :: Nat) (xs :: [Type]) = SwitcherN (c r n xs)
+
+type instance Reduced (SwitcherN c r n xs) = r
 
 -- | 'trial0' each type in a 'Which', and either handle the 'case'' with value discovered, or __'reiterateN'__
 -- trying the next type in the type list.
-instance (Case (c n) (x ': x' ': xs) r, Reduce (Which (x' ': xs)) (SwitcherN c (n + 1) (x' ': xs) r), ReiterateN c n (x : x' : xs)) =>
-         Reduce (Which (x ': x' ': xs)) (SwitcherN c n (x ': x' ': xs) r) where
+instance ( Case (c r n) (x ': x' ': xs)
+         , Reduce (Which (x' ': xs)) (SwitcherN c r (n + 1) (x' ': xs))
+         , ReiterateN (c r) n (x : x' : xs)
+         , r ~ CaseResult (c r n) x -- This means all @r@ for all typelist must be the same @r@
+         ) =>
+         Reduce (Which (x ': x' ': xs)) (SwitcherN c r n (x ': x' ': xs)) where
     reduce (SwitcherN c) v =
         case trial0 v of
             Right a -> case' c a
             Left v' -> reduce (SwitcherN (reiterateN c)) v'
     -- Ghc 8.2.1 can optimize to single case statement. See https://ghc.haskell.org/trac/ghc/ticket/12877
-    {-# INLINABLE reduce #-} -- This makes compiling tests a little faster than with no pragma
+    {-# INLINABLE reduce #-}
+ -- This makes compiling tests a little faster than with no pragma
 
 -- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
 -- You can't reduce 'zilch'
-instance (Case (c n) '[x] r) => Reduce (Which '[x]) (SwitcherN c n '[x] r) where
+instance (Case (c r n) '[x], r ~ CaseResult (c r n) x) => Reduce (Which '[x]) (SwitcherN c r n '[x]) where
     reduce (SwitcherN c) v = case obvious v of
             a -> case' c a
 
 -- | A friendlier constraint synonym for 'switch'.
-type SwitchN case' n xs r = Reduce (Which xs) (SwitcherN case' n xs r)
+type SwitchN c r n xs = Reduce (Which xs) (SwitcherN c r n xs)
 
 -- | Catamorphism for 'Which'. This is equivalent to @flip 'switchN'@.
-whichN :: SwitchN case' n xs r => case' n xs r -> Which xs -> r
+whichN :: SwitchN c r n xs => c r n xs -> Which xs -> r
 whichN = reduce . SwitcherN
 
 -- | A switch/case statement for 'Which'. This is equivalent to @flip 'whichN'@
@@ -669,13 +692,14 @@ whichN = reduce . SwitcherN
 -- @
 --
 -- Or you may use your own custom instance of 'Case'.
-switchN :: SwitchN case' n xs r => Which xs -> case' n xs r -> r
+switchN :: SwitchN c r n xs => Which xs -> c r n xs -> r
 switchN = flip whichN
 
 -----------------------------------------------------------------
 
 -- | Two 'Which'es are only equal iff they both contain the equivalnet value at the same type index.
-instance (Reduce (Which (x ': xs)) (Switcher CaseEqWhich (x ': xs) Bool)) => Eq (Which (x ': xs)) where
+instance (Reduce (Which (x ': xs)) (Switcher CaseEqWhich Bool (x ': xs))) =>
+         Eq (Which (x ': xs)) where
     l@(Which i _) == (Which j u) =
         if i /= j
             then False
@@ -687,19 +711,21 @@ instance Eq (Which '[]) where
 
 -- | Do not export constructor
 -- Stores the right Any to be compared when the correct type is discovered
-newtype CaseEqWhich (xs :: [Type]) r = CaseEqWhich Any
+newtype CaseEqWhich r (xs :: [Type]) = CaseEqWhich Any
 
-instance Reiterate CaseEqWhich (x ': xs) where
+type instance CaseResult (CaseEqWhich r) x = r
+
+instance Reiterate (CaseEqWhich r) (x ': xs) where
     reiterate (CaseEqWhich r) = CaseEqWhich r
 
-instance (Eq x) => Case CaseEqWhich (x ': xs) Bool where
+instance Eq x => Case (CaseEqWhich Bool) (x ': xs) where
     case' (CaseEqWhich r) l = l == unsafeCoerce r
 
 -----------------------------------------------------------------
 
 -- | A 'Which' with a type at smaller type index is considered smaller.
-instance ( Reduce (Which (x ': xs)) (Switcher CaseEqWhich (x ': xs) Bool)
-         , Reduce (Which (x ': xs)) (Switcher CaseOrdWhich (x ': xs) Ordering)
+instance ( Reduce (Which (x ': xs)) (Switcher CaseEqWhich Bool (x ': xs))
+         , Reduce (Which (x ': xs)) (Switcher CaseOrdWhich Ordering (x ': xs))
          ) =>
          Ord (Which (x ': xs)) where
     compare l@(Which i _) (Which j u) =
@@ -713,30 +739,36 @@ instance Ord (Which '[]) where
 
 -- | Do not export constructor
 -- Stores the right Any to be compared when the correct type is discovered
-newtype CaseOrdWhich (xs :: [Type]) r = CaseOrdWhich Any
+newtype CaseOrdWhich r (xs :: [Type]) = CaseOrdWhich Any
 
-instance Reiterate CaseOrdWhich (x ': xs) where
+type instance CaseResult (CaseOrdWhich r) x = r
+
+instance Reiterate (CaseOrdWhich r) (x ': xs) where
     reiterate (CaseOrdWhich r) = CaseOrdWhich r
 
-instance (Ord x) => Case CaseOrdWhich (x ': xs) Ordering where
+instance Ord x => Case (CaseOrdWhich Ordering) (x ': xs) where
     case' (CaseOrdWhich r) l = compare l (unsafeCoerce r)
 
 ------------------------------------------------------------------
 
 -- | @show ('pick'' \'A') == "pick \'A'"@
-instance (Reduce (Which (x ': xs)) (Switcher CaseShowWhich (x ': xs) ShowS)) => Show (Which (x ': xs)) where
+instance (Reduce (Which (x ': xs)) (Switcher CaseShowWhich ShowS (x ': xs))) =>
+         Show (Which (x ': xs)) where
     showsPrec d v = showParen (d > app_prec) (which (CaseShowWhich 0) v)
-      where app_prec = 10
+      where
+        app_prec = 10
 
 instance Show (Which '[]) where
     showsPrec _ = impossible
 
-newtype CaseShowWhich (xs :: [Type]) r = CaseShowWhich Int
+newtype CaseShowWhich r (xs :: [Type]) = CaseShowWhich Int
 
-instance Reiterate CaseShowWhich (x ': xs) where
+type instance CaseResult (CaseShowWhich r) x = r
+
+instance Reiterate (CaseShowWhich r) (x ': xs) where
     reiterate (CaseShowWhich i) = CaseShowWhich (i + 1)
 
-instance Show x => Case CaseShowWhich (x ': xs) ShowS where
+instance Show x => Case (CaseShowWhich ShowS) (x ': xs) where
     case' (CaseShowWhich i) v = showString "pickN @" . showString (show i) . showString " Proxy " . showsPrec (app_prec + 1) v
       where app_prec = 10
 

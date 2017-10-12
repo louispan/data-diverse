@@ -14,6 +14,6 @@ import Data.Kind
 -- the types in the @xs@ typelist.
 --
 -- See "Data.Diverse.CaseTypeable" and "Data.Diverse.Cases".
-class Case c (xs :: [Type]) r where
+class Case c (xs :: [Type]) where
     -- | Return the handler/continuation when x is observed.
-    case' :: c xs r -> Head xs -> r
+    case' :: c xs -> Head xs -> CaseResult c (Head xs)

@@ -193,13 +193,13 @@ type family ZipImpl (xs' :: [k]) (ys' :: [k]) (xs :: [k]) (ys :: [k]) :: [k] whe
                               ':<>: 'ShowType ys'
                               ':<>: 'Text "’")
 
-type family CasesResultImpl (ctx :: [k1]) (r :: k2) (fs :: [k1]) :: k2 where
-    CasesResultImpl ctx r '[] = r
-    CasesResultImpl ctx r ((a -> r) ': fs) = CasesResultImpl ctx r fs
-    CasesResultImpl ctx r fs = TypeError ('Text "CasesResult error: ‘"
-                                  ':<>: 'ShowType ctx
-                                  ':<>: 'Text "’"
-                                  ':<>: 'Text " doesn't all return "
-                                  ':<>: 'Text "‘"
-                                  ':<>: 'ShowType r
-                                  ':<>: 'Text "’")
+-- | Tests if all the types in a typelist is all a specified type.
+type family IsAllImpl (ctx :: [k]) (x :: k) (xs :: [k]) :: Constraint where
+    IsAllImpl ctx x '[] = ()
+    IsAllImpl ctx x (x ': xs) = IsAllImpl ctx x xs
+    IsAllImpl ctx x xs = TypeError ('Text "IsAll error: ‘"
+                              ':<>: 'ShowType ctx
+                              ':<>: 'Text "’"
+                              ':<>: 'Text " must only contain ‘"
+                              ':<>: 'ShowType x
+                              ':<>: 'Text "’")

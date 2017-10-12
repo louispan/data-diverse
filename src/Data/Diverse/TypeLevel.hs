@@ -164,9 +164,12 @@ type family Init (xs :: [k]) :: [k] where
 -- | Takes two lists which must be the same length and returns a list of corresponding pairs.
 type Zip (xs :: [k]) (ys :: [k]) = ZipImpl xs ys xs ys
 
-type family CasesResult (fs :: [k1]) :: k2 where
-    CasesResult ((a -> r) ': fs) = CasesResultImpl ((a -> r) ': fs) r fs
-    CasesResult fs = TypeError ('Text "CasesResult error: ‘"
-                              ':<>: 'ShowType fs
-                              ':<>: 'Text "’"
-                              ':<>: 'Text " doesn't return anything")
+-- | Tests if all the types in a typelist is all a specified type.
+type IsAll (x :: k) (xs :: [k]) = IsAllImpl xs x xs
+
+type family CaseResult (c ::[k1] -> k2) (x :: k1) :: k2
+
+-- | Return a list of results from applying 'CaseResult' to every type in the @xs@ typelist.
+type family CaseResults (c ::[k1] -> k2) (xs :: [k1]) :: [k2] where
+    CaseResults c '[] = '[]
+    CaseResults c (x ': xs) = CaseResult c x ': CaseResults c xs

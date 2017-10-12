@@ -4,6 +4,8 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Data.Diverse.CaseTypeable where
 
@@ -25,10 +27,12 @@ import Data.Typeable
 -- 'Data.Diverse.AFoldable.afoldr' (:) [] ('Data.Diverse.Many.forMany' ('CaseTypeable' (show . typeRep . (pure @Proxy))) x) \`shouldBe`
 --     [\"Int", \"Bool", \"Char", \"Maybe Char", \"Int", \"Maybe Char"]
 -- @
-newtype CaseTypeable (xs :: [Type]) r = CaseTypeable (forall x. Typeable x => x -> r)
+newtype CaseTypeable r (xs :: [Type]) = CaseTypeable (forall x. Typeable x => x -> r)
 
-instance Reiterate CaseTypeable xs where
+type instance CaseResult (CaseTypeable r) x = r
+
+instance Reiterate (CaseTypeable r) xs where
     reiterate (CaseTypeable f) = CaseTypeable f
 
-instance Typeable (Head xs) => Case CaseTypeable xs r where
+instance Typeable x => Case (CaseTypeable r) (x ': xs) where
     case' (CaseTypeable f) = f

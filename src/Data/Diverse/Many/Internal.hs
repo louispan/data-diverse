@@ -79,17 +79,25 @@ module Data.Diverse.Many.Internal (
 
     -- * Destruction
     -- ** By type
+    , Collect
+    , Collector
     , forMany
     , collect
     -- ** By Nat index offset
+    , CollectN
+    , CollectorN
     , forManyN
     , collectN
+
+    -- * Mapping
+    , Collector'
     ) where
 
 import Control.Applicative
 import Control.DeepSeq
 import Data.Bool
 import Data.Diverse.AFoldable
+import Data.Diverse.AFunctor
 import Data.Diverse.Case
 import Data.Diverse.Reiterate
 import Data.Diverse.TypeLevel
@@ -129,7 +137,7 @@ import Prelude as Partial
 -- * getter/setter for multiple fields: 'selectN' and 'amendN'
 -- * folds: 'forManyN' or 'collectN'
 --
--- Encoding: The record is encoded as (Offset, Map Int Any).
+-- Encoding: The record is encoded as (S.Seq Any).
 -- This encoding should reasonabily efficient for any number of fields.
 --
 -- The map Key is index + offset of the type in the typelist.
@@ -139,7 +147,7 @@ import Prelude as Partial
 --
 -- The constructor will guarantee the correct number and types of the elements.
 -- The constructor is only exported in the "Data.Diverse.Many.Internal" module
-data Many (xs :: [Type]) = Many (S.Seq Any)
+newtype Many (xs :: [Type]) = Many (S.Seq Any)
 
 -- Inferred role is phantom which is incorrect
 -- representational means:
@@ -150,7 +158,7 @@ type role Many representational
 
 -- | Many stored as a list. This is useful when folding over 'Many' efficienty
 -- so that the conversion to List is only done once
-data Many_ (xs :: [Type]) = Many_ [Any]
+newtype Many_ (xs :: [Type]) = Many_ [Any]
 
 type role Many_ representational
 
@@ -520,22 +528,23 @@ fromList' = fmap (\(_, a) -> coerce a) . S.unstableSortBy (\(i, _) (j, _) -> com
 
 ------------------------------------------------------------------------
 
-class CaseAny c (xs :: [Type]) r where
+class CaseAny c (xs :: [Type]) where
     -- | Return the handler/continuation when x is observed.
-    caseAny :: c xs r -> Any -> r
+    caseAny :: c xs -> Any -> CaseResult c Any
 
 -----------------------------------------------------------------------
 
 -- | Variation of 'Collector' which uses 'CaseAny' instead of 'Case'
-data CollectorAny c (xs :: [Type]) r = CollectorAny (c xs r) [Any]
+data CollectorAny c (xs :: [Type]) r = CollectorAny (c r xs) [Any]
 
 -- | nill case that doesn't even use 'caseAny', so that an instance of @CaseAny '[]@ is not needed.
 instance AFoldable (CollectorAny c '[]) r where
     afoldr _ z _ = z
 
-instance ( CaseAny c (x ': xs) r
-         , Reiterate c (x ': xs)
+instance ( CaseAny (c r) (x ': xs)
+         , Reiterate (c r) (x ': xs)
          , AFoldable (CollectorAny c xs) r
+         , r ~ CaseResult (c r) Any
          ) =>
          AFoldable (CollectorAny c (x ': xs)) r where
     afoldr f z (CollectorAny c xs) = f (caseAny c x) (afoldr f z (CollectorAny (reiterate c) xs'))
@@ -545,21 +554,22 @@ instance ( CaseAny c (x ': xs) r
        xs' = Partial.tail xs
     {-# INLINABLE afoldr #-} -- This makes compiling tests a little faster than with no pragma
 
-forMany' :: c xs r -> Many xs -> CollectorAny c xs r
+forMany' :: c r xs -> Many xs -> CollectorAny c xs r
 forMany' c (Many xs) = CollectorAny c (toList xs)
 
 -----------------------------------------------------------------------
 
 -- | A variation of 'CollectorN' which uses 'CaseAny' instead of 'Case'
-data CollectorAnyN c n (xs :: [Type]) r = CollectorAnyN (c n xs r) [Any]
+data CollectorAnyN c n (xs :: [Type]) r = CollectorAnyN (c r n xs) [Any]
 
 -- | nill case that doesn't even use 'caseAnyN', so that an instance of @CaseAnyN '[]@ is not needed.
 instance AFoldable (CollectorAnyN c n '[]) r where
     afoldr _ z _ = z
 
-instance ( CaseAny (c n) (x ': xs) r
-         , ReiterateN c n (x ': xs)
+instance ( CaseAny (c r n) (x ': xs)
+         , ReiterateN (c r) n (x ': xs)
          , AFoldable (CollectorAnyN c (n + 1) xs) r
+         , r ~ CaseResult (c r n) Any
          ) =>
          AFoldable (CollectorAnyN c n (x ': xs)) r where
     afoldr f z (CollectorAnyN c xs) = f (caseAny c x) (afoldr f z (CollectorAnyN (reiterateN c) xs'))
@@ -569,7 +579,7 @@ instance ( CaseAny (c n) (x ': xs) r
        xs' = Partial.tail xs
     {-# INLINABLE afoldr #-} -- This makes compiling tests a little faster than with no pragma
 
-forManyN' :: c n xs r -> Many xs -> CollectorAnyN c n xs r
+forManyN' :: c r n xs -> Many xs -> CollectorAnyN c n xs r
 forManyN' c (Many xs) = CollectorAnyN c (toList xs)
 
 -----------------------------------------------------------------------
@@ -580,16 +590,17 @@ forManyN' c (Many xs) = CollectorAnyN c (toList xs)
 --  Internally, this holds the left-over [(k, v)] from the original 'Many' for the remaining typelist @xs@.
 --
 -- That is, the first v in the (k, v) is of type @x@, and the length of the list is equal to the length of @xs@.
-data Collector c (xs :: [Type]) r = Collector (c xs r) [Any]
+data Collector c (xs :: [Type]) r = Collector (c r xs) [Any]
 
 -- | nill case that doesn't even use 'case'', so that an instance of @Case '[]@ is not needed.
 instance AFoldable (Collector c '[]) r where
     afoldr _ z _ = z
 
 -- | Folds values by 'reiterate'ing 'Case's through the @xs@ typelist.
-instance ( Case c (x ': xs) r
-         , Reiterate c (x ': xs)
+instance ( Case (c r) (x ': xs)
+         , Reiterate (c r) (x ': xs)
          , AFoldable (Collector c xs) r
+         , r ~ CaseResult (c r) x
          ) =>
          AFoldable (Collector c (x ': xs)) r where
     afoldr f z (Collector c xs) = f (case' c v) (afoldr f z (Collector (reiterate c) xs'))
@@ -601,6 +612,50 @@ instance ( Case c (x ': xs) r
 
 -----------------------------------------------------------------------
 
+-- | Store the intermediate results of mapping over the items
+newtype Collector' (xs :: [Type]) = Collector' { runCollector' :: [Any] }
+
+-- | Terminating AFunctor instance for empty type list
+instance AFunctor Collector' c '[] where
+    afmap _ = id
+
+-- | Recursive AFunctor instance for non empty type list
+-- delegate afmap'ing the remainder to an instance of Collector' with one less type in the type list
+instance ( Reiterate c (a ': as)
+         , AFunctor Collector' c as
+         , Case c (a ': as)
+         ) =>
+         AFunctor Collector' c (a ': as) where
+    afmap c (Collector' as) =
+        Collector' $
+        unsafeCoerce (case' c a) :
+        runCollector'
+            (afmap
+                 (reiterate c)
+                 (Collector' as' :: Collector' as))
+      where
+        a = unsafeCoerce (Partial.head as)
+        as' = Partial.tail as
+    {-# INLINABLE afmap #-}
+    -- This makes compiling tests a little faster than with no pragma
+
+-- | Given a 'Data.Diverse.Case' that transforms each type in the
+-- typelist, convert a @Many xs@ to @Many (CaseResults c xs)@
+instance AFunctor Collector' c as => AFunctor Many c as where
+    afmap c m = fromCollector' c (afmap c (toCollector' c m))
+
+-- | Internal function
+toCollector' :: c as -> Many as -> Collector' as
+toCollector' _ (Many m') = Collector' (toList m')
+
+-- | Internal function
+fromCollector' :: c as -> Collector' (CaseResults c as) -> Many (CaseResults c as)
+fromCollector' _ (Collector' bs) = Many $ S.fromList bs
+
+-- -----------------------------------------------------------------------
+-- | A friendlier type constraint synomyn for 'collect' and 'forMany'
+type Collect c r (xs :: [Type]) = (AFoldable (Collector c xs) r, Case (c r) xs)
+
 -- | Folds any 'Many', even with indistinct types.
 -- Given __distinct__ handlers for the fields in 'Many', create 'AFoldable'
 -- of the results of running the handlers over the fields in 'Many'.
@@ -611,7 +666,7 @@ instance ( Case c (x ': xs) r
 -- 'afoldr' (:) [] ('forMany' ('Data.Diverse.Cases.cases' y) x) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-forMany :: (t ~ Collector c xs, AFoldable t r, Case c xs r) => c xs r -> Many xs -> t r
+forMany :: Collect c r xs => c r xs -> Many xs -> Collector c xs r
 forMany c (Many xs) = Collector c (toList xs)
 
 -- | This is @flip 'forMany'@
@@ -622,22 +677,23 @@ forMany c (Many xs) = Collector c (toList xs)
 -- 'afoldr' (:) [] ('collect' x ('Data.Diverse.Cases.cases' y)) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-collect :: (t ~ Collector c xs, AFoldable t r, Case c xs r) => Many xs -> c xs r -> t r
+collect :: (Collect c r xs) => Many xs -> c r xs -> Collector c xs r
 collect = flip forMany
 
 -----------------------------------------------------------------------
 
 -- | A variation of 'Collector' which uses 'ReiterateN' instead of 'Reiterate'
-data CollectorN c (n :: Nat) (xs :: [Type]) r = CollectorN (c n xs r) [Any]
+data CollectorN c (n :: Nat) (xs :: [Type]) r = CollectorN (c r n xs) [Any]
 
 -- | nill case that doesn't even use 'case'', so that an instance of @Case '[]@ is not needed.
 instance AFoldable (CollectorN c n '[]) r where
     afoldr _ z _ = z
 
 -- | Folds values by 'reiterate'ing 'Emit'ters through the @xs@ typelist.
-instance ( Case (c n) (x ': xs) r
-         , ReiterateN c n (x ': xs)
+instance ( Case (c r n) (x ': xs)
+         , ReiterateN (c r) n (x ': xs)
          , AFoldable (CollectorN c (n + 1) xs) r
+         , r ~ CaseResult (c r n) x
          ) =>
          AFoldable (CollectorN c n (x ': xs)) r where
     afoldr f z (CollectorN c xs) = f (case' c v) (afoldr f z (CollectorN (reiterateN c) xs'))
@@ -646,6 +702,9 @@ instance ( Case (c n) (x ': xs) r
        v = unsafeCoerce $ Partial.head xs
        xs' = Partial.tail xs
     {-# INLINABLE afoldr #-} -- This makes compiling tests a little faster than with no pragma
+
+-- | A friendlier type constraint synomyn for 'collect' and 'forMany'
+type CollectN c r (n :: Nat) (xs :: [Type]) = (AFoldable (CollectorN c n xs) r, Case (c r n) xs)
 
 -- | Folds any 'Many', even with indistinct types.
 -- Given __index__ handlers for the fields in 'Many', create 'AFoldable'
@@ -657,7 +716,7 @@ instance ( Case (c n) (x ': xs) r
 -- 'afoldr' (:) [] ('forManyN' ('Data.Diverse.Cases.casesN' y) x) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-forManyN :: (t ~ CollectorN c n xs, AFoldable t r, Case (c n) xs r) => c n xs r -> Many xs -> t r
+forManyN :: CollectN c r n xs => c r n xs -> Many xs -> CollectorN c n xs r
 forManyN c (Many xs) = CollectorN c (toList xs)
 
 -- | This is @flip 'forManyN'@
@@ -668,7 +727,7 @@ forManyN c (Many xs) = CollectorN c (toList xs)
 -- 'afoldr' (:) [] ('collectN' x ('Data.Diverse.Cases.casesN' y)) \`shouldBe`
 --     [\"5", \"False", \"\'X'", \"Just \'O'", \"6", \"Just \'A'"]
 -- @
-collectN :: (t ~ CollectorN c n xs, AFoldable t r, Case (c n) xs r) => Many xs -> c n xs r -> t r
+collectN :: CollectN c r n xs  => Many xs -> c r n xs -> CollectorN c n xs r
 collectN = flip forManyN
 
 -----------------------------------------------------------------------
@@ -676,7 +735,7 @@ collectN = flip forManyN
 -- | A friendlier type constraint synomyn for 'select'
 type Select (smaller :: [Type]) (larger :: [Type]) =
     (AFoldable
-        ( CollectorAny (CaseSelect smaller larger) larger) (Maybe (Int, WrappedAny)))
+        (CollectorAny (CaseSelect smaller larger) larger) (Maybe (Int, WrappedAny)))
 
 -- | Construct a 'Many' with a smaller number of fields than the original.
 -- Analogous to 'fetch' getter but for multiple fields.
@@ -690,17 +749,19 @@ type Select (smaller :: [Type]) (larger :: [Type]) =
 select :: forall smaller larger. Select smaller larger => Many larger -> Many smaller
 select t = Many (fromList' xs')
   where
-    xs' = afoldr (\a z -> maybe z (: z) a) [] (forMany' (CaseSelect @smaller @larger @larger) t)
+    xs' = afoldr (\a z -> maybe z (: z) a) [] (forMany' (CaseSelect @smaller @larger @_ @larger) t)
 
 -- | For each type x in @larger@, generate the (k, v) in @smaller@ (if it exists)
-data CaseSelect (smaller :: [Type]) (larger :: [Type]) (xs :: [Type]) r = CaseSelect
+data CaseSelect (smaller :: [Type]) (larger :: [Type]) r (xs :: [Type]) = CaseSelect
 
-instance Reiterate (CaseSelect smaller larger) (x ': xs) where
+type instance CaseResult (CaseSelect smaller larger r) x = r
+
+instance Reiterate (CaseSelect smaller larger r) (x ': xs) where
     reiterate = coerce
 
 -- | For each type x in larger, find the index in ys, and create a (key, value)
 instance forall smaller larger x xs n. (UniqueIfExists smaller x larger, MaybeUniqueMemberAt n x smaller) =>
-         CaseAny (CaseSelect smaller larger) (x ': xs) (Maybe (Int, WrappedAny)) where
+    CaseAny (CaseSelect smaller larger (Maybe (Int, WrappedAny))) (x ': xs) where
     caseAny _ v =
         case i of
             0 -> Nothing
@@ -753,16 +814,18 @@ selectN
     => proxy ns -> Many larger -> Many smaller
 selectN _ xs = Many (fromList' xs')
   where
-    xs' = afoldr (\a z -> maybe z (: z) a) [] (forManyN' (CaseSelectN @ns @smaller @0 @larger) xs)
+    xs' = afoldr (\a z -> maybe z (: z) a) [] (forManyN' (CaseSelectN @ns @smaller @_ @0 @larger) xs)
 
-data CaseSelectN (indices :: [Nat]) (smaller :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseSelectN
+data CaseSelectN (indices :: [Nat]) (smaller :: [Type]) r (n :: Nat) (xs :: [Type]) = CaseSelectN
 
-instance ReiterateN (CaseSelectN indices smaller) n (x ': xs) where
+type instance CaseResult (CaseSelectN indices smaller r n) x = r
+
+instance ReiterateN (CaseSelectN indices smaller r) n (x ': xs) where
     reiterateN CaseSelectN = CaseSelectN
 
 -- | For each type x in @larger@, find the index in ys, and create an (incrementing key, value)
 instance forall indices smaller n x xs n'. (MaybeMemberAt n' x smaller, n' ~ PositionOf n indices) =>
-         CaseAny (CaseSelectN indices smaller n) (x ': xs) (Maybe (Int, WrappedAny)) where
+    CaseAny (CaseSelectN indices smaller (Maybe (Int, WrappedAny)) n) (x ': xs) where
     caseAny _ v =
         case i of
             0 -> Nothing
@@ -773,8 +836,7 @@ instance forall indices smaller n x xs n'. (MaybeMemberAt n' x smaller, n' ~ Pos
 -----------------------------------------------------------------------
 
 -- | A friendlier type constraint synomyn for 'amend'
-type Amend smaller larger = (AFoldable (CollectorAny (CaseAmend larger) smaller) (Int, WrappedAny)
-       , IsDistinct smaller)
+type Amend smaller larger = (AFoldable (CollectorAny (CaseAmend larger) smaller) (Int, WrappedAny), IsDistinct smaller)
 
 -- | Sets the subset of 'Many' in the larger 'Many'.
 -- Analogous to 'replace' setter but for multiple fields.
@@ -787,15 +849,18 @@ type Amend smaller larger = (AFoldable (CollectorAny (CaseAmend larger) smaller)
 amend :: forall smaller larger. Amend smaller larger => Many larger -> Many smaller -> Many larger
 amend (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forMany' (CaseAmend @larger @smaller) t)
+    xs' = afoldr (:) [] (forMany' (CaseAmend @larger @_ @smaller) t)
 
-data CaseAmend (larger :: [Type]) (xs :: [Type]) r = CaseAmend
+data CaseAmend (larger :: [Type]) r (xs :: [Type]) = CaseAmend
 
-instance Reiterate (CaseAmend larger) (x ': xs) where
+type instance CaseResult (CaseAmend larger r) x = r
+
+instance Reiterate (CaseAmend larger r) (x ': xs) where
     reiterate = coerce
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
-instance UniqueMemberAt n x larger => CaseAny (CaseAmend larger) (x ': xs) (Int, WrappedAny) where
+instance UniqueMemberAt n x larger =>
+         CaseAny (CaseAmend larger (Int, WrappedAny)) (x ': xs) where
     caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @n Proxy)
@@ -831,18 +896,21 @@ amend' :: forall smaller smaller' larger proxy. Amend' smaller smaller' larger
     => proxy smaller -> Many larger -> Many smaller' -> Many (Replaces smaller smaller' larger)
 amend' _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forMany'' @smaller Proxy (CaseAmend' @larger @(Zip smaller smaller')) t)
+    xs' = afoldr (:) [] (forMany'' @smaller Proxy (CaseAmend' @larger @_ @(Zip smaller smaller')) t)
 
-forMany'' :: Proxy xs -> c (Zip xs ys) r -> Many ys -> CollectorAny c (Zip xs ys) r
+forMany'' :: Proxy xs -> c r (Zip xs ys) -> Many ys -> CollectorAny c (Zip xs ys) r
 forMany'' _ c (Many ys) = CollectorAny c (toList ys)
 
-data CaseAmend' (larger :: [Type]) (zs :: [Type]) r = CaseAmend'
+data CaseAmend' (larger :: [Type]) r (zs :: [Type]) = CaseAmend'
 
-instance Reiterate (CaseAmend' larger) (z ': zs) where
+type instance CaseResult (CaseAmend' larger r) x = r
+
+instance Reiterate (CaseAmend' larger r) (z ': zs) where
     reiterate = coerce
 
 -- | for each y in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
-instance (UniqueMemberAt n x larger) => CaseAny (CaseAmend' larger) ((x, y) ': zs) (Int, WrappedAny) where
+instance (UniqueMemberAt n x larger) =>
+         CaseAny (CaseAmend' larger (Int, WrappedAny)) ((x, y) ': zs) where
     caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @n Proxy)
@@ -897,16 +965,18 @@ amendN :: forall ns smaller larger proxy.
     => proxy ns -> Many larger -> Many smaller -> Many larger
 amendN _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forManyN' (CaseAmendN @ns @larger @0 @smaller) t)
+    xs' = afoldr (:) [] (forManyN' (CaseAmendN @ns @larger @_ @0 @smaller) t)
 
-data CaseAmendN (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (xs :: [Type]) r = CaseAmendN
+data CaseAmendN (indices :: [Nat]) (larger :: [Type]) r (n :: Nat) (xs :: [Type]) = CaseAmendN
 
-instance ReiterateN (CaseAmendN indices larger) n (x ': xs) where
+type instance CaseResult (CaseAmendN indices larger r n) x = r
+
+instance ReiterateN (CaseAmendN indices larger r) n (x ': xs) where
     reiterateN = coerce
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt n' x larger, n' ~ KindAtIndex n indices) =>
-         CaseAny (CaseAmendN indices larger n) (x ': xs) (Int, WrappedAny) where
+         CaseAny (CaseAmendN indices larger (Int, WrappedAny) n) (x ': xs) where
     caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @n' Proxy)
@@ -925,19 +995,21 @@ amendN' :: forall ns smaller smaller' larger proxy.
     => proxy ns -> Many larger -> Many smaller' -> Many (ReplacesIndex ns smaller' larger)
 amendN' _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forManyN'' @smaller Proxy (CaseAmendN' @ns @larger @0 @(Zip smaller smaller')) t)
+    xs' = afoldr (:) [] (forManyN'' @smaller Proxy (CaseAmendN' @ns @larger @_ @0 @(Zip smaller smaller')) t)
 
-forManyN'' :: Proxy xs -> c n (Zip xs ys) r -> Many ys -> CollectorAnyN c n (Zip xs ys) r
+forManyN'' :: Proxy xs -> c r n (Zip xs ys) -> Many ys -> CollectorAnyN c n (Zip xs ys) r
 forManyN'' _ c (Many ys) = CollectorAnyN c (toList ys)
 
-data CaseAmendN' (indices :: [Nat]) (larger :: [Type]) (n :: Nat) (zs :: [Type]) r = CaseAmendN'
+data CaseAmendN' (indices :: [Nat]) (larger :: [Type]) r (n :: Nat) (zs :: [Type]) = CaseAmendN'
 
-instance ReiterateN (CaseAmendN' indices larger) n (z ': zs) where
+type instance CaseResult (CaseAmendN' indices larger r n) x = r
+
+instance ReiterateN (CaseAmendN' indices larger r) n (z ': zs) where
     reiterateN = coerce
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt n' x larger, n' ~ KindAtIndex n indices) =>
-         CaseAny (CaseAmendN' indices larger n) ((x, y) ': zs) (Int, WrappedAny) where
+         CaseAny (CaseAmendN' indices larger (Int, WrappedAny) n) ((x, y) ': zs) where
     caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @n' Proxy)
