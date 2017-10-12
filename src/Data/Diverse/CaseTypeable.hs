@@ -16,6 +16,8 @@ import Data.Kind
 import Data.Typeable
 
 -- | This handler stores a polymorphic function for all Typeables.
+-- This is an example of how to define and instance of 'Case' for
+-- polymorphic function into a specified result type.
 --
 -- @
 -- let y = 'Data.Diverse.Which.pick' (5 :: Int) :: 'Data.Diverse.Which.Which' '[Int, Bool]
@@ -36,3 +38,17 @@ instance Reiterate (CaseTypeable r) xs where
 
 instance Typeable x => Case (CaseTypeable r) (x ': xs) where
     case' (CaseTypeable f) = f
+
+
+-- | This handler stores a polymorphic function for all Typeables.
+-- This is an example of how to define and instance of 'Case' for
+-- polymorphic function that doesn't change the type
+newtype CaseTypeable' (xs :: [Type]) = CaseTypeable' (forall x. Typeable x => x -> x)
+
+type instance CaseResult CaseTypeable' x = x
+
+instance Reiterate CaseTypeable' xs where
+    reiterate (CaseTypeable' f) = CaseTypeable' f
+
+instance Typeable x => Case CaseTypeable' (x ': xs) where
+    case' (CaseTypeable' f) = f

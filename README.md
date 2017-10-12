@@ -14,6 +14,9 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 1.0.0.1
+  - Added `CaseTypeable'` as an example of polymorphic `Case` that doesn't change the type.
+
 * 1.0.0.0
   - The exposed api shouldn't break, but there are a lot of internal changes.
   - Added `AFunctor` which can map over the types in the 'Many' <https://github.com/louispan/data-diverse/issues/5>.
