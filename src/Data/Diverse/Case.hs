@@ -13,7 +13,7 @@ import Data.Kind
 -- In conjunction with 'Data.Diverse.Reiterate.Reiterate', you can define handlers that can handle all
 -- the types in the @xs@ typelist.
 --
--- See "Data.Diverse.CaseTypeable" and "Data.Diverse.Cases".
+-- See "Data.Diverse.CaseFunc" and "Data.Diverse.Cases".
 class Case c (xs :: [Type]) where
     -- | Return the handler/continuation when x is observed.
     case' :: c xs -> Head xs -> CaseResult c (Head xs)

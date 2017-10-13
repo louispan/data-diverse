@@ -133,19 +133,19 @@ spec = do
             let y = pickOnly (5 :: Int)
                 y' = diversify @_ @[Int, Bool] y
                 y'' = diversify @_ @[Bool, Int] y'
-            switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
+            switch y'' (CaseFunc @Typeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
 
         it "can be extended and rearranged by type with 'diversify'" $ do
             let y = pickOnly (5 :: Tagged Bar Int)
                 y' = diversifyL @'[Bar] Proxy y :: Which '[Tagged Bar Int, Tagged Foo Bool]
                 y'' = diversifyL @'[Bar, Foo] Proxy y' :: Which '[Tagged Foo Bool, Tagged Bar Int]
-            switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Tagged * Bar Int"
+            switch y'' (CaseFunc @Typeable (show . typeRep . (pure @Proxy))) `shouldBe` "Tagged * Bar Int"
 
         it "can be extended and rearranged by index with 'diversifyN'" $ do
             let y = pickOnly (5 :: Int)
                 y' = diversifyN @'[0] @_ @[Int, Bool] Proxy y
                 y'' = diversifyN @[1,0] @_ @[Bool, Int] Proxy y'
-            switch y'' (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
+            switch y'' (CaseFunc @Typeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
 
         it "the 'diversify'ed type can contain multiple fields if they aren't in the original 'Many'" $ do
             let y = pick @_ @[Int, Char] (5 :: Int)
@@ -229,9 +229,9 @@ spec = do
                     ./ show @Int
                     ./ nil)) `shouldBe` "5"
 
-        it "can be switched with a single 'CaseTypeable' handler" $ do
+        it "can be switched with a polymorphic 'CaseFunc' handler" $ do
             let y = pick (5 :: Int) :: Which '[Int, Bool]
-            switch y (CaseTypeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
+            switch y (CaseFunc @Typeable (show . typeRep . (pure @Proxy))) `shouldBe` "Int"
 #if __GLASGOW_HASKELL__ >= 802
             let expected = "Which (': * Int (': * Bool ('[] *)))"
 #else

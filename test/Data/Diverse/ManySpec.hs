@@ -12,7 +12,6 @@ module Data.Diverse.ManySpec (main, spec) where
 
 import Data.Diverse
 import Data.Int
-import Data.Kind
 import Data.Tagged
 import Data.Typeable
 import Test.Hspec
@@ -22,32 +21,6 @@ import Test.Hspec
 -- not needed for automatic spec dicovery.
 main :: IO ()
 main = hspec spec
-
---------------------------------
-
--- | Create an instance of 'Case' that can handle all 'Num'
-newtype CaseNum' (xs :: [Type]) = CaseNum' (forall x. Num x => x -> x)
-
-type instance CaseResult CaseNum' x = x
-
-instance Reiterate CaseNum' (x ': xs) where
-    reiterate (CaseNum' f) = CaseNum' f
-
-instance Num x => Case CaseNum' (x ': xs) where
-    case' (CaseNum' f) = f
-
---------------------------------
-
--- | Create an instance of 'Case' that can handle all 'Show' and convert to a specified type
-newtype CaseShow r (xs :: [Type]) = CaseShow (forall x. Show x => x -> r)
-
-type instance CaseResult (CaseShow r) x = r
-
-instance Reiterate (CaseShow r) (x ': xs) where
-    reiterate (CaseShow f) = CaseShow f
-
-instance Show x => Case (CaseShow r) (x ': xs) where
-    case' (CaseShow f) = f
 
 --------------------------------
 
@@ -332,9 +305,9 @@ spec = do
             afoldr (:) [] (forMany (cases y) x) `shouldBe` ret
             afoldr (:) [] (forMany (cases y) x) `shouldBe` ret
 
-        it "can be folded with single 'CaseTypeable' handlers using 'forMany' or 'collect'" $ do
+        it "can be folded with polymorphic 'CaseFunc' handlers using 'forMany' or 'collect'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            afoldr (:) [] (forMany (CaseTypeable (show . typeRep . (pure @Proxy))) x) `shouldBe` ["Int", "Bool", "Char", "Maybe Char", "Int", "Maybe Char"]
+            afoldr (:) [] (forMany (CaseFunc @Typeable (show . typeRep . (pure @Proxy))) x) `shouldBe` ["Int", "Bool", "Char", "Maybe Char", "Int", "Maybe Char"]
 
         it "can be folded with 'Many' handlers in index order using 'forManyN' or 'collectN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
@@ -347,5 +320,5 @@ spec = do
             let x = (5 :: Int) ./ (6 :: Int8) ./ (7 :: Int16) ./ (8 :: Int32) ./ nil
                 y = (15 :: Int) ./ (16 :: Int8) ./ (17 :: Int16) ./ (18 :: Int32) ./ nil
                 z = ("5" :: String) ./ ("6" :: String) ./ ("7" :: String) ./ ("8" :: String) ./ nil
-            afmap (CaseNum' (+10)) x `shouldBe` y
-            afmap (CaseShow show) x `shouldBe` z
+            afmap (CaseFunc' @Num (+10)) x `shouldBe` y
+            afmap (CaseFunc @Show @String show) x `shouldBe` z

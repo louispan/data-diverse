@@ -164,12 +164,16 @@ type family Init (xs :: [k]) :: [k] where
 -- | Takes two lists which must be the same length and returns a list of corresponding pairs.
 type Zip (xs :: [k]) (ys :: [k]) = ZipImpl xs ys xs ys
 
--- | Tests if all the types in a typelist is all a specified type.
-type IsAll (x :: k) (xs :: [k]) = IsAllImpl xs x xs
-
+-- | The result from evaluating a 'Case' with a type from a typelist.
 type family CaseResult (c ::[k1] -> k2) (x :: k1) :: k2
 
 -- | Return a list of results from applying 'CaseResult' to every type in the @xs@ typelist.
 type family CaseResults (c ::[k1] -> k2) (xs :: [k1]) :: [k2] where
     CaseResults c '[] = '[]
     CaseResults c (x ': xs) = CaseResult c x ': CaseResults c xs
+
+-- | Tests if all the types in a typelist satisfy a constraint
+type family AllConstrained (c :: k -> Constraint) (xs :: [k]) :: Constraint where
+    AllConstrained c '[] = ()
+    AllConstrained c (x ': xs) = (c x, AllConstrained c xs)
+-- https://hackage.haskell.org/package/vinyl-0.6.0/docs/Data-Vinyl-TypeLevel.html#t:AllConstrained

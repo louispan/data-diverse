@@ -68,14 +68,14 @@ instance UniqueMember (Head xs -> r) fs => Case (Cases fs r) xs where
 -- However, the 'Cases' constructor is still exported to allow creating a master-of-all-'Case'.
 cases
     :: forall r xs fs.
-       (IsAll r (CaseResults (Cases fs r) fs), SameLength fs (Nub xs))
+       (AllConstrained ((~) r) (CaseResults (Cases fs r) fs), SameLength fs (Nub xs))
     => Many fs -> Cases fs r xs
 cases = Cases
 
 -- | A variation of 'cases' without the @SameLength@ constraint to allow creating a master-of-all-'Case'.
 cases'
     :: forall r xs fs.
-       (IsAll r (CaseResults (Cases fs r) fs))
+       (AllConstrained ((~) r) (CaseResults (Cases fs r) fs))
     => Many fs -> Cases fs r xs
 cases' = Cases
 
@@ -126,13 +126,13 @@ instance (MemberAt n (Head xs -> r) fs) => Case (CasesN fs r n) xs where
 -- @
 casesN
     :: forall r xs fs.
-       (IsAll r (CaseResults (CasesN fs r 0) fs), SameLength fs xs)
+       (AllConstrained ((~) r) (CaseResults (CasesN fs r 0) fs), SameLength fs xs)
     => Many fs -> CasesN fs r 0 xs
 casesN = CasesN
 
 -- | A variation of 'casesN' without the @SameLength@ constraint to allow creating a master-of-all-'Case'.
 casesN'
     :: forall r xs fs.
-       (IsAll r (CaseResults (CasesN fs r 0) fs))
+       (AllConstrained ((~) r) (CaseResults (CasesN fs r 0) fs))
     => Many fs -> CasesN fs r 0 xs
 casesN' = CasesN

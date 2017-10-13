@@ -379,7 +379,7 @@ diversify' = diversify
 -- let y = 'pickOnly' (5 :: Tagged Bar Int)
 --     y' = 'diversifyL' \@'[Bar] Proxy y :: 'Which' '[Tagged Bar Int, Tagged Foo Bool]
 --     y'' = 'diversifyL' \@'[Bar, Foo] Proxy y' :: 'Which' '[Tagged Foo Bool, Tagged Bar Int]
--- 'switch' y'' ('Data.Diverse.CaseTypeable.CaseTypeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Tagged * Bar Int"
+-- 'switch' y'' ('Data.Diverse.CaseFunc.CaseFunc' \@'Data.Typeable.Typeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Tagged * Bar Int"
 -- @
 diversifyL
     :: forall ls branch tree proxy.
@@ -411,7 +411,7 @@ type DiversifyN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
 -- let y = 'pickOnly' (5 :: Int)
 --     y' = 'diversifyN' \@'[0] \@_ \@[Int, Bool] Proxy y
 --     y'' = 'diversifyN' \@[1,0] \@_ \@[Bool, Int] Proxy y'
--- 'switch' y'' ('Data.Diverse.CaseTypeable.CaseTypeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Int"
+-- 'switch' y'' ('Data.Diverse.CaseFunc.CaseFunc' \@'Data.Typeable.Typeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Int"
 -- @
 diversifyN :: forall indices branch tree proxy. (DiversifyN indices branch tree) => proxy indices -> Which branch -> Which tree
 diversifyN _ = whichN (CaseDiversifyN @indices @_ @0 @branch)
@@ -627,11 +627,11 @@ which = reduce . Switcher
 --         'Data.Diverse.Many../' 'Data.Diverse.Many.nil')) \`shouldBe` "5"
 -- @
 --
--- Or 'Data.Diverse.CaseTypeable.CaseTypeable' to apply a polymorphic function that work on all 'Typeables'.
+-- Or 'Data.Diverse.CaseFunc.CaseFunc' \@'Data.Typeable.Typeable' to apply a polymorphic function that work on all 'Typeable's.
 --
 -- @
 -- let y = 'Data.Diverse.Which.pick' (5 :: Int) :: 'Data.Diverse.Which.Which' '[Int, Bool]
--- 'Data.Diverse.Which.switch' y ('CaseTypeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` "Int"
+-- 'Data.Diverse.Which.switch' y ('Data.Diverse.CaseFunc.CaseFunc' \@'Data.Typeable.Typeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` "Int"
 -- @
 --
 -- Or you may use your own custom instance of 'Case'.

@@ -14,12 +14,18 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 1.1.0.0
+  - Added `CaseFunc` and `CaseFunc'` which replaces `CaseTypeable` (eg `CaseFunc @Typeable`)
+    <https://github.com/louispan/data-diverse/issues/6>
+  - Replaced `IsAll` constraint with `AllConstrained`.
+
 * 1.0.0.1
   - Added `CaseTypeable'` as an example of polymorphic `Case` that doesn't change the type.
 
 * 1.0.0.0
   - The exposed api shouldn't break, but there are a lot of internal changes.
-  - Added `AFunctor` which can map over the types in the 'Many' <https://github.com/louispan/data-diverse/issues/5>.
+  - Added `AFunctor` which can map over the types in the 'Many'
+    <https://github.com/louispan/data-diverse/issues/5>.
   - Added friendlier type synomyns `Collect` and `CollectN` for `collect` and `collectN`
   - Expose type of 'Collector' and 'CollectorN'
   - Replace type parameter `r` from `Case` typeclass with `CaseResult` type family.
@@ -28,7 +34,8 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - All `CaseXxxN` type variables now end with r n xs.
 
 * 0.11.0.0
-  - Added `impossible` modelled after `Data.Void.absurd` <https://github.com/louispan/data-diverse/issues/4>
+  - Added `impossible` modelled after `Data.Void.absurd`
+    <https://github.com/louispan/data-diverse/issues/4>
   - Removed `zilch` so `Which '[]` is uninhabited like `Data.Void.Void`, making 'impossible' safe to use.
   - Removed `Monoid` and changed `Show`, `Read` and `Generic` instances for `Which '[]` to be partial
     just like Data.Void.Void.
