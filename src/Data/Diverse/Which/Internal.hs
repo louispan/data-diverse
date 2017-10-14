@@ -189,7 +189,7 @@ pick_ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 --     x = 'trialL' \@Foo Proxy y
 -- x `shouldBe` (Right (Tagged 5))
 -- @
-pickL :: forall l x xs proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> x -> Which xs
+pickL :: forall l xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> x -> Which xs
 pickL _ = pick_ @x
 
 -- | A variation of 'pick' into a 'Which' of a single type.
@@ -213,7 +213,7 @@ pick0 = Which 0 . unsafeCoerce
 -- @
 -- 'pickN' (Proxy \@4) (5 :: Int) :: Which '[Bool, Int, Char, Bool, Int, Char]
 -- @
-pickN :: forall n x xs proxy. MemberAt n x xs => proxy n -> x -> Which xs
+pickN :: forall n xs proxy x. MemberAt n x xs => proxy n -> x -> Which xs
 pickN _ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 
 -- | It is 'obvious' what value is inside a 'Which' of one type.
@@ -235,13 +235,13 @@ obvious (Which _ v) = unsafeCoerce v
 trial
     :: forall x xs.
        (UniqueMember x xs)
-    => Which xs -> Either (Which (Without x xs)) x
+    => Which xs -> Either (Which (Remove x xs)) x
 trial = trial_
 
 trial_
     :: forall n x xs.
        (KnownNat n, n ~ IndexOf x xs)
-    => Which xs -> Either (Which (Without x xs)) x
+    => Which xs -> Either (Which (Remove x xs)) x
 trial_ (Which n v) = let i = fromInteger (natVal @n Proxy)
                   in if n == i
                      then Right (unsafeCoerce v)
@@ -273,14 +273,14 @@ trial_' (Which n v) = let i = fromInteger (natVal @n Proxy)
 -- x `shouldBe` (Right (Tagged 5))
 -- @
 trialL
-    :: forall l x xs proxy.
+    :: forall l xs proxy x.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
-    => proxy l -> Which xs -> Either (Which (Without x xs)) x
+    => proxy l -> Which xs -> Either (Which (Remove x xs)) x
 trialL _ = trial_ @_ @x
 
 -- | Variation of 'trialL' which returns a Maybe
 trialL'
-    :: forall l x xs proxy.
+    :: forall l xs proxy x.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
     => proxy l -> Which xs -> Maybe x
 trialL' _ = trial_' @_ @x
@@ -309,9 +309,9 @@ trial0' (Which n v) = if n == 0
 -- 'trialN' \@_ \@1 Proxy x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Int, Char, Maybe String]
 -- @
 trialN
-    :: forall n x xs proxy.
+    :: forall n xs proxy x.
        (MemberAt n x xs)
-    => proxy n -> Which xs -> Either (Which (WithoutIndex n xs)) x
+    => proxy n -> Which xs -> Either (Which (RemoveIndex n xs)) x
 trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
                   in if n == i
                      then Right (unsafeCoerce v)
@@ -321,7 +321,7 @@ trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
 
 -- | Variation of 'trialN' which returns a Maybe
 trialN'
-    :: forall n x xs proxy.
+    :: forall n xs proxy x.
        (MemberAt n x xs)
     => proxy n -> Which xs -> Maybe x
 trialN' _ (Which n v) = let i = fromInteger (natVal @n Proxy)

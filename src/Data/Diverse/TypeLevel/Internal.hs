@@ -117,16 +117,16 @@ type family SameLengthImpl (ctx :: [k1]) (cty :: [k2]) (xs :: [k1]) (yx :: [k2])
                                             ':<>: 'Text "’")
 
 -- | The typelist @xs@ without the type at Nat @n@. @n@ must be within bounds of @xs@
-type family WithoutIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: [k] where
-    WithoutIndexImpl i ctx n '[] = TypeError ('Text "WithoutIndex error: Index ‘"
+type family RemoveIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: [k] where
+    RemoveIndexImpl i ctx n '[] = TypeError ('Text "RemoveIndex error: Index ‘"
                                        ':<>: 'ShowType i
                                        ':<>: 'Text "’"
                                        ':<>: 'Text " is out of bounds of "
                                        ':<>: 'Text "‘"
                                        ':<>: 'ShowType ctx
                                        ':<>: 'Text "’")
-    WithoutIndexImpl i ctx 0 (x ': xs) = xs
-    WithoutIndexImpl i ctx n (x ': xs) = x ': WithoutIndexImpl i ctx (n - 1) xs
+    RemoveIndexImpl i ctx 0 (x ': xs) = xs
+    RemoveIndexImpl i ctx n (x ': xs) = x ': RemoveIndexImpl i ctx (n - 1) xs
 
 -- | The typelist @xs@ without the type at Nat @n@ replaced by @y@. @n@ must be within bounds of @xs@
 type family ReplaceIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (y :: k) (xs :: [k]) :: [k] where

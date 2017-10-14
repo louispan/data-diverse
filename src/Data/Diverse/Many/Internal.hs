@@ -88,6 +88,38 @@ module Data.Diverse.Many.Internal (
     , CollectorN
     , forManyN
     , collectN
+
+    -- * Splitting operations
+
+    -- * Splitting
+    , splitBefore
+    , splitBeforeL
+    , splitBeforeN
+    , splitAfter
+    , splitAfterL
+    , splitAfterN
+
+    -- * inset multiple items
+    , insetBefore
+    , insetBeforeL
+    , insetBeforeN
+    , insetAfter
+    , insetAfterL
+    , insetAfterN
+
+    -- * insert single item
+    , insertBefore
+    , insertBeforeL
+    , insertBeforeN
+    , insertAfter
+    , insertAfterL
+    , insertAfterN
+
+    -- * Deleting single item
+    , remove
+    , removeL
+    , removeN
+
     ) where
 
 import Control.Applicative
@@ -292,7 +324,7 @@ instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l
 nil :: Many '[]
 nil = Many S.empty
 
--- | Create a Many from a single value. Analogous to 'M.singleton'
+-- | Create a Many from a single value. Analogous to 'S.singleton'
 single :: x -> Many '[x]
 single v = Many (S.singleton (unsafeCoerce v))
 
@@ -407,6 +439,240 @@ fore = fst . viewb
 
 --------------------------------------------------
 
+-- | Split a Many into two, where the last type in the first Many is unique @x@
+splitAfter_
+    :: forall x xs n proxy.
+       (KnownNat n, n ~ IndexOf x xs)
+    => proxy x -> Many xs -> (Many (To x xs), Many (After x xs))
+splitAfter_ _ (Many xs) = let (as, bs) = S.splitAt (i + 1) xs in (Many as, Many bs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Split a Many into two, where the first type in the second Many is unique @x@
+splitBefore_
+    :: forall x xs n proxy.
+       (KnownNat n, n ~ IndexOf x xs)
+    => proxy x -> Many xs -> (Many (Before x xs), Many (From x xs))
+splitBefore_ _ (Many xs) = let (as, bs) = S.splitAt i xs in (Many as, Many bs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Split a Many into two, where the last type in the first Many is unique @x@
+splitAfter
+    :: forall x xs proxy.
+       (UniqueMember x xs)
+    => proxy x -> Many xs -> (Many (To x xs), Many (After x xs))
+splitAfter _ = splitAfter_ (Proxy @x)
+
+-- | Split a Many into two, where the first type in the second Many is unique @x@
+splitBefore
+    :: forall x xs proxy.
+       (UniqueMember x xs)
+    => proxy x -> Many xs -> (Many (Before x xs), Many (From x xs))
+splitBefore _ = splitBefore_ (Proxy @x)
+
+-- | Split a Many into two, where the last type in the first Many is unique label @l@
+splitAfterL
+    :: forall l xs proxy x.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> Many xs -> (Many (To x xs), Many (After x xs))
+splitAfterL _ = splitAfter_ (Proxy @x)
+
+-- | Split a Many into two, where the first type in the second Many is unique label @l@
+splitBeforeL
+    :: forall l xs proxy x.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> Many xs -> (Many (Before x xs), Many (From x xs))
+splitBeforeL _ = splitBefore_ (Proxy @x)
+
+-- | Split a Many into two, where the second Many starts at index @(n + 1)@
+splitAfterN
+    :: forall n xs proxy.
+       (KnownNat n, n + 1 <= Length xs)
+    => proxy n -> Many xs -> (Many (ToIndex n xs), Many (AfterIndex n xs))
+splitAfterN _ (Many xs) = let (as, bs) = S.splitAt (i + 1) xs in (Many as, Many bs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Split a Many into two, where the second Many starts at index @n@
+splitBeforeN
+    :: forall n xs proxy.
+       (KnownNat n, n + 1 <= Length xs)
+    => proxy n -> Many xs -> (Many (BeforeIndex n xs), Many (FromIndex n xs))
+splitBeforeN _ (Many xs) = let (as, bs) = S.splitAt i xs in (Many as, Many bs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+--------------------------------------------------
+
+-- | Insert a Many into another Many, inserting after a unique @x@
+insetAfter_
+    :: forall x ys xs n proxy.
+       (KnownNat n, n ~ IndexOf x xs)
+    => proxy x -> Many ys -> Many xs -> Many (Append (To x xs) (Append ys (After x xs)))
+insetAfter_ _ (Many ys) (Many xs) = let (as, bs) = S.splitAt (i + 1) xs in Many (as S.>< ys S.>< bs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Insert a Many into another Many, inserting before a unique @x@
+insetBefore_
+    :: forall x ys xs n proxy.
+       (KnownNat n, n ~ IndexOf x xs)
+    => proxy x -> Many ys -> Many xs -> Many (Append (Before x xs) (Append ys (From x xs)))
+insetBefore_ _ (Many ys) (Many xs) = let (as, bs) = S.splitAt i xs in Many (as S.>< ys S.>< bs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Insert a Many into another Many, inserting after a unique @x@
+insetAfter
+    :: forall x ys xs proxy.
+       (UniqueMember x xs)
+    => proxy x -> Many ys -> Many xs -> Many (Append (To x xs) (Append ys (After x xs)))
+insetAfter _ = insetAfter_ (Proxy @x)
+
+-- | Insert a Many into another Many, inserting before a unique @x@
+insetBefore
+    :: forall x ys xs proxy.
+       (UniqueMember x xs)
+    => proxy x -> Many ys -> Many xs -> Many (Append (Before x xs) (Append ys (From x xs)))
+insetBefore _ = insetBefore_ (Proxy @x)
+
+-- | Insert a Many into another Many, inserting after a unique label @l@
+insetAfterL
+    :: forall l ys xs proxy x.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> Many ys -> Many xs -> Many (Append (To x xs) (Append ys (After x xs)))
+insetAfterL _ = insetAfter_ (Proxy @x)
+
+-- | Insert a Many into another Many, inserting before a unique label @l@
+insetBeforeL
+    :: forall l ys xs proxy x.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> Many ys -> Many xs -> Many (Append (Before x xs) (Append ys (From x xs)))
+insetBeforeL _ = insetBefore_ (Proxy @x)
+
+-- | Insert a Many into another Many, starting at index @(n + 1)@
+insetAfterN
+    :: forall n ys xs proxy.
+       (KnownNat n, n + 1 <= Length xs)
+    => proxy n -> Many ys -> Many xs -> Many (Append (ToIndex n xs) (Append ys (AfterIndex n xs)))
+insetAfterN _ (Many ys) (Many xs) = let (as, bs) = S.splitAt (i + 1) xs in Many (as S.>< ys S.>< bs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Insert a Many into another Many, starting at index @n@
+insetBeforeN
+    :: forall n ys xs proxy.
+       (KnownNat n, n + 1 <= Length xs)
+    => proxy n -> Many ys -> Many xs -> Many (Append (BeforeIndex n xs) (Append ys (FromIndex n xs)))
+insetBeforeN _ (Many ys) (Many xs) = let (as, bs) = S.splitAt i xs in Many (as S.>< ys S.>< bs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+--------------------------------------------------
+
+-- | Insert an item into a Many, inserting after unique type @x@
+insertAfter_
+    :: forall x y xs n proxy.
+       (KnownNat n, n ~ IndexOf x xs)
+    => proxy x -> y -> Many xs -> Many (Append (To x xs) (y ': After x xs))
+insertAfter_ _ y (Many xs) = Many (S.insertAt (i + 1) (unsafeCoerce y) xs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Insert an item into a Many, inserting before unique type @x@
+insertBefore_
+    :: forall x y xs n proxy.
+       (KnownNat n, n ~ IndexOf x xs)
+    => proxy x -> y -> Many xs -> Many (Append (Before x xs) (y ': From x xs))
+insertBefore_ _ y (Many xs) = Many (S.insertAt i (unsafeCoerce y) xs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Insert an item into a Many, inserting after unique type @x@
+insertAfter
+    :: forall x y xs proxy.
+       (UniqueMember x xs)
+    => proxy x -> y -> Many xs -> Many (Append (To x xs) (y ': After x xs))
+insertAfter _ = insertAfter_ (Proxy @x)
+
+-- | Insert an item into a Many, inserting before unique type @x@
+insertBefore
+    :: forall x y xs proxy.
+       (UniqueMember x xs)
+    => proxy x -> y -> Many xs -> Many (Append (Before x xs) (y ': From x xs))
+insertBefore _ = insertBefore_ (Proxy @x)
+
+-- | Insert an item into a Many, inserting after unique label @l@
+insertAfterL
+    :: forall l y xs proxy x.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> y -> Many xs -> Many (Append (To x xs) (y ': After x xs))
+insertAfterL _ = insertAfter_ (Proxy @x)
+
+-- | Insert an item into a Many, inserting before unique label @l@
+insertBeforeL
+    :: forall l y xs proxy x.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> y -> Many xs -> Many (Append (Before x xs) (y ': From x xs))
+insertBeforeL _ = insertBefore_ (Proxy @x)
+
+-- | Insert an item into a Many, inserting after index @n@
+insertAfterN
+    :: forall n y xs proxy.
+       (KnownNat n, n + 1 <= Length xs)
+    => proxy n -> y -> Many xs -> Many (Append (ToIndex n xs) (y ': AfterIndex n xs))
+insertAfterN _ y (Many xs) = Many (S.insertAt (i + 1) (unsafeCoerce y) xs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Insert an item into a Many, inserting before index @n@
+insertBeforeN
+    :: forall n y xs proxy.
+       (KnownNat n, n + 1 <= Length xs)
+    => proxy n -> y -> Many xs -> Many (Append (BeforeIndex n xs) (y ': FromIndex n xs))
+insertBeforeN _ y (Many xs) = Many (S.insertAt i (unsafeCoerce y) xs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+--------------------------------------------------
+
+-- | Remove the unique @x@ from a Many.
+-- Not named 'delete' to avoid conflicts with 'Data.List.delete'
+remove_
+    :: forall x xs n proxy.
+       (KnownNat n, n ~ IndexOf x xs)
+    => proxy x -> Many xs -> Many (Remove x xs)
+remove_ _ (Many xs) = Many (S.deleteAt i xs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Remove the unique @x@ from a Many.
+-- Not named 'delete' to avoid conflicts with 'Data.List.delete'
+remove
+    :: forall x xs proxy.
+       (UniqueMember x xs)
+    => proxy x -> Many xs -> Many (Remove x xs)
+remove _ = remove_ (Proxy @x)
+
+-- | Remove the unique label @l@ from a Many.
+removeL
+    :: forall l xs proxy x.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> Many xs -> Many (Remove x xs)
+removeL _ = remove_ (Proxy @x)
+
+-- | Remove the @n@-th item from a Many.
+removeN
+    :: forall n xs proxy.
+       (KnownNat n, n + 1 <= Length xs)
+    => proxy n -> Many xs -> Many (RemoveIndex n xs)
+removeN _ (Many xs) = Many (S.deleteAt i xs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+--------------------------------------------------
+
 -- | Getter by unique type. Get the field with type @x@.
 --
 -- @
@@ -431,7 +697,7 @@ fetch_ (Many xs) = let !x = S.index xs i in (unsafeCoerce x) -- forcing x to avo
 -- 'fetchL' \@Foo Proxy y \`shouldBe` Tagged \@Foo \'X'
 -- 'fetchL' \@"Hi" Proxy y \`shouldBe` Tagged \@"Hi" True
 -- @
-fetchL :: forall l x xs proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> x
+fetchL :: forall l xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> x
 fetchL _ = fetch_ @x
 
 --------------------------------------------------
@@ -442,7 +708,7 @@ fetchL _ = fetch_ @x
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
 -- 'fetchN' @1 Proxy x \`shouldBe` False
 -- @
-fetchN :: forall n x xs proxy. MemberAt n x xs => proxy n -> Many xs -> x
+fetchN :: forall n xs proxy x. MemberAt n x xs => proxy n -> Many xs -> x
 fetchN p (Many xs) = let !x = S.index xs i in (unsafeCoerce x) -- forcing x to avoid storing Seq in thunk
   where i = fromInteger (natVal p)
 
@@ -470,7 +736,7 @@ replace_ (Many xs) v = Many (S.update i (unsafeCoerce v) xs)
 replace' :: forall x y xs proxy. UniqueMember x xs => proxy x -> Many xs -> y -> Many (Replace x y xs)
 replace' = replace'_
 
-replace'_ :: forall x y xs n proxy. (KnownNat n, n ~ IndexOf x xs) => proxy x -> Many xs -> y -> Many (Replace x y xs)
+replace'_ :: forall x y xs proxy n. (KnownNat n, n ~ IndexOf x xs) => proxy x -> Many xs -> y -> Many (Replace x y xs)
 replace'_ _ (Many xs) v = Many (S.update i (unsafeCoerce v) xs)
   where i = fromInteger (natVal @n Proxy)
 
@@ -485,7 +751,7 @@ replace'_ _ (Many xs) v = Many (S.update i (unsafeCoerce v) xs)
 -- 'replaceL' \@\"Hello" Proxy y (Tagged \@\"Hello" 7) \`shouldBe`
 --     (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" (7 :: Int) './' 'nil'
 -- @
-replaceL :: forall l x xs proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> x -> Many xs
+replaceL :: forall l xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> x -> Many xs
 replaceL _ = replace_ @x
 
 -- | Polymorphic setter by unique type. Set the field with type @x@, and replace with type @y@
@@ -497,7 +763,7 @@ replaceL _ = replace_ @x
 -- replaceL' \@\"Hello" Proxy y (Tagged \@\"Hello" False) \`shouldBe`
 --     (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" False './' 'nil'
 -- @
-replaceL' :: forall l x y xs proxy. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> y -> Many (Replace x y xs)
+replaceL' :: forall l y xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> y -> Many (Replace x y xs)
 replaceL' _ = replace'_ @x Proxy
 
 --------------------------------------------------
@@ -508,12 +774,12 @@ replaceL' _ = replace'_ @x Proxy
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
 -- 'replaceN' \@0 Proxy x 7 `shouldBe`
 -- @
-replaceN :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many xs
+replaceN :: forall n xs proxy x. MemberAt n x xs => proxy n -> Many xs -> x -> Many xs
 replaceN p (Many xs) v = Many (S.update i (unsafeCoerce v) xs)
   where i = fromInteger (natVal p)
 
 -- | Polymorphic version of 'replaceN'
-replaceN' :: forall n x y xs proxy. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
+replaceN' :: forall n y xs proxy x. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
 replaceN' p (Many xs) v = Many (S.update i (unsafeCoerce v) xs)
   where i = fromInteger (natVal p)
 

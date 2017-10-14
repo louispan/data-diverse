@@ -104,10 +104,10 @@ type family KindsAtLabels (ls :: [k1]) (xs :: [k]) :: [k] where
     KindsAtLabels (l ': ls) xs = KindAtLabel l xs ': KindsAtLabels ls xs
 
 -- | The typelist @xs@ without first @x@. It is okay for @x@ not to exist in @xs@
-type family Without (x :: k) (xs :: [k]) :: [k] where
-    Without x '[] = '[]
-    Without x (x ': xs) = xs
-    Without x (y ': xs) = y ': Without x xs
+type family Remove (x :: k) (xs :: [k]) :: [k] where
+    Remove x '[] = '[]
+    Remove x (x ': xs) = xs
+    Remove x (y ': xs) = y ': Remove x xs
 
 -- | The typelist @xs@ with the first @x@ replaced by @y@. It is okay for @x@ not to exist in @xs@
 type Replace (x :: k) (y :: k) (xs :: [k]) = ReplaceImpl x y xs
@@ -117,13 +117,65 @@ type Replace (x :: k) (y :: k) (xs :: [k]) = ReplaceImpl x y xs
 type Replaces (xs :: [k]) (ys :: [k]) (zs :: [k]) = ReplacesImpl xs ys xs ys zs
 
 -- | The typelist @xs@ without the type at Nat @n@. @n@ must be within bounds of @xs@
-type WithoutIndex (n :: Nat) (xs :: [k]) = WithoutIndexImpl n xs n xs
+type RemoveIndex (n :: Nat) (xs :: [k]) = RemoveIndexImpl n xs n xs
 
 -- | The typelist @xs@ without the type at Nat @n@ replaced by @y@. @n@ must be within bounds of @xs@
 type ReplaceIndex (n :: Nat) (y :: k) (xs :: [k]) = ReplaceIndexImpl n xs n y xs
 
 -- | The typelist @xs@ replaced by @ys@ at the indices @ns@. @ns@ and @ys@ must be the same length. @ns@ must be within bounds of @xs@
 type ReplacesIndex (ns :: [Nat]) (ys :: [k]) (xs :: [k]) = ReplacesIndexImpl 0 ns ys xs
+
+-- | Returns the typelist up to and excluding @x@. If @x@ doesn't exist, then the original @xs@ is returned.
+type family Before (x :: k) (xs :: [k]) :: [k] where
+     Before x '[] = '[]
+     Before x (x ': xs) = '[]
+     Before x (y ': xs) = y ': Before x xs
+
+-- | Returns the typelist up to and including @x@. If @x@ doesn't exist, then the original @xs@ is returned.
+type family To (x :: k) (xs :: [k]) :: [k] where
+     To x '[] = '[]
+     To x (x ': xs) = '[x]
+     To x (y ': xs) = y ': To x xs
+
+-- | Returns the typelist after and excluding @x@. If @x@ doesn't exist, then an empty '[] is returned.
+type family After (x :: k) (xs :: [k]) :: [k] where
+     After x '[] = '[]
+     After x (x ': xs) = xs
+     After x (y ': xs) = After x xs
+
+-- | Returns the typelist after and including @x@. If @x@ doesn't exist, then an empty '[] is returned.
+type family From (x :: k) (xs :: [k]) :: [k] where
+     From x '[] = '[]
+     From x (x ': xs) = (x ': xs)
+     From x (y ': xs) = From x xs
+
+-- | Returns the typelist before (and exluding) index @n@.
+-- If @n@ is larger then the @xs@ size, then the original @xs@ is returned.
+type family BeforeIndex (n :: Nat) (xs :: [k]) :: [k] where
+     BeforeIndex n '[] = '[]
+     BeforeIndex 0 xs = '[]
+     BeforeIndex n (x ': xs) = x ': BeforeIndex (n - 1) xs
+
+-- | Returns the typelist up to (and including) index @n@.
+-- If @n@ is larger then the @xs@ size, then the original @xs@ is returned.
+type family ToIndex (n :: Nat) (xs :: [k]) :: [k] where
+     ToIndex n '[] = '[]
+     ToIndex 0 (x ': xs) = '[x]
+     ToIndex n (x ': xs) = x ': ToIndex (n - 1) xs
+
+-- | Returns the typelist after (and exluding) index @n@.
+-- If @n@ is larger then the @xs@ size, then an empty '[] is returned.
+type family AfterIndex (n :: Nat) (xs :: [k]) :: [k] where
+     AfterIndex n '[] = '[]
+     AfterIndex 0 (_ ': xs) = xs
+     AfterIndex n (x ': xs) = AfterIndex (n - 1) xs
+
+-- | Returns the typelist from (and including) index @n@.
+-- If @n@ is larger then the @xs@ size, then an empty '[] is returned.
+type family FromIndex (n :: Nat) (xs :: [k]) :: [k] where
+     FromIndex n '[] = '[]
+     FromIndex 0 xs = xs
+     FromIndex n (x ': xs) = FromIndex (n - 1) xs
 
 -- | Get the typelist without the 'Head' type
 type family Tail (xs :: [k]) :: [k] where
@@ -135,11 +187,14 @@ type family Head (xs :: [k]) :: k where
     Head '[] = TypeError ('Text "Head error: empty type list")
     Head (x ': xs) = x
 
--- | Get the last type in a typelist
 type family Last (xs :: [k]) :: k where
     Last '[] = TypeError ('Text "Last error: empty type list")
     Last (x ': x' ': xs) = Last (x' ': xs)
     Last '[x] = x
+
+type family Length (xs :: [k]) :: Nat where
+    Length '[] = 0
+    Length (x ': xs) = 1 + Length xs
 
 -- | Ensures two typelists are the same length
 type SameLength (xs :: [k1]) (ys :: [k2]) = SameLengthImpl xs ys xs ys
@@ -147,7 +202,7 @@ type SameLength (xs :: [k1]) (ys :: [k2]) = SameLengthImpl xs ys xs ys
 -- | Set complement. Returns the set of things in @xs@ that are not in @ys@.
 type family Complement (xs :: [k]) (ys :: [k]) :: [k] where
     Complement xs '[] = xs
-    Complement xs (y ': ys)  = Complement (Without y xs) ys
+    Complement xs (y ': ys)  = Complement (Remove y xs) ys
 
 -- | Returns a @xs@ appended with @ys@
 type family Append (xs :: [k]) (ys :: [k]) :: [k] where

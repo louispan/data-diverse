@@ -14,6 +14,15 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 1.2.0.0
+  - Rerranged type variable for xxxL and xxxN functions so that the
+    @x@ inferrred from label @l@ or index @n@ is after @proxy@.
+    - This affects `fetch[L|N]`, `replace[L|N]`, `replace[L|N]'`, `pick[L|N]`
+  - Depends on at least containers-0.5.8.2 for `Data.Sequence.insertAt`
+  - Added splitting operations: `split[Before|After][|L|N]`, `inset[Before|After][|L|N]`,
+    `insert[Before|After][|L|N]`, `remove[Before|After][|L|N]`
+  - Renamed type function `Without` to `Remove` to be consistent with new `remove` method.
+
 * 1.1.0.0
   - Added `CaseFunc` and `CaseFunc'` which replaces `CaseTypeable` (eg `CaseFunc @Typeable`)
     <https://github.com/louispan/data-diverse/issues/6>

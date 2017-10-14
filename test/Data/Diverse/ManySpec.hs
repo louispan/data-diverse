@@ -26,6 +26,7 @@ main = hspec spec
 
 data Foo
 data Bar
+data Dee
 
 spec :: Spec
 spec = do
@@ -322,3 +323,123 @@ spec = do
                 z = ("5" :: String) ./ ("6" :: String) ./ ("7" :: String) ./ ("8" :: String) ./ nil
             afmap (CaseFunc' @Num (+10)) x `shouldBe` y
             afmap (CaseFunc @Show @String show) x `shouldBe` z
+
+        it "can be split into two 'Many's" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just True ./ Just 'A' ./ nil
+                y = (Tagged 5 :: Tagged Foo Int) ./ False ./ Tagged @Dee 'X' ./ Just True ./ Tagged @Bar (Just 'A') ./ nil
+                x1a = (5 :: Int) ./ False ./ nil
+                x1b = 'X' ./ Just True ./ Just 'A' ./ nil
+                x2a = (5 :: Int) ./ False ./ 'X' ./ nil
+                x2b = Just True ./ Just 'A' ./ nil
+                y1a = (Tagged 5 :: Tagged Foo Int) ./ False ./ nil
+                y1b = Tagged @Dee 'X' ./ Just True ./ Tagged @Bar (Just 'A') ./ nil
+                y2a = (Tagged 5 :: Tagged Foo Int) ./ False ./ Tagged @Dee 'X' ./ nil
+                y2b = Just True ./ Tagged @Bar (Just 'A') ./ nil
+
+            splitBefore (Proxy @Int) x `shouldBe` (nil, x)
+            splitBeforeL (Proxy @Foo) y `shouldBe` (nil, y)
+            splitBeforeN (Proxy @0) x `shouldBe` (nil, x)
+            splitAfter (Proxy @Int) x `shouldBe` let (a, b) = viewf x in (single a, b)
+            splitAfterL (Proxy @Foo) y `shouldBe` let (a, b) = viewf y in (single a, b)
+            splitAfterN (Proxy @0) x `shouldBe` let (a, b) = viewf x in (single a, b)
+
+            splitBefore (Proxy @(Maybe Char)) x `shouldBe` let (a, b) = viewb x in (a, single b)
+            splitBeforeL (Proxy @Bar) y `shouldBe` let (a, b) = viewb y in (a, single b)
+            splitBeforeN (Proxy @4) x `shouldBe` let (a, b) = viewb x in (a, single b)
+            splitAfter (Proxy @(Maybe Char)) x `shouldBe` (x, nil)
+            splitAfterL (Proxy @Bar) y `shouldBe` (y, nil)
+            splitAfterN (Proxy @4) x `shouldBe` (x, nil)
+
+            splitBefore (Proxy @(Char)) x `shouldBe` (x1a, x1b)
+            splitBeforeL (Proxy @Dee) y `shouldBe` (y1a, y1b)
+            splitBeforeN (Proxy @2) x `shouldBe` (x1a, x1b)
+            splitAfter(Proxy @(Char)) x `shouldBe` (x2a, x2b)
+            splitAfterL (Proxy @Dee) y `shouldBe` (y2a, y2b)
+            splitAfterN (Proxy @2) x `shouldBe` (x2a, x2b)
+
+        it "can be 'inset'ted into another 'Many'" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just True ./ Just 'A' ./ nil
+                y = (Tagged 5 :: Tagged Foo Int) ./ False ./ Tagged @Dee 'X' ./ Just True ./ Tagged @Bar (Just 'A') ./ nil
+                x1a = (5 :: Int) ./ False ./ nil
+                x1b = 'X' ./ Just True ./ Just 'A' ./ nil
+                x2a = (5 :: Int) ./ False ./ 'X' ./ nil
+                x2b = Just True ./ Just 'A' ./ nil
+                y1a = (Tagged 5 :: Tagged Foo Int) ./ False ./ nil
+                y1b = Tagged @Dee 'X' ./ Just True ./ Tagged @Bar (Just 'A') ./ nil
+                y2a = (Tagged 5 :: Tagged Foo Int) ./ False ./ Tagged @Dee 'X' ./ nil
+                y2b = Just True ./ Tagged @Bar (Just 'A') ./ nil
+                z = True ./ 'Y' ./ nil
+
+            insetBefore (Proxy @Int) z x `shouldBe` z /./ x
+            insetBeforeL (Proxy @Foo) z y `shouldBe` z /./ y
+            insetBeforeN (Proxy @0) z x `shouldBe` z /./ x
+            insetAfter (Proxy @Int) z x `shouldBe` let (a, b) = viewf x in a ./ z /./ b
+            insetAfterL (Proxy @Foo) z y `shouldBe` let (a, b) = viewf y in a ./ z /./ b
+            insetAfterN (Proxy @0) z x `shouldBe` let (a, b) = viewf x in a ./ z /./ b
+
+            insetBefore (Proxy @(Maybe Char)) z x `shouldBe` let (a, b) = viewb x in a /./ (z \. b)
+            insetBeforeL (Proxy @Bar) z y `shouldBe` let (a, b) = viewb y in a /./ (z \. b)
+            insetBeforeN (Proxy @4) z x `shouldBe` let (a, b) = viewb x in a /./ (z \. b)
+            insetAfter (Proxy @(Maybe Char)) z x `shouldBe` x /./ z
+            insetAfterL (Proxy @Bar) z y `shouldBe` y /./ z
+            insetAfterN (Proxy @4) z x `shouldBe` x /./ z
+
+            insetBefore (Proxy @(Char)) z x `shouldBe` x1a /./ z /./ x1b
+            insetBeforeL (Proxy @Dee) z y `shouldBe` y1a /./ z /./ y1b
+            insetBeforeN (Proxy @2) z x `shouldBe` x1a /./ z /./ x1b
+            insetAfter(Proxy @(Char)) z x `shouldBe` x2a /./ z /./ x2b
+            insetAfterL (Proxy @Dee) z y `shouldBe` y2a /./ z /./ y2b
+            insetAfterN (Proxy @2) z x `shouldBe` x2a /./ z /./ x2b
+
+        it "can be 'insert'ted with an item at a specific place" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just True ./ Just 'A' ./ nil
+                y = (Tagged 5 :: Tagged Foo Int) ./ False ./ Tagged @Dee 'X' ./ Just True ./ Tagged @Bar (Just 'A') ./ nil
+                x1a = (5 :: Int) ./ False ./ nil
+                x1b = 'X' ./ Just True ./ Just 'A' ./ nil
+                x2a = (5 :: Int) ./ False ./ 'X' ./ nil
+                x2b = Just True ./ Just 'A' ./ nil
+                y1a = (Tagged 5 :: Tagged Foo Int) ./ False ./ nil
+                y1b = Tagged @Dee 'X' ./ Just True ./ Tagged @Bar (Just 'A') ./ nil
+                y2a = (Tagged 5 :: Tagged Foo Int) ./ False ./ Tagged @Dee 'X' ./ nil
+                y2b = Just True ./ Tagged @Bar (Just 'A') ./ nil
+                z = True
+
+            insertBefore (Proxy @Int) z x `shouldBe` z ./ x
+            insertBeforeL (Proxy @Foo) z y `shouldBe` z ./ y
+            insertBeforeN (Proxy @0) z x `shouldBe` z ./ x
+            insertAfter (Proxy @Int) z x `shouldBe` let (a, b) = viewf x in a ./ single z /./ b
+            insertAfterL (Proxy @Foo) z y `shouldBe` let (a, b) = viewf y in a ./ single z /./ b
+            insertAfterN (Proxy @0) z x `shouldBe` let (a, b) = viewf x in a ./ single z /./ b
+
+            insertBefore (Proxy @(Maybe Char)) z x `shouldBe` let (a, b) = viewb x in a /./ (single z \. b)
+            insertBeforeL (Proxy @Bar) z y `shouldBe` let (a, b) = viewb y in a /./ (single z \. b)
+            insertBeforeN (Proxy @4) z x `shouldBe` let (a, b) = viewb x in a /./ (single z \. b)
+            insertAfter (Proxy @(Maybe Char)) z x `shouldBe` x /./ single z
+            insertAfterL (Proxy @Bar) z y `shouldBe` y /./ single z
+            insertAfterN (Proxy @4) z x `shouldBe` x /./ single z
+
+            insertBefore (Proxy @(Char)) z x `shouldBe` x1a /./ single z /./ x1b
+            insertBeforeL (Proxy @Dee) z y `shouldBe` y1a /./ single z /./ y1b
+            insertBeforeN (Proxy @2) z x `shouldBe` x1a /./ single z /./ x1b
+            insertAfter(Proxy @(Char)) z x `shouldBe` x2a /./ single z /./ x2b
+            insertAfterL (Proxy @Dee) z y `shouldBe` y2a /./ single z /./ y2b
+            insertAfterN (Proxy @2) z x `shouldBe` x2a /./ single z /./ x2b
+
+
+        it "can 'remove' an item at a specific place" $ do
+            let x = (5 :: Int) ./ False ./ 'X' ./ Just True ./ Just 'A' ./ nil
+                y = (Tagged 5 :: Tagged Foo Int) ./ False ./ Tagged @Dee 'X' ./ Just True ./ Tagged @Bar (Just 'A') ./ nil
+                x' = (5 :: Int) ./ False ./ Just True ./ Just 'A' ./ nil
+                y' = (Tagged 5 :: Tagged Foo Int) ./ False ./ Just True ./ Tagged @Bar (Just 'A') ./ nil
+
+            remove (Proxy @Int) x `shouldBe` snd (viewf x)
+            removeL (Proxy @Foo) y `shouldBe` snd (viewf y)
+            removeN (Proxy @0) x `shouldBe` snd (viewf x)
+
+            remove (Proxy @(Maybe Char)) x `shouldBe` fst (viewb x)
+            removeL (Proxy @Bar) y `shouldBe` fst (viewb y)
+            removeN (Proxy @4) x `shouldBe` fst (viewb x)
+
+            remove (Proxy @(Char)) x `shouldBe` x'
+            removeL (Proxy @Dee) y `shouldBe` y'
+            removeN (Proxy @2) x `shouldBe` x'

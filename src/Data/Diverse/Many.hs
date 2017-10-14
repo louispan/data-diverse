@@ -71,6 +71,38 @@ module Data.Diverse.Many (
     , CollectorN
     , forManyN
     , collectN
+
+    -- * Splitting operations
+
+    -- * Splitting
+    , splitBefore
+    , splitBeforeL
+    , splitBeforeN
+    , splitAfter
+    , splitAfterL
+    , splitAfterN
+
+    -- * inset multiple items
+    , insetBefore
+    , insetBeforeL
+    , insetBeforeN
+    , insetAfter
+    , insetAfterL
+    , insetAfterN
+
+    -- * insert single item
+    , insertBefore
+    , insertBeforeL
+    , insertBeforeN
+    , insertAfter
+    , insertAfterL
+    , insertAfterN
+
+    -- * Deleting single item
+    , remove
+    , removeL
+    , removeN
+
     ) where
 
 import Data.Diverse.Many.Internal

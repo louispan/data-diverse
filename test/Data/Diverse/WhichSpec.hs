@@ -96,12 +96,12 @@ spec = do
             obvious d `shouldBe` 5
 
         it "can be 'trialN'led until its final 'obvious' value" $ do
-            let a = pickN @2 @_ @'[Char, Bool, Int, Bool, Char, String] Proxy (5 :: Int)
-                b = pickN @2 @_ @'[Char, Bool, Int, Char, String] Proxy (5 :: Int)
-                c = pickN @2 @_ @'[Char, Bool, Int, String] Proxy (5 :: Int)
-                d = pickN @1 @_ @'[Bool, Int, String] Proxy (5 :: Int)
-                e = pickN @1 @_ @'[Bool, Int] Proxy (5 :: Int)
-                f = pickN @0 @_ @'[Int] Proxy (5 :: Int)
+            let a = pickN @2 @'[Char, Bool, Int, Bool, Char, String] Proxy (5 :: Int)
+                b = pickN @2 @'[Char, Bool, Int, Char, String] Proxy (5 :: Int)
+                c = pickN @2 @'[Char, Bool, Int, String] Proxy (5 :: Int)
+                d = pickN @1 @'[Bool, Int, String] Proxy (5 :: Int)
+                e = pickN @1 @'[Bool, Int] Proxy (5 :: Int)
+                f = pickN @0 @'[Int] Proxy (5 :: Int)
             trial @Int a `shouldBe` Right 5
             trialN @2 Proxy a `shouldBe` Right 5
             trialN @3 Proxy a `shouldBe` Left b
@@ -155,7 +155,7 @@ spec = do
             x `shouldBe` pick (5 :: Int)
 
         it "the 'diversify'ed type can't use indistinct fields from the original 'Many'" $ do
-            let y = pickN @0 @_ @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
+            let y = pickN @0 @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
                 -- Compile error: Int is a duplicate
                 -- x = diversify @[String, String, Char, Bool, Int] y
             y `shouldBe` y
@@ -183,13 +183,13 @@ spec = do
             x `shouldBe` Left (pick (5 :: Int))
 
         it "the 'reinterpret'ed from type can't indistinct fields'" $ do
-            let y = pickN @0 @_ @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
+            let y = pickN @0 @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
                 -- Compile error: Int is a duplicate
                 -- x = reinterpret @[String, String, Char, Bool] y
             y `shouldBe` y
 
         it "the 'reinterpret' type can't use indistinct fields from the original 'Many'" $ do
-            let y = pickN @0 @_ @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
+            let y = pickN @0 @[Int, Char, Int] Proxy (5 :: Int) -- duplicate Int
                 -- Compile error: Int is a duplicate
                 -- x = reinterpret @[String, String, Char, Bool, Int] y
             y `shouldBe` y
