@@ -594,6 +594,7 @@ insertBefore_ _ y (Many xs) = Many (S.insertAt i (unsafeCoerce y) xs)
     i = fromInteger (natVal @n Proxy) :: Int
 
 -- | Insert an item into a Many, inserting after unique type @x@
+-- | @since GHC 8.2.1
 insertAfter
     :: forall x y xs proxy.
        (UniqueMember x xs)
@@ -601,6 +602,7 @@ insertAfter
 insertAfter _ = insertAfter_ (Proxy @x)
 
 -- | Insert an item into a Many, inserting before unique type @x@
+-- | @since GHC 8.2.1
 insertBefore
     :: forall x y xs proxy.
        (UniqueMember x xs)
@@ -608,6 +610,7 @@ insertBefore
 insertBefore _ = insertBefore_ (Proxy @x)
 
 -- | Insert an item into a Many, inserting after unique label @l@
+-- | @since GHC 8.2.1
 insertAfterL
     :: forall l y xs proxy x.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
@@ -615,6 +618,7 @@ insertAfterL
 insertAfterL _ = insertAfter_ (Proxy @x)
 
 -- | Insert an item into a Many, inserting before unique label @l@
+-- | @since GHC 8.2.1
 insertBeforeL
     :: forall l y xs proxy x.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
@@ -622,6 +626,7 @@ insertBeforeL
 insertBeforeL _ = insertBefore_ (Proxy @x)
 
 -- | Insert an item into a Many, inserting after index @n@
+-- | @since GHC 8.2.1
 insertAfterN
     :: forall n y xs proxy.
        (KnownNat n, n + 1 <= Length xs)
@@ -631,6 +636,7 @@ insertAfterN _ y (Many xs) = Many (S.insertAt (i + 1) (unsafeCoerce y) xs)
     i = fromInteger (natVal @n Proxy) :: Int
 
 -- | Insert an item into a Many, inserting before index @n@
+-- | @since GHC 8.2.1
 insertBeforeN
     :: forall n y xs proxy.
        (KnownNat n, n + 1 <= Length xs)
@@ -653,6 +659,7 @@ remove_ _ (Many xs) = Many (S.deleteAt i xs)
 
 -- | Remove the unique @x@ from a Many.
 -- Not named 'delete' to avoid conflicts with 'Data.List.delete'
+-- | @since GHC 8.2.1
 remove
     :: forall x xs proxy.
        (UniqueMember x xs)
@@ -660,6 +667,7 @@ remove
 remove _ = remove_ (Proxy @x)
 
 -- | Remove the unique label @l@ from a Many.
+-- | @since GHC 8.2.1
 removeL
     :: forall l xs proxy x.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
@@ -667,6 +675,7 @@ removeL
 removeL _ = remove_ (Proxy @x)
 
 -- | Remove the @n@-th item from a Many.
+-- | @since GHC 8.2.1
 removeN
     :: forall n xs proxy.
        (KnownNat n, n + 1 <= Length xs)
