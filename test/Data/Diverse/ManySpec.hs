@@ -391,6 +391,7 @@ spec = do
             insetAfterL (Proxy @Dee) z y `shouldBe` y2a /./ z /./ y2b
             insetAfterN (Proxy @2) z x `shouldBe` x2a /./ z /./ x2b
 
+#if __GLASGOW_HASKELL__ >= 802
         it "can be 'insert'ted with an item at a specific place" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just True ./ Just 'A' ./ nil
                 y = (Tagged 5 :: Tagged Foo Int) ./ False ./ Tagged @Dee 'X' ./ Just True ./ Tagged @Bar (Just 'A') ./ nil
@@ -443,3 +444,4 @@ spec = do
             remove (Proxy @(Char)) x `shouldBe` x'
             removeL (Proxy @Dee) y `shouldBe` y'
             removeN (Proxy @2) x `shouldBe` x'
+#endif

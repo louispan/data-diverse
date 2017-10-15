@@ -14,6 +14,9 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 1.2.0.1
+  - 'insert'/'remove' is not available in GHC 8.2 onwards.
+
 * 1.2.0.0
   - Rerranged type variable for xxxL and xxxN functions so that the
     @x@ inferrred from label @l@ or index @n@ is after @proxy@.

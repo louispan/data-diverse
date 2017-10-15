@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -107,6 +108,7 @@ module Data.Diverse.Many.Internal (
     , insetAfterL
     , insetAfterN
 
+#if __GLASGOW_HASKELL__ >= 802
     -- * insert single item
     , insertBefore
     , insertBeforeL
@@ -119,6 +121,7 @@ module Data.Diverse.Many.Internal (
     , remove
     , removeL
     , removeN
+#endif
 
     ) where
 
@@ -570,6 +573,7 @@ insetBeforeN _ (Many ys) (Many xs) = let (as, bs) = S.splitAt i xs in Many (as S
     i = fromInteger (natVal @n Proxy) :: Int
 
 --------------------------------------------------
+#if __GLASGOW_HASKELL__ >= 802
 
 -- | Insert an item into a Many, inserting after unique type @x@
 insertAfter_
@@ -670,6 +674,8 @@ removeN
 removeN _ (Many xs) = Many (S.deleteAt i xs)
   where
     i = fromInteger (natVal @n Proxy) :: Int
+
+#endif
 
 --------------------------------------------------
 
