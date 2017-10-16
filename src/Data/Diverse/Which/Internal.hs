@@ -225,6 +225,35 @@ pickN _ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 obvious :: Which '[a] -> a
 obvious (Which _ v) = unsafeCoerce v
 
+trial_
+    :: forall n x xs.
+       (KnownNat n, n ~ IndexOf x xs)
+    => Which xs -> Either (Which (Remove x xs)) x
+trial_ (Which n v) = let i = fromInteger (natVal @n Proxy)
+                  in if n == i
+                     then Right (unsafeCoerce v)
+                     else if n > i
+                          then Left (Which (n - 1) v)
+                          else Left (Which n v)
+
+-- | 'trialN' the n-th type of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
+--
+-- @
+-- let x = 'pick' \'A' \@_ \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
+-- 'trialN' \@_ \@1 Proxy x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Int, Char, Maybe String]
+-- @
+trialN
+    :: forall n xs proxy x.
+       (MemberAt n x xs)
+    => proxy n -> Which xs -> Either (Which (RemoveIndex n xs)) x
+trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
+                  in if n == i
+                     then Right (unsafeCoerce v)
+                     else if n > i
+                          then Left (Which (n - 1) v)
+                          else Left (Which n v)
+
+
 -- | 'trial' a type in a 'Which' and 'Either' get the 'Right' value or the 'Left'-over possibilities.
 --
 -- @
@@ -238,33 +267,6 @@ trial
     => Which xs -> Either (Which (Remove x xs)) x
 trial = trial_
 
-trial_
-    :: forall n x xs.
-       (KnownNat n, n ~ IndexOf x xs)
-    => Which xs -> Either (Which (Remove x xs)) x
-trial_ (Which n v) = let i = fromInteger (natVal @n Proxy)
-                  in if n == i
-                     then Right (unsafeCoerce v)
-                     else if n > i
-                          then Left (Which (n - 1) v)
-                          else Left (Which n v)
-
--- | Variation of 'trial' which returns a Maybe
-trial'
-    :: forall x xs.
-       (UniqueMember x xs)
-    => Which xs -> Maybe x
-trial' = trial_'
-
-trial_'
-    :: forall n x xs.
-       (KnownNat n, n ~ IndexOf x xs)
-    => Which xs -> Maybe x
-trial_' (Which n v) = let i = fromInteger (natVal @n Proxy)
-                  in if n == i
-                     then Just (unsafeCoerce v)
-                     else Nothing
-
 -- | A variation of 'trial' where x is specified via a label
 --
 -- @
@@ -277,6 +279,34 @@ trialL
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
     => proxy l -> Which xs -> Either (Which (Remove x xs)) x
 trialL _ = trial_ @_ @x
+
+
+trial_'
+    :: forall n x xs.
+       (KnownNat n, n ~ IndexOf x xs)
+    => Which xs -> Maybe x
+trial_' (Which n v) = let i = fromInteger (natVal @n Proxy)
+                  in if n == i
+                     then Just (unsafeCoerce v)
+                     else Nothing
+
+
+-- | Variation of 'trialN' which returns a Maybe
+trialN'
+    :: forall n xs proxy x.
+       (MemberAt n x xs)
+    => proxy n -> Which xs -> Maybe x
+trialN' _ (Which n v) = let i = fromInteger (natVal @n Proxy)
+                  in if n == i
+                     then Just (unsafeCoerce v)
+                     else Nothing
+
+-- | Variation of 'trial' which returns a Maybe
+trial'
+    :: forall x xs.
+       (UniqueMember x xs)
+    => Which xs -> Maybe x
+trial' = trial_'
 
 -- | Variation of 'trialL' which returns a Maybe
 trialL'
@@ -301,33 +331,6 @@ trial0' :: forall x xs.  Which (x ': xs) -> Maybe x
 trial0' (Which n v) = if n == 0
            then Just (unsafeCoerce v)
            else Nothing
-
--- | 'trialN' the n-th type of a 'Which', and get 'Either' the 'Right' value or the 'Left'-over possibilities.
---
--- @
--- let x = 'pick' \'A' \@_ \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
--- 'trialN' \@_ \@1 Proxy x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Int, Char, Maybe String]
--- @
-trialN
-    :: forall n xs proxy x.
-       (MemberAt n x xs)
-    => proxy n -> Which xs -> Either (Which (RemoveIndex n xs)) x
-trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
-                  in if n == i
-                     then Right (unsafeCoerce v)
-                     else if n > i
-                          then Left (Which (n - 1) v)
-                          else Left (Which n v)
-
--- | Variation of 'trialN' which returns a Maybe
-trialN'
-    :: forall n xs proxy x.
-       (MemberAt n x xs)
-    => proxy n -> Which xs -> Maybe x
-trialN' _ (Which n v) = let i = fromInteger (natVal @n Proxy)
-                  in if n == i
-                     then Just (unsafeCoerce v)
-                     else Nothing
 
 -----------------------------------------------------------------
 
@@ -456,15 +459,15 @@ type instance CaseResult (CaseReinterpret branch tree r) x = r
 instance Reiterate (CaseReinterpret branch tree r) tree' where
     reiterate CaseReinterpret = CaseReinterpret
 
-instance ( MaybeUniqueMemberAt n x branch
+instance ( MaybeUniqueMember x branch
          , comp ~ Complement tree branch
-         , MaybeUniqueMemberAt n' x comp
+         , MaybeUniqueMember x comp
          , Unique x tree -- Compile error to ensure reinterpret only works with unique fields
          ) =>
          Case (CaseReinterpret branch tree (Either (Which comp) (Which branch))) (x ': tree') where
     case' CaseReinterpret a =
-        case fromInteger (natVal @n Proxy) of
-            0 -> let j = fromInteger (natVal @n' Proxy)
+        case fromInteger (natVal @(PositionOf x branch) Proxy) of
+            0 -> let j = fromInteger (natVal @(PositionOf x comp) Proxy)
                  -- safe use of partial! j will never be zero due to check above
                  in Left $ Which (j - 1) (unsafeCoerce a)
             i -> Right $ Which (i - 1) (unsafeCoerce a)
@@ -485,14 +488,13 @@ type instance CaseResult (CaseReinterpret' branch tree r) x = r
 instance Reiterate (CaseReinterpret' branch tree r) tree' where
     reiterate CaseReinterpret' = CaseReinterpret'
 
-instance ( MaybeUniqueMemberAt n x branch
+instance ( MaybeUniqueMember x branch
          , comp ~ Complement tree branch
-         -- , MaybeUniqueMemberAt n' x comp
          , Unique x tree -- Compile error to ensure reinterpret only works with unique fields
          ) =>
          Case (CaseReinterpret' branch tree (Maybe (Which branch))) (x ': tree') where
     case' CaseReinterpret' a =
-        case fromInteger (natVal @n Proxy) of
+        case fromInteger (natVal @(PositionOf x branch) Proxy) of
             0 -> Nothing
             i -> Just $ Which (i - 1) (unsafeCoerce a)
 
