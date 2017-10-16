@@ -108,7 +108,6 @@ module Data.Diverse.Many.Internal (
     , insetAfterL
     , insetAfterN
 
-#if __GLASGOW_HASKELL__ >= 802
     -- * insert single item
     , insertBefore
     , insertBeforeL
@@ -121,7 +120,6 @@ module Data.Diverse.Many.Internal (
     , remove
     , removeL
     , removeN
-#endif
 
     ) where
 
@@ -574,6 +572,7 @@ insetBeforeN _ (Many ys) (Many xs) = let (as, bs) = S.splitAt i xs in Many (as S
 
 --------------------------------------------------
 #if __GLASGOW_HASKELL__ >= 802
+-- The following uses containers > 0.5.7.1 for insertAt and deleteAt only available after GHC 8.2
 
 -- | Insert an item into a Many, inserting after unique type @x@
 insertAfter_
@@ -593,40 +592,7 @@ insertBefore_ _ y (Many xs) = Many (S.insertAt i (unsafeCoerce y) xs)
   where
     i = fromInteger (natVal @n Proxy) :: Int
 
--- | Insert an item into a Many, inserting after unique type @x@
--- | @since GHC 8.2.1
-insertAfter
-    :: forall x y xs proxy.
-       (UniqueMember x xs)
-    => proxy x -> y -> Many xs -> Many (Append (To x xs) (y ': After x xs))
-insertAfter _ = insertAfter_ (Proxy @x)
-
--- | Insert an item into a Many, inserting before unique type @x@
--- | @since GHC 8.2.1
-insertBefore
-    :: forall x y xs proxy.
-       (UniqueMember x xs)
-    => proxy x -> y -> Many xs -> Many (Append (Before x xs) (y ': From x xs))
-insertBefore _ = insertBefore_ (Proxy @x)
-
--- | Insert an item into a Many, inserting after unique label @l@
--- | @since GHC 8.2.1
-insertAfterL
-    :: forall l y xs proxy x.
-       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
-    => proxy l -> y -> Many xs -> Many (Append (To x xs) (y ': After x xs))
-insertAfterL _ = insertAfter_ (Proxy @x)
-
--- | Insert an item into a Many, inserting before unique label @l@
--- | @since GHC 8.2.1
-insertBeforeL
-    :: forall l y xs proxy x.
-       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
-    => proxy l -> y -> Many xs -> Many (Append (Before x xs) (y ': From x xs))
-insertBeforeL _ = insertBefore_ (Proxy @x)
-
 -- | Insert an item into a Many, inserting after index @n@
--- | @since GHC 8.2.1
 insertAfterN
     :: forall n y xs proxy.
        (KnownNat n, n + 1 <= Length xs)
@@ -636,7 +602,6 @@ insertAfterN _ y (Many xs) = Many (S.insertAt (i + 1) (unsafeCoerce y) xs)
     i = fromInteger (natVal @n Proxy) :: Int
 
 -- | Insert an item into a Many, inserting before index @n@
--- | @since GHC 8.2.1
 insertBeforeN
     :: forall n y xs proxy.
        (KnownNat n, n + 1 <= Length xs)
@@ -657,25 +622,7 @@ remove_ _ (Many xs) = Many (S.deleteAt i xs)
   where
     i = fromInteger (natVal @n Proxy) :: Int
 
--- | Remove the unique @x@ from a Many.
--- Not named 'delete' to avoid conflicts with 'Data.List.delete'
--- | @since GHC 8.2.1
-remove
-    :: forall x xs proxy.
-       (UniqueMember x xs)
-    => proxy x -> Many xs -> Many (Remove x xs)
-remove _ = remove_ (Proxy @x)
-
--- | Remove the unique label @l@ from a Many.
--- | @since GHC 8.2.1
-removeL
-    :: forall l xs proxy x.
-       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
-    => proxy l -> Many xs -> Many (Remove x xs)
-removeL _ = remove_ (Proxy @x)
-
 -- | Remove the @n@-th item from a Many.
--- | @since GHC 8.2.1
 removeN
     :: forall n xs proxy.
        (KnownNat n, n + 1 <= Length xs)
@@ -684,7 +631,113 @@ removeN _ (Many xs) = Many (S.deleteAt i xs)
   where
     i = fromInteger (natVal @n Proxy) :: Int
 
+#else
+
+-- Emulate insertAt and deleteAt for GHC < 8.2 && containers <= 0.5.7.1
+
+-- | Insert an item into a Many, inserting after unique type @x@
+insertAfter_
+    :: forall x y xs n proxy.
+       (KnownNat n, n ~ IndexOf x xs)
+    => proxy x -> y -> Many xs -> Many (Append (To x xs) (y ': After x xs))
+insertAfter_ _ y (Many xs) = let (as, bs) = S.splitAt (i + 1) xs in Many (as S.>< (unsafeCoerce y S.<| bs))
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Insert an item into a Many, inserting before unique type @x@
+insertBefore_
+    :: forall x y xs n proxy.
+       (KnownNat n, n ~ IndexOf x xs)
+    => proxy x -> y -> Many xs -> Many (Append (Before x xs) (y ': From x xs))
+insertBefore_ _ y (Many xs) = let (as, bs) = S.splitAt i xs in Many (as S.>< (unsafeCoerce y S.<| bs))
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Insert an item into a Many, inserting after index @n@
+insertAfterN
+    :: forall n y xs proxy.
+       (KnownNat n, n + 1 <= Length xs)
+    => proxy n -> y -> Many xs -> Many (Append (ToIndex n xs) (y ': AfterIndex n xs))
+insertAfterN _ y (Many xs) = let (as, bs) = S.splitAt (i + 1) xs in Many (as S.>< (unsafeCoerce y S.<| bs))
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Insert an item into a Many, inserting before index @n@
+insertBeforeN
+    :: forall n y xs proxy.
+       (KnownNat n, n + 1 <= Length xs)
+    => proxy n -> y -> Many xs -> Many (Append (BeforeIndex n xs) (y ': FromIndex n xs))
+insertBeforeN _ y (Many xs) = let (as, bs) = S.splitAt i xs in Many (as S.>< (unsafeCoerce y S.<| bs))
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+--------------------------------------------------
+
+-- | Remove the unique @x@ from a Many.
+-- Not named 'delete' to avoid conflicts with 'Data.List.delete'
+remove_
+    :: forall x xs n proxy.
+       (KnownNat n, n ~ IndexOf x xs)
+    => proxy x -> Many xs -> Many (Remove x xs)
+remove_ _ (Many xs) = let (as, bs) = S.splitAt i xs in Many (as S.>< S.drop 1 bs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
+-- | Remove the @n@-th item from a Many.
+removeN
+    :: forall n xs proxy.
+       (KnownNat n, n + 1 <= Length xs)
+    => proxy n -> Many xs -> Many (RemoveIndex n xs)
+removeN _ (Many xs) = let (as, bs) = S.splitAt i xs in Many (as S.>< S.drop 1 bs)
+  where
+    i = fromInteger (natVal @n Proxy) :: Int
+
 #endif
+
+-- | Insert an item into a Many, inserting after unique type @x@
+insertAfter
+    :: forall x y xs proxy.
+       (UniqueMember x xs)
+    => proxy x -> y -> Many xs -> Many (Append (To x xs) (y ': After x xs))
+insertAfter _ = insertAfter_ (Proxy @x)
+
+-- | Insert an item into a Many, inserting before unique type @x@
+insertBefore
+    :: forall x y xs proxy.
+       (UniqueMember x xs)
+    => proxy x -> y -> Many xs -> Many (Append (Before x xs) (y ': From x xs))
+insertBefore _ = insertBefore_ (Proxy @x)
+
+-- | Insert an item into a Many, inserting after unique label @l@
+insertAfterL
+    :: forall l y xs proxy x.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> y -> Many xs -> Many (Append (To x xs) (y ': After x xs))
+insertAfterL _ = insertAfter_ (Proxy @x)
+
+-- | Insert an item into a Many, inserting before unique label @l@
+insertBeforeL
+    :: forall l y xs proxy x.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> y -> Many xs -> Many (Append (Before x xs) (y ': From x xs))
+insertBeforeL _ = insertBefore_ (Proxy @x)
+
+--------------------------------------------------
+
+-- | Remove the unique @x@ from a Many.
+-- Not named 'delete' to avoid conflicts with 'Data.List.delete'
+remove
+    :: forall x xs proxy.
+       (UniqueMember x xs)
+    => proxy x -> Many xs -> Many (Remove x xs)
+remove _ = remove_ (Proxy @x)
+
+-- | Remove the unique label @l@ from a Many.
+removeL
+    :: forall l xs proxy x.
+       (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+    => proxy l -> Many xs -> Many (Remove x xs)
+removeL _ = remove_ (Proxy @x)
 
 --------------------------------------------------
 

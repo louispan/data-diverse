@@ -92,7 +92,6 @@ module Data.Diverse.Many (
     , insetAfterL
     , insetAfterN
 
-#if __GLASGOW_HASKELL__ >= 802
     -- * insert single item
     , insertBefore
     , insertBeforeL
@@ -105,7 +104,7 @@ module Data.Diverse.Many (
     , remove
     , removeL
     , removeN
-#endif
+
     ) where
 
 import Data.Diverse.Many.Internal
