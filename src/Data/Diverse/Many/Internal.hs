@@ -556,7 +556,7 @@ insetBeforeN p (Many ys) (Many xs) = Many $ insetBefore_ p ys xs
 
 -- | Insert an item into a Many, inserting after unique type @x@
 -- | Insert an item into a Many, inserting after unique type @x@
-insertAfter_ :: forall n proxy. proxy n -> Any -> S.Seq Any -> S.Seq Any
+insertAfter_ :: forall n proxy. KnownNat n => proxy n -> Any -> S.Seq Any -> S.Seq Any
 insertAfter_ _ y xs = S.insertAt (i + 1) y xs
   where
     i = fromInteger (natVal @n Proxy) :: Int
