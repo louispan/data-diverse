@@ -39,13 +39,13 @@ library
                        Data.Diverse.Which
                        Data.Diverse.Which.Internal
   build-depends:       base >= 4.7 && < 5
-                     , deepseq >= 1.4 && < 2
-                     , ghc-prim >= 0.5 && < 1
-                     , tagged >= 0.8.5 && < 1
+                     , deepseq >= 1.4
+                     , ghc-prim >= 0.5
+                     , tagged >= 0.8.5
   if impl(ghc >= 8.2.0)
-    build-depends: containers >= 0.5.8.2 && < 0.6
+    build-depends: containers >= 0.5.8.2
   else
-    build-depends: containers >= 0.5 && < 0.6
+    build-depends: containers >= 0.5
   ghc-options:         -Wall
   default-language:    Haskell2010
 
@@ -58,8 +58,8 @@ test-suite data-diverse-test
                        Data.Diverse.WhichSpec
   build-depends:       base
                      , data-diverse
-                     , hspec >= 2 && < 3
-                     , tagged >= 0.8.5 && < 1
+                     , hspec >= 2
+                     , tagged >= 0.8.5
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N -Wall
   default-language:    Haskell2010
 
