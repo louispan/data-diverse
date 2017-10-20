@@ -92,7 +92,7 @@ module Data.Diverse.Many.Internal (
 
     -- * Splitting operations
 
-    -- * Splitting
+    -- ** Splitting
     , splitBefore
     , splitBeforeL
     , splitBeforeN
@@ -100,7 +100,7 @@ module Data.Diverse.Many.Internal (
     , splitAfterL
     , splitAfterN
 
-    -- * inset multiple items
+    -- ** inset multiple items
     , insetBefore
     , insetBeforeL
     , insetBeforeN
@@ -108,7 +108,7 @@ module Data.Diverse.Many.Internal (
     , insetAfterL
     , insetAfterN
 
-    -- * insert single item
+    -- ** insert single item
     , insertBefore
     , insertBeforeL
     , insertBeforeN
@@ -116,7 +116,7 @@ module Data.Diverse.Many.Internal (
     , insertAfterL
     , insertAfterN
 
-    -- * Deleting single item
+    -- ** Deleting single item
     , remove
     , removeL
     , removeN
