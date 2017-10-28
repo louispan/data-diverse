@@ -14,6 +14,10 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 1.2.0.3
+  - PolyKinds for Which
+  - Removed cabal upper bounds
+
 * 1.2.0.2
   - Added 'insert'/'remove' for GHC < 8.2
   - Removed type functions 'UniqueMemberAt', 'MaybeUniqueMemberAt'
