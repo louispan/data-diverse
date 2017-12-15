@@ -10,6 +10,7 @@ module Data.Diverse.Which (
     , pick0
     , pickOnly
     , pickL
+    , pickTag
     , pickN
       -- ** Destruction
     , obvious
@@ -19,6 +20,8 @@ module Data.Diverse.Which (
     , trial0'
     , trialL
     , trialL'
+    , trialTag
+    , trialTag'
     , trialN
     , trialN'
 

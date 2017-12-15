@@ -14,6 +14,10 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 1.3.0.0
+  - Removed splitting operations added in 1.2.0.0
+  - added 'xxxTag' version of label operations that also automatically untags the field.
+
 * 1.2.0.3
   - PolyKinds for Which
   - Removed cabal upper bounds

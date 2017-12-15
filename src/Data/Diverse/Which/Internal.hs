@@ -28,6 +28,7 @@ module Data.Diverse.Which.Internal (
     , pick0
     , pickOnly
     , pickL
+    , pickTag
     , pickN
       -- ** Destruction
     , obvious
@@ -37,6 +38,8 @@ module Data.Diverse.Which.Internal (
     , trial0'
     , trialL
     , trialL'
+    , trialTag
+    , trialTag'
     , trialN
     , trialN'
 
@@ -81,6 +84,7 @@ import Data.Diverse.TypeLevel
 import Data.Kind
 import Data.Proxy
 import Data.Semigroup (Semigroup(..))
+import Data.Tagged
 import qualified GHC.Generics as G
 import GHC.Exts (Any, coerce)
 import GHC.TypeLits
@@ -187,8 +191,14 @@ pick_ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 --     x = 'trialL' \@Foo Proxy y
 -- x `shouldBe` (Right (Tagged 5))
 -- @
-pickL :: forall l xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> x -> Which xs
+pickL :: forall l xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+  => proxy l -> x -> Which xs
 pickL _ = pick_ @x
+
+-- | Variation of 'pickL' specialized to 'Tagged' that automatically tags the value.
+pickTag :: forall l xs proxy x. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+  => proxy l -> x -> Which xs
+pickTag p a = pickL p (Tagged @l a)
 
 -- | A variation of 'pick' into a 'Which' of a single type.
 --
@@ -288,6 +298,12 @@ trial_' (Which n v) = let i = fromInteger (natVal @n Proxy)
                      then Just (unsafeCoerce v)
                      else Nothing
 
+-- | Variation of 'trialL' specialized to 'Tagged' which untags the field.
+trialTag
+    :: forall l xs proxy x.
+       (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+    => proxy l -> Which xs -> Either (Which (Remove (Tagged l x) xs)) x
+trialTag p xs = unTagged <$> trialL p xs
 
 -- | Variation of 'trialN' which returns a Maybe
 trialN'
@@ -312,6 +328,13 @@ trialL'
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
     => proxy l -> Which xs -> Maybe x
 trialL' _ = trial_' @_ @x
+
+-- | Variation of 'trialL'' specialized to 'Tagged' which untags the field.
+trialTag'
+    :: forall l xs proxy x.
+       (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+    => proxy l -> Which xs -> Maybe x
+trialTag' p xs = unTagged <$> trialL' p xs
 
 -- | A variation of a 'Which' 'trial' which 'trial's the first type in the type list.
 --
@@ -816,7 +839,7 @@ instance Read (Which '[]) where
 
 ------------------------------------------------------------------
 instance NFData (Which '[]) where
-    rnf _ = impossible
+    rnf = impossible
 
 instance (Reduce (Which (x ': xs)) (Switcher (CaseFunc NFData) () (x ': xs))) =>
   NFData (Which (x ': xs)) where
