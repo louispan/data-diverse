@@ -205,11 +205,6 @@ getMany_ (Many_ xs) = xs
 
 -----------------------------------------------------------------------
 
-instance NFData (Many '[])
-instance (NFData x, NFData (Many xs)) => NFData (Many (x ': xs))
-
------------------------------------------------------------------------
-
 -- | A terminating 'G.Generic' instance encoded as a 'nil'.
 instance G.Generic (Many '[]) where
     type Rep (Many '[]) =  G.U1
@@ -1374,6 +1369,19 @@ instance Read (Many_ xs) => Read (Many xs) where
         xs <- readPrec @(Many_ xs)
         pure $ fromMany_ xs
 
+-----------------------------------------------------------------------
+
+instance NFData (Many '[]) where
+    rnf _ = ()
+
+
+instance (NFData x, NFData (Many xs)) => NFData (Many (x ': xs)) where
+    rnf xs = rnf (front xs) `seq` rnf (aft xs)
+
+-----------------------------------------------------------------------
+
 -- | 'WrappedAny' avoids the following:
 -- Illegal type synonym family application in instance: Any
 newtype WrappedAny = WrappedAny Any
+
+-----------------------------------------------------------------------

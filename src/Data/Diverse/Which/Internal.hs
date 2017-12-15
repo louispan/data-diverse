@@ -74,6 +74,7 @@ import Control.Applicative
 import Control.DeepSeq
 import Control.Monad
 import Data.Diverse.Case
+import Data.Diverse.CaseFunc
 import Data.Diverse.Reduce
 import Data.Diverse.Reiterate
 import Data.Diverse.TypeLevel
@@ -121,12 +122,6 @@ data Which (xs :: [Type]) = Which {-# UNPACK #-} !Int Any
 -- Coercible '[Int] '[IntLike] => Coercible (Which '[Int]) (Which '[IntLike])
 -- @
 type role Which representational
-
-----------------------------------------------
-
-instance NFData (Which '[])
-instance (NFData x) => NFData (Which '[x])
-instance (NFData x, NFData (Which (x' ': xs))) => NFData (Which (x ': x' ': xs))
 
 ----------------------------------------------
 
@@ -818,3 +813,11 @@ instance WhichRead (Which_ (x ': xs)) =>
 -- 'Which '[]' as a data type with no constructors.
 instance Read (Which '[]) where
     readsPrec _ _ = []
+
+------------------------------------------------------------------
+instance NFData (Which '[]) where
+    rnf _ = impossible
+
+instance (Reduce (Which (x ': xs)) (Switcher (CaseFunc NFData) () (x ': xs))) =>
+  NFData (Which (x ': xs)) where
+    rnf x = switch x (CaseFunc @NFData rnf)
