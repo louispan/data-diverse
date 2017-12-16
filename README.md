@@ -15,7 +15,7 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 # Changelog
 
 * 2.0.0.0
-  - Breaking change: the xxx' version of functions are now consistently the simpler or non-polymorphic version.
+  - Breaking change: the prime (xxx') version of functions are now consistently the simpler or non-polymorphic version.
     - This is more consistent with 'Control.Lens' as well.
     - This means the following are swapped:
       - `replace`, `replace'`
@@ -25,6 +25,11 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
       - `amend`, `amend'`
       - `amendL`, `amendL'`
       - `amendN`, `amendN'`
+  - Breaking change: Removed proxy argument from 'fetchL/Tag/N', 'replaceXXX', 'selectL/Tag/N', 'amendXXX', 'pickL/Tag/N', 'trialL/Tag/N'
+    relying soley on TypeApplications and now requiring AllowAmbiguousTypes.
+    The "Proxy" is also removed from the Read/Show serialized format.
+  - Rearranged type variables in `fetchL/N`, `replaceL/Tag/N`, 'pickL/Tag/N', 'trialL/Tag/N' type parameters,
+    so the type variable ordering is consistently label, orig to change, smaller to larger, ie. 'l/n', 'x', 'y', 'xs'
 
 * 1.3.0.0
   - Removed splitting operations added in 1.2.0.0

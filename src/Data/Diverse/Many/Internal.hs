@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
@@ -218,74 +219,74 @@ instance IsMany Tagged '[a] a where
 
 instance IsMany Tagged '[a,b] (a,b) where
     toMany (Tagged (a,b)) = a./b./nil
-    fromMany r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r)
+    fromMany r = Tagged (fetchN @0 r, fetchN @1 r)
 
 instance IsMany Tagged '[a,b,c] (a,b,c) where
     toMany (Tagged (a,b,c)) = a./b./c./nil
-    fromMany r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r)
+    fromMany r = Tagged (fetchN @0 r, fetchN @1 r, fetchN @2 r)
 
 instance IsMany Tagged '[a,b,c,d] (a,b,c,d) where
     toMany (Tagged (a,b,c,d)) = a./b./c./d./nil
-    fromMany r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r)
+    fromMany r = Tagged (fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r)
 
 instance IsMany Tagged '[a,b,c,d,e] (a,b,c,d,e) where
     toMany (Tagged (a,b,c,d,e)) = a./b./c./d./e./nil
-    fromMany r = Tagged (fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r)
+    fromMany r = Tagged (fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f] (a,b,c,d,e,f) where
     toMany (Tagged (a,b,c,d,e,f)) = a./b./c./d./e./f./nil
-    fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
-                        , fetchN (Proxy @5) r)
+    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
+                        , fetchN @5 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g] (a,b,c,d,e,f,g) where
     toMany (Tagged (a,b,c,d,e,f,g)) = a./b./c./d./e./f./g./nil
-    fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
-                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r)
+    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
+                        , fetchN @5 r, fetchN @6 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h] (a,b,c,d,e,f,g,h) where
     toMany (Tagged (a,b,c,d,e,f,g,h)) = a./b./c./d./e./f./g./h./nil
-    fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
-                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r)
+    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
+                        , fetchN @5 r, fetchN @6 r, fetchN @7 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i] (a,b,c,d,e,f,g,h,i) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i)) = a./b./c./d./e./f./g./h./i./ nil
-    fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
-                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r)
+    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
+                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j] (a,b,c,d,e,f,g,h,i,j) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j)) = a./b./c./d./e./f./g./h./i./j./nil
-    fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
-                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r)
+    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
+                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k] (a,b,c,d,e,f,g,h,i,j,k) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k)) = a./b./c./d./e./f./g./h./i./j./k./nil
-    fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
-                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
-                        , fetchN (Proxy @10) r)
+    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
+                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r
+                        , fetchN @10 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l] (a,b,c,d,e,f,g,h,i,j,k,l) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l)) = a./b./c./d./e./f./g./h./i./j./k./l./nil
-    fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
-                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
-                        , fetchN (Proxy @10) r, fetchN (Proxy @11) r)
+    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
+                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r
+                        , fetchN @10 r, fetchN @11 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m] (a,b,c,d,e,f,g,h,i,j,k,l,m) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m)) = a./b./c./d./e./f./g./h./i./j./k./l./m./nil
-    fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
-                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
-                        , fetchN (Proxy @10) r, fetchN (Proxy @11) r, fetchN (Proxy @12) r)
+    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
+                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r
+                        , fetchN @10 r, fetchN @11 r, fetchN @12 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n] (a,b,c,d,e,f,g,h,i,j,k,l,m,n) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m,n)) = a./b./c./d./e./f./g./h./i./j./k./l./m./n./nil
-    fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
-                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
-                        , fetchN (Proxy @10) r, fetchN (Proxy @11) r, fetchN (Proxy @12) r, fetchN (Proxy @13) r)
+    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
+                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r
+                        , fetchN @10 r, fetchN @11 r, fetchN @12 r, fetchN @13 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l,m,n,o) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m,n,o)) = a./b./c./d./e./f./g./h./i./j./k./l./m./n./o./nil
-    fromMany r = Tagged ( fetchN (Proxy @0) r, fetchN (Proxy @1) r, fetchN (Proxy @2) r, fetchN (Proxy @3) r, fetchN (Proxy @4) r
-                        , fetchN (Proxy @5) r, fetchN (Proxy @6) r, fetchN (Proxy @7) r, fetchN (Proxy @8) r, fetchN (Proxy @9) r
-                        , fetchN (Proxy @10) r, fetchN (Proxy @11) r, fetchN (Proxy @12) r, fetchN (Proxy @13) r, fetchN (Proxy @14) r)
+    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
+                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r
+                        , fetchN @10 r, fetchN @11r, fetchN @12 r, fetchN @13 r, fetchN @14 r)
 
 -----------------------------------------------------------------------
 
@@ -415,10 +416,10 @@ fore = fst . viewb
 -- 'fetch' \@Int x \`shouldBe` 5
 -- @
 fetch :: forall x xs. UniqueMember x xs => Many xs -> x
-fetch (Many xs) = unsafeCoerce $ fetch_ (Proxy @(IndexOf x xs)) xs
+fetch (Many xs) = unsafeCoerce $ fetch_ @(IndexOf x xs) xs
 
-fetch_ :: forall n proxy. KnownNat n => proxy n -> S.Seq Any -> Any
-fetch_ _ xs = let !x = S.index xs i in x -- forcing x to avoid storing Seq in thunk
+fetch_ :: forall n. KnownNat n => S.Seq Any -> Any
+fetch_ xs = let !x = S.index xs i in x -- forcing x to avoid storing Seq in thunk
   where i = fromInteger (natVal @n Proxy)
 
 --------------------------------------------------
@@ -428,18 +429,18 @@ fetch_ _ xs = let !x = S.index xs i in x -- forcing x to avoid storing Seq in th
 --
 -- @
 -- let y = False './' Tagged \@Foo \'X' './' Tagged @"Hi" True './' 'nil'
--- 'fetchL' \@Foo Proxy y \`shouldBe` Tagged \@Foo \'X'
--- 'fetchL' \@"Hi" Proxy y \`shouldBe` Tagged \@"Hi" True
+-- 'fetchL' \@Foo y \`shouldBe` Tagged \@Foo \'X'
+-- 'fetchL' \@"Hi" y \`shouldBe` Tagged \@"Hi" True
 -- @
-fetchL :: forall l xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => proxy l -> Many xs -> x
-fetchL _ (Many xs) = unsafeCoerce $ fetch_ (Proxy @(IndexOf x xs)) xs
+fetchL :: forall l x xs. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => Many xs -> x
+fetchL (Many xs) = unsafeCoerce $ fetch_ @(IndexOf x xs) xs
 
 --------------------------------------------------
 
 -- | Variation of 'fetchL' specialized for 'Tagged' that untags the field.
-fetchTag :: forall l xs proxy x. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
-    => proxy l -> Many xs -> x
-fetchTag p xs = unTagged (fetchL p xs)
+fetchTag :: forall l x xs. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+    => Many xs -> x
+fetchTag xs = unTagged (fetchL @l xs)
 
 --------------------------------------------------
 
@@ -447,10 +448,10 @@ fetchTag p xs = unTagged (fetchL p xs)
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
--- 'fetchN' @1 Proxy x \`shouldBe` False
+-- 'fetchN' @1 x \`shouldBe` False
 -- @
-fetchN :: forall n xs proxy x. MemberAt n x xs => proxy n -> Many xs -> x
-fetchN p (Many xs) = unsafeCoerce $ fetch_ p xs
+fetchN :: forall n x xs. MemberAt n x xs => Many xs -> x
+fetchN (Many xs) = unsafeCoerce $ fetch_ @n xs
 
 --------------------------------------------------
 
@@ -461,20 +462,20 @@ fetchN p (Many xs) = unsafeCoerce $ fetch_ p xs
 -- 'replace'' \@Int x 6 \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
 -- @
 replace' :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
-replace' (Many xs) x = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce x)
+replace' (Many xs) x = Many $ replace_ @(IndexOf x xs) xs (unsafeCoerce x)
 
-replace_ :: forall n proxy. KnownNat n => proxy n -> S.Seq Any -> Any -> S.Seq Any
-replace_ _ xs x = S.update i x xs
+replace_ :: forall n. KnownNat n => S.Seq Any -> Any -> S.Seq Any
+replace_ xs x = S.update i x xs
   where i = fromInteger (natVal @n Proxy)
 
 -- | Polymorphic setter by unique type. Set the field with type @x@, and replace with type @y@
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
--- 'replace' \@Int Proxy x (Just True) \`shouldBe` Just True './' False './' \'X' './' Just \'O' './' 'nil'
+-- 'replace' \@Int x (Just True) \`shouldBe` Just True './' False './' \'X' './' Just \'O' './' 'nil'
 -- @
-replace :: forall x y xs proxy. UniqueMember x xs => proxy x -> Many xs -> y -> Many (Replace x y xs)
-replace _ (Many xs) x = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce x)
+replace :: forall x y xs. UniqueMember x xs => Many xs -> y -> Many (Replace x y xs)
+replace (Many xs) x = Many $ replace_ @(IndexOf x xs) xs (unsafeCoerce x)
 
 --------------------------------------------------
 
@@ -482,39 +483,39 @@ replace _ (Many xs) x = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce
 --
 -- @
 -- let y = (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" (6 :: Int) './' 'nil'
--- 'replaceL'' \@Foo Proxy y (Tagged \@Foo \'Y') \`shouldBe`
+-- 'replaceL'' \@Foo y (Tagged \@Foo \'Y') \`shouldBe`
 --     (5 :: Int) './' False './' Tagged \@Foo \'Y' './' Tagged \@\"Hello" (6 :: Int) './' 'nil'
--- 'replaceL'' \@\"Hello" Proxy y (Tagged \@\"Hello" 7) \`shouldBe`
+-- 'replaceL'' \@\"Hello" y (Tagged \@\"Hello" 7) \`shouldBe`
 --     (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" (7 :: Int) './' 'nil'
 -- @
-replaceL' :: forall l xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
-  => proxy l -> Many xs -> x -> Many xs
-replaceL' _ (Many xs) x = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce x)
+replaceL' :: forall l x xs. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+  => Many xs -> x -> Many xs
+replaceL' (Many xs) x = Many $ replace_ @(IndexOf x xs) xs (unsafeCoerce x)
 
 -- | Polymorphic setter by unique type. Set the field with type @x@, and replace with type @y@
 --
 -- @
 -- let y = (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" (6 :: Int) './' 'nil'
--- replaceL \@Foo Proxy y (Tagged \@Bar \'Y') `shouldBe`
+-- replaceL \@Foo y (Tagged \@Bar \'Y') `shouldBe`
 --     (5 :: Int) './' False './' Tagged @Bar 'Y' './' Tagged @"Hello" (6 :: Int) './' 'nil'
--- replaceL \@\"Hello" Proxy y (Tagged \@\"Hello" False) \`shouldBe`
+-- replaceL \@\"Hello" y (Tagged \@\"Hello" False) \`shouldBe`
 --     (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" False './' 'nil'
 -- @
-replaceL :: forall l y xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
-  => proxy l -> Many xs -> y -> Many (Replace x y xs)
-replaceL _ (Many xs) y = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce y)
+replaceL :: forall l y xs x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+  => Many xs -> y -> Many (Replace x y xs)
+replaceL (Many xs) y = Many $ replace_ @(IndexOf x xs) xs (unsafeCoerce y)
 
 --------------------------------------------------
 
 -- | Variation of 'replaceL'' specialized to 'Tagged' that automatically tags the value to be replaced.
-replaceTag' :: forall l xs proxy x. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
-  => proxy l -> Many xs -> x -> Many xs
-replaceTag' p xs x = replaceL' p xs (Tagged @l x)
+replaceTag' :: forall l xs x. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+  => Many xs -> x -> Many xs
+replaceTag' xs x = replaceL' @l xs (Tagged @l x)
 
 -- | Variation of 'replaceL' specialized to 'Tagged' that automatically tags the value to be replaced.
-replaceTag :: forall l y xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
-  => proxy l -> Many xs -> y -> Many (Replace x (Tagged l y) xs)
-replaceTag p xs y = replaceL p xs (Tagged @l y)
+replaceTag :: forall l x y xs. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+  => Many xs -> y -> Many (Replace x (Tagged l y) xs)
+replaceTag xs y = replaceL @l xs (Tagged @l y)
 
 --------------------------------------------------
 
@@ -522,14 +523,14 @@ replaceTag p xs y = replaceL p xs (Tagged @l y)
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
--- 'replaceN'' \@0 Proxy x 7 `shouldBe`
+-- 'replaceN'' \@0 x 7 `shouldBe`
 -- @
-replaceN' :: forall n xs proxy x. MemberAt n x xs => proxy n -> Many xs -> x -> Many xs
-replaceN' p (Many xs) x = Many $ replace_ p xs (unsafeCoerce x)
+replaceN' :: forall n x xs. MemberAt n x xs => Many xs -> x -> Many xs
+replaceN' (Many xs) x = Many $ replace_ @n xs (unsafeCoerce x)
 
 -- | Polymorphic version of 'replaceN''
-replaceN :: forall n y xs proxy x. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
-replaceN p (Many xs) x = Many $ replace_ p xs (unsafeCoerce x)
+replaceN :: forall n x y xs. MemberAt n x xs => Many xs -> y -> Many (ReplaceIndex n y xs)
+replaceN (Many xs) x = Many $ replace_ @n xs (unsafeCoerce x)
 
 -----------------------------------------------------------------------
 
@@ -775,17 +776,17 @@ instance forall smaller larger x xs. (UniqueIfExists smaller x larger, MaybeUniq
 --
 -- @
 -- let x = False './' Tagged \@\"Hi" (5 :: Int) './' Tagged \@Foo False './' Tagged \@Bar \'X' './' Tagged \@\"Bye" 'O' './' 'nil'
--- 'selectL' \@'[Foo, Bar] Proxy x \`shouldBe` Tagged \@Foo False './' Tagged \@Bar \'X' './' 'nil'
--- 'selectL' \@'[\"Hi", \"Bye"] Proxy x \`shouldBe` Tagged \@\"Hi" (5 :: Int) './' Tagged \@\"Bye" \'O' './' 'nil'
+-- 'selectL' \@'[Foo, Bar] x \`shouldBe` Tagged \@Foo False './' Tagged \@Bar \'X' './' 'nil'
+-- 'selectL' \@'[\"Hi", \"Bye"] x \`shouldBe` Tagged \@\"Hi" (5 :: Int) './' Tagged \@\"Bye" \'O' './' 'nil'
 -- @
 selectL
-    :: forall ls smaller larger proxy.
+    :: forall ls smaller larger.
        ( Select smaller larger
        , smaller ~ KindsAtLabels ls larger
        , IsDistinct ls
        , UniqueLabels ls larger)
-    => proxy ls -> Many larger -> Many smaller
-selectL _ = select @smaller
+    => Many larger -> Many smaller
+selectL = select @smaller
 
 -----------------------------------------------------------------------
 
@@ -806,13 +807,13 @@ type SelectN (ns :: [Nat]) (smaller ::[Type]) (larger :: [Type]) =
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
--- 'selectN' (Proxy @'[5, 4, 0]) x \`shouldBe` Just \'A' './' (6 :: Int) './' (5 ::Int) './' 'nil'
+-- 'selectN' @'[5, 4, 0] x \`shouldBe` Just \'A' './' (6 :: Int) './' (5 ::Int) './' 'nil'
 -- @
 selectN
-    :: forall ns smaller larger proxy.
+    :: forall ns smaller larger.
        SelectN ns smaller larger
-    => proxy ns -> Many larger -> Many smaller
-selectN _ xs = Many (fromList' xs')
+    => Many larger -> Many smaller
+selectN xs = Many (fromList' xs')
   where
     xs' = afoldr (\a z -> maybe z (: z) a) [] (forManyN' (CaseSelectN @ns @smaller @_ @0 @larger) xs)
 
@@ -871,19 +872,19 @@ instance UniqueMember x larger =>
 --
 -- @
 -- let x = False ./ Tagged \@\"Hi" (5 :: Int) ./ Tagged \@Foo False ./ Tagged \@Bar \'X' ./ Tagged \@\"Bye" \'O' ./ 'nil'
--- 'amendL' \@'[Foo, Bar] Proxy x (Tagged \@Foo True ./ Tagged \@Bar \'Y' ./ nil) `shouldBe`
+-- 'amendL' \@'[Foo, Bar] x (Tagged \@Foo True ./ Tagged \@Bar \'Y' ./ nil) `shouldBe`
 --     False ./ Tagged \@\"Hi" (5 :: Int) ./ Tagged \@Foo True ./ Tagged \@Bar \'Y' ./ Tagged \@\"Bye" \'O' ./ 'nil'
--- 'amendL' \@'[\"Hi", \"Bye"] Proxy x (Tagged \@\"Hi" (6 :: Int) ./ Tagged \@\"Bye" \'P' ./ nil) `shouldBe`
+-- 'amendL' \@'[\"Hi", \"Bye"] x (Tagged \@\"Hi" (6 :: Int) ./ Tagged \@\"Bye" \'P' ./ nil) `shouldBe`
 --     False ./ Tagged \@\"Hi" (6 :: Int) ./ Tagged \@Foo False ./ Tagged \@Bar \'X' ./ Tagged \@\"Bye" \'P' ./ 'nil'
 -- @
 amendL'
-    :: forall ls smaller larger proxy.
+    :: forall ls smaller larger.
        ( Amend' smaller larger
        , smaller ~ KindsAtLabels ls larger
        , IsDistinct ls
        , UniqueLabels ls larger)
-    => proxy ls -> Many larger -> Many smaller -> Many larger
-amendL' _ = amend' @(KindsAtLabels ls larger)
+    => Many larger -> Many smaller -> Many larger
+amendL' = amend' @(KindsAtLabels ls larger)
 
 -----------------------------------------------------------------------
 
@@ -894,9 +895,9 @@ type Amend smaller smaller' larger =
 
 -- | Polymorphic version of 'amend''.
 -- Analogous to 'replace' setter but for multiple fields.
-amend :: forall smaller smaller' larger proxy. Amend smaller smaller' larger
-    => proxy smaller -> Many larger -> Many smaller' -> Many (Replaces smaller smaller' larger)
-amend _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
+amend :: forall smaller smaller' larger larger'. (Amend smaller smaller' larger, larger' ~ Replaces smaller smaller' larger)
+    => Many larger -> Many smaller' -> Many larger'
+amend (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
     xs' = afoldr (:) [] (forMany'' @smaller Proxy (CaseAmend @larger @_ @(Zip smaller smaller')) t)
 
@@ -923,23 +924,23 @@ instance (UniqueMember x larger) =>
 --
 -- @
 -- let x = False './' Tagged \@\"Hi" (5 :: Int) './' Tagged \@Foo False './' Tagged \@Bar 'X' './' Tagged \@\"Bye" \'O' './' 'nil'
--- 'amendL' \@'[Foo, Bar] Proxy x (\'Y' './' True './' 'ni'l) \`shouldBe`
+-- 'amendL' \@'[Foo, Bar] x (\'Y' './' True './' 'ni'l) \`shouldBe`
 --     False './' Tagged \@\"Hi" (5 :: Int) './' \'Y' './' True './' Tagged \@\"Bye" \'O' './' 'nil'
--- 'amendL' \@'[\"Hi", \"Bye"] Proxy x (True './' Tagged \@\"Changed" True './' 'nil') \`shouldBe`
+-- 'amendL' \@'[\"Hi", \"Bye"] x (True './' Tagged \@\"Changed" True './' 'nil') \`shouldBe`
 --     False './' True './' Tagged \@Foo False './' Tagged \@Bar \'X' './' Tagged \@\"Changed" True './' 'nil'
 -- @
 amendL
-    :: forall ls smaller smaller' larger proxy.
+    :: forall ls smaller smaller' larger larger'.
        ( Amend smaller smaller' larger
        , smaller ~ KindsAtLabels ls larger
        , IsDistinct ls
        , UniqueLabels ls larger
+       , larger' ~ Replaces smaller smaller' larger
        )
-    => proxy ls
-    -> Many larger
+    => Many larger
     -> Many smaller'
-    -> Many (Replaces smaller smaller' larger)
-amendL _ = amend @(KindsAtLabels ls larger) Proxy
+    -> Many larger'
+amendL = amend @(KindsAtLabels ls larger)
 
 -----------------------------------------------------------------------
 -- | A friendlier type constraint synomyn for 'amendN''
@@ -959,13 +960,13 @@ type AmendN' ns smaller larger =
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
--- 'amendN'' (Proxy \@'[5, 4, 0]) x (Just \'B' './' (8 :: Int) './' (4 ::Int) './' 'nil') \`shouldBe`
+-- 'amendN'' \@'[5, 4, 0] x (Just \'B' './' (8 :: Int) './' (4 ::Int) './' 'nil') \`shouldBe`
 --     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nil'
 -- @
-amendN' :: forall ns smaller larger proxy.
+amendN' :: forall ns smaller larger.
        (AmendN' ns smaller larger)
-    => proxy ns -> Many larger -> Many smaller -> Many larger
-amendN' _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
+    => Many larger -> Many smaller -> Many larger
+amendN' (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
     xs' = afoldr (:) [] (forManyN' (CaseAmendN' @ns @larger @_ @0 @smaller) t)
 
@@ -992,10 +993,10 @@ type AmendN ns smaller smaller' larger =
     , IsDistinct ns)
 
 -- | A polymorphic variation of 'amendN''
-amendN :: forall ns smaller smaller' larger proxy.
-       (AmendN ns smaller smaller' larger)
-    => proxy ns -> Many larger -> Many smaller' -> Many (ReplacesIndex ns smaller' larger)
-amendN _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
+amendN :: forall ns smaller smaller' larger larger'.
+       (AmendN ns smaller smaller' larger, larger' ~ ReplacesIndex ns smaller' larger)
+    => Many larger -> Many smaller' -> Many larger'
+amendN (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
     xs' = afoldr (:) [] (forManyN'' @smaller Proxy (CaseAmendN @ns @larger @_ @0 @(Zip smaller smaller')) t)
 

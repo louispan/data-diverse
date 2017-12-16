@@ -26,7 +26,6 @@ import Data.Diverse.Many
 import Data.Diverse.Reiterate
 import Data.Diverse.TypeLevel
 import Data.Kind
-import Data.Proxy
 import GHC.TypeLits
 
 -- | Contains a 'Many' of handlers/continuations for all the types in the 'xs' typelist.
@@ -101,7 +100,7 @@ instance ReiterateN (CasesN fs r) n xs where
 
 -- | UndecidableInstances because @fs@ appears more often.
 instance (MemberAt n (Head xs -> r) fs) => Case (CasesN fs r n) xs where
-    case' (CasesN s) = fetchN (Proxy @n) s
+    case' (CasesN s) = fetchN @n s
 
 -- | Safe Constructor for 'CasesN' ensuring that the @n@ Nat starts at 0.
 -- It is an instance of 'CaseN' for either handling 'Data.Diverse.Which.switchN'ing a 'Which' in index order.

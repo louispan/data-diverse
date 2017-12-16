@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE EmptyCase #-}
@@ -187,18 +188,18 @@ pick_ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 -- | A variation of 'pick' where @x@ is specified via a label
 --
 -- @
--- let y = 'pickL' \@Foo Proxy (Tagged (5 :: Int)) :: Which '[Bool, Tagged Foo Int, Tagged Bar Char]
---     x = 'trialL' \@Foo Proxy y
+-- let y = 'pickL' \@Foo (Tagged (5 :: Int)) :: Which '[Bool, Tagged Foo Int, Tagged Bar Char]
+--     x = 'trialL' \@Foo y
 -- x `shouldBe` (Right (Tagged 5))
 -- @
-pickL :: forall l xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
-  => proxy l -> x -> Which xs
-pickL _ = pick_ @x
+pickL :: forall l x xs. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+  => x -> Which xs
+pickL = pick_ @x
 
 -- | Variation of 'pickL' specialized to 'Tagged' that automatically tags the value.
-pickTag :: forall l xs proxy x. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
-  => proxy l -> x -> Which xs
-pickTag p a = pickL p (Tagged @l a)
+pickTag :: forall l x xs . (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+  => x -> Which xs
+pickTag a = pickL @l (Tagged @l a)
 
 -- | A variation of 'pick' into a 'Which' of a single type.
 --
@@ -219,10 +220,10 @@ pick0 = Which 0 . unsafeCoerce
 -- | Lift a value into a 'Which' of possibly other (possibley indistinct) types, where the value is the @n@-th type.
 --
 -- @
--- 'pickN' (Proxy \@4) (5 :: Int) :: Which '[Bool, Int, Char, Bool, Int, Char]
+-- 'pickN' \@4 (5 :: Int) :: Which '[Bool, Int, Char, Bool, Int, Char]
 -- @
-pickN :: forall n xs proxy x. MemberAt n x xs => proxy n -> x -> Which xs
-pickN _ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
+pickN :: forall n x xs. MemberAt n x xs => x -> Which xs
+pickN = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 
 -- | It is 'obvious' what value is inside a 'Which' of one type.
 --
@@ -248,13 +249,13 @@ trial_ (Which n v) = let i = fromInteger (natVal @n Proxy)
 --
 -- @
 -- let x = 'pick' \'A' \@_ \@'[Int, Bool, Char, Maybe String] :: 'Which' '[Int, Bool, Char, Maybe String]
--- 'trialN' \@_ \@1 Proxy x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Int, Char, Maybe String]
+-- 'trialN' \@1 x \`shouldBe` Left ('pick' \'A') :: 'Which' '[Int, Char, Maybe String]
 -- @
 trialN
-    :: forall n xs proxy x.
+    :: forall n x xs.
        (MemberAt n x xs)
-    => proxy n -> Which xs -> Either (Which (RemoveIndex n xs)) x
-trialN _ (Which n v) = let i = fromInteger (natVal @n Proxy)
+    => Which xs -> Either (Which (RemoveIndex n xs)) x
+trialN (Which n v) = let i = fromInteger (natVal @n Proxy)
                   in if n == i
                      then Right (unsafeCoerce v)
                      else if n > i
@@ -278,15 +279,15 @@ trial = trial_
 -- | A variation of 'trial' where x is specified via a label
 --
 -- @
--- let y = 'pickL' \@Foo Proxy (Tagged (5 :: Int)) :: Which '[Bool, Tagged Foo Int, Tagged Bar Char]
+-- let y = 'pickL' \@Foo (Tagged (5 :: Int)) :: Which '[Bool, Tagged Foo Int, Tagged Bar Char]
 --     x = 'trialL' \@Foo Proxy y
 -- x `shouldBe` (Right (Tagged 5))
 -- @
 trialL
-    :: forall l xs proxy x.
+    :: forall l x xs.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
-    => proxy l -> Which xs -> Either (Which (Remove x xs)) x
-trialL _ = trial_ @_ @x
+    => Which xs -> Either (Which (Remove x xs)) x
+trialL = trial_ @_ @x
 
 
 trial_'
@@ -300,17 +301,17 @@ trial_' (Which n v) = let i = fromInteger (natVal @n Proxy)
 
 -- | Variation of 'trialL' specialized to 'Tagged' which untags the field.
 trialTag
-    :: forall l xs proxy x.
+    :: forall l x xs.
        (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
-    => proxy l -> Which xs -> Either (Which (Remove (Tagged l x) xs)) x
-trialTag p xs = unTagged <$> trialL p xs
+    => Which xs -> Either (Which (Remove (Tagged l x) xs)) x
+trialTag xs = unTagged <$> trialL @l xs
 
 -- | Variation of 'trialN' which returns a Maybe
 trialN'
-    :: forall n xs proxy x.
+    :: forall n x xs.
        (MemberAt n x xs)
-    => proxy n -> Which xs -> Maybe x
-trialN' _ (Which n v) = let i = fromInteger (natVal @n Proxy)
+    => Which xs -> Maybe x
+trialN' (Which n v) = let i = fromInteger (natVal @n Proxy)
                   in if n == i
                      then Just (unsafeCoerce v)
                      else Nothing
@@ -324,17 +325,17 @@ trial' = trial_'
 
 -- | Variation of 'trialL' which returns a Maybe
 trialL'
-    :: forall l xs proxy x.
+    :: forall l x xs.
        (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
-    => proxy l -> Which xs -> Maybe x
-trialL' _ = trial_' @_ @x
+    => Which xs -> Maybe x
+trialL' = trial_' @_ @x
 
 -- | Variation of 'trialL'' specialized to 'Tagged' which untags the field.
 trialTag'
-    :: forall l xs proxy x.
+    :: forall l x xs.
        (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
-    => proxy l -> Which xs -> Maybe x
-trialTag' p xs = unTagged <$> trialL' p xs
+    => Which xs -> Maybe x
+trialTag' xs = unTagged <$> trialL' @l xs
 
 -- | A variation of a 'Which' 'trial' which 'trial's the first type in the type list.
 --
@@ -401,19 +402,19 @@ diversify' = diversify
 --
 -- @
 -- let y = 'pickOnly' (5 :: Tagged Bar Int)
---     y' = 'diversifyL' \@'[Bar] Proxy y :: 'Which' '[Tagged Bar Int, Tagged Foo Bool]
---     y'' = 'diversifyL' \@'[Bar, Foo] Proxy y' :: 'Which' '[Tagged Foo Bool, Tagged Bar Int]
+--     y' = 'diversifyL' \@'[Bar] y :: 'Which' '[Tagged Bar Int, Tagged Foo Bool]
+--     y'' = 'diversifyL' \@'[Bar, Foo] y' :: 'Which' '[Tagged Foo Bool, Tagged Bar Int]
 -- 'switch' y'' ('Data.Diverse.CaseFunc.CaseFunc' \@'Data.Typeable.Typeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Tagged * Bar Int"
 -- @
 diversifyL
-    :: forall ls branch tree proxy.
+    :: forall ls branch tree.
        ( Diversify branch tree
        , branch ~ KindsAtLabels ls tree
        , UniqueLabels ls tree
        , IsDistinct ls
        )
-    => proxy ls -> Which branch -> Which tree
-diversifyL _ = which (CaseDiversify @branch @tree @_ @branch)
+    => Which branch -> Which tree
+diversifyL = which (CaseDiversify @branch @tree @_ @branch)
 
 ------------------------------------------------------------------
 
@@ -433,12 +434,12 @@ type DiversifyN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
 --
 -- @
 -- let y = 'pickOnly' (5 :: Int)
---     y' = 'diversifyN' \@'[0] \@_ \@[Int, Bool] Proxy y
---     y'' = 'diversifyN' \@[1,0] \@_ \@[Bool, Int] Proxy y'
+--     y' = 'diversifyN' \@'[0] \@_ \@[Int, Bool] y
+--     y'' = 'diversifyN' \@[1,0] \@_ \@[Bool, Int] y'
 -- 'switch' y'' ('Data.Diverse.CaseFunc.CaseFunc' \@'Data.Typeable.Typeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Int"
 -- @
-diversifyN :: forall indices branch tree proxy. (DiversifyN indices branch tree) => proxy indices -> Which branch -> Which tree
-diversifyN _ = whichN (CaseDiversifyN @indices @_ @0 @branch)
+diversifyN :: forall indices branch tree. (DiversifyN indices branch tree) => Which branch -> Which tree
+diversifyN = whichN (CaseDiversifyN @indices @_ @0 @branch)
 
 data CaseDiversifyN (indices :: [Nat]) r (n :: Nat) (branch' :: [Type]) = CaseDiversifyN
 
@@ -449,7 +450,7 @@ instance ReiterateN (CaseDiversifyN indices r) n branch' where
 
 instance MemberAt (KindAtIndex n indices) x tree =>
          Case (CaseDiversifyN indices (Which tree) n) (x ': branch') where
-    case' CaseDiversifyN v = pickN (Proxy @(KindAtIndex n indices)) v
+    case' CaseDiversifyN v = pickN @(KindAtIndex n indices) v
 
 ------------------------------------------------------------------
 
@@ -525,34 +526,32 @@ instance ( MaybeUniqueMember x branch
 --
 -- @
 -- let y = 'pick' \@[Tagged Bar Int, Tagged Foo Bool, Tagged Hi Char, Tagged Bye Bool] (5 :: Tagged Bar Int)
---     y' = 'reinterpretL' \@[Foo, Bar] Proxy y
+--     y' = 'reinterpretL' \@[Foo, Bar] y
 --     x = 'pick' \@[Tagged Foo Bool, Tagged Bar Int] (5 :: Tagged Bar Int)
 -- y' \`shouldBe` Right x
 -- @
 reinterpretL
-    :: forall ls branch tree proxy.
+    :: forall ls branch tree.
        ( Reinterpret branch tree
        , branch ~ KindsAtLabels ls tree
        , UniqueLabels ls tree
        , IsDistinct ls
        )
-    => proxy ls
-    -> Which tree
+    => Which tree
     -> Either (Which (Complement tree branch)) (Which branch)
-reinterpretL _ = which (CaseReinterpret @branch @tree @_ @tree)
+reinterpretL = which (CaseReinterpret @branch @tree @_ @tree)
 
 -- | Variation of 'reinterpretL' which returns a Maybe.
 reinterpretL'
-    :: forall ls branch tree proxy.
+    :: forall ls branch tree.
        ( Reinterpret' branch tree
        , branch ~ KindsAtLabels ls tree
        , UniqueLabels ls tree
        , IsDistinct ls
        )
-    => proxy ls
-    -> Which tree
+    => Which tree
     -> Maybe (Which branch)
-reinterpretL' _ = which (CaseReinterpret' @branch @tree @_ @tree)
+reinterpretL' = which (CaseReinterpret' @branch @tree @_ @tree)
 
 ------------------------------------------------------------------
 
@@ -575,8 +574,8 @@ type ReinterpretN' (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
 -- Also it returns a Maybe instead of Either.
 --
 -- This is so that the same @indices@ can be used in 'narrowN'.
-reinterpretN' :: forall (indices :: [Nat]) branch tree proxy. (ReinterpretN' indices branch tree) => proxy indices -> Which tree -> Maybe (Which branch)
-reinterpretN' _ = whichN (CaseReinterpretN' @indices @_ @0 @tree)
+reinterpretN' :: forall (indices :: [Nat]) branch tree. (ReinterpretN' indices branch tree) => Which tree -> Maybe (Which branch)
+reinterpretN' = whichN (CaseReinterpretN' @indices @_ @0 @tree)
 
 data CaseReinterpretN' (indices :: [Nat]) r (n :: Nat) (tree' :: [Type]) = CaseReinterpretN'
 
@@ -705,7 +704,7 @@ whichN = reduce . SwitcherN
 -- in index order.
 --
 -- @
--- let y = 'pickN' \@0 Proxy (5 :: Int) :: 'Which' '[Int, Bool, Bool, Int]
+-- let y = 'pickN' \@0 (5 :: Int) :: 'Which' '[Int, Bool, Bool, Int]
 -- 'switchN' y (
 --     'Data.Diverse.Cases.casesN' (show \@Int
 --         'Data.Diverse.Many../' show \@Bool
@@ -792,7 +791,7 @@ instance Reiterate (CaseShowWhich r) (x ': xs) where
     reiterate (CaseShowWhich i) = CaseShowWhich (i + 1)
 
 instance Show x => Case (CaseShowWhich ShowS) (x ': xs) where
-    case' (CaseShowWhich i) v = showString "pickN @" . showString (show i) . showString " Proxy " . showsPrec (app_prec + 1) v
+    case' (CaseShowWhich i) v = showString "pickN @" . showString (show i) . showChar ' ' . showsPrec (app_prec + 1) v
       where app_prec = 10
 
 ------------------------------------------------------------------
@@ -826,7 +825,6 @@ instance WhichRead (Which_ (x ': xs)) =>
             lift $ L.expect (Ident "pickN")
             lift $ L.expect (Punc "@")
             i <- lift L.readDecP
-            lift $ L.expect (Ident "Proxy")
             Which_ n v <- whichReadPrec i 0 :: ReadPrec (Which_ (x ': xs))
             pure $ Which n v
       where
