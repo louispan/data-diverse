@@ -14,9 +14,21 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 2.0.0.0
+  - Breaking change: the xxx' version of functions are now consistently the simpler or non-polymorphic version.
+    - This is more consistent with 'Control.Lens' as well.
+    - This means the following are swapped:
+      - `replace`, `replace'`
+      - `replaceL`, `replaceL'`
+      - `replaceTag`, `replaceTag'`
+      - `replaceN`, `replaceN'`
+      - `amend`, `amend'`
+      - `amendL`, `amendL'`
+      - `amendN`, `amendN'`
+
 * 1.3.0.0
   - Removed splitting operations added in 1.2.0.0
-  - added 'xxxTag' version of label operations that also automatically untags the field.
+  - added `xxxTag` version of label operations that also automatically untags the field.
 
 * 1.2.0.3
   - PolyKinds for Which

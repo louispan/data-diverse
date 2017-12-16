@@ -157,78 +157,78 @@ spec = do
             fetchL @Foo Proxy y `shouldBe` Tagged @Foo 'X'
             fetchL @"Hello" Proxy y `shouldBe` Tagged @"Hello" (6 :: Int)
 
-        it "has setter for unique fields using 'replace'" $ do
+        it "has setter for unique fields using 'replace''" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-            replace @Int x 6 `shouldBe` (6 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-            replace x True `shouldBe` (5 :: Int) ./ True ./ 'X' ./ Just 'O' ./ nil
-            replace x 'O' `shouldBe` (5 :: Int) ./ False ./ 'O' ./ Just 'O' ./ nil
-            replace x (Just 'P') `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nil
+            replace' @Int x 6 `shouldBe` (6 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
+            replace' x True `shouldBe` (5 :: Int) ./ True ./ 'X' ./ Just 'O' ./ nil
+            replace' x 'O' `shouldBe` (5 :: Int) ./ False ./ 'O' ./ Just 'O' ./ nil
+            replace' x (Just 'P') `shouldBe` (5 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nil
 
         it "has polymorphic setter for unique fields using 'replace'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-            replace' @Int Proxy x 'Z' `shouldBe` 'Z' ./ False ./ 'X' ./ Just 'O' ./ nil
-            replace' @Bool Proxy x 'Z' `shouldBe` (5 :: Int) ./ 'Z' ./ 'X' ./ Just 'O' ./ nil
-            replace' @(Maybe Char) Proxy x 'Z' `shouldBe` (5 :: Int) ./ False ./ 'X' ./ 'Z' ./ nil
+            replace @Int Proxy x 'Z' `shouldBe` 'Z' ./ False ./ 'X' ./ Just 'O' ./ nil
+            replace @Bool Proxy x 'Z' `shouldBe` (5 :: Int) ./ 'Z' ./ 'X' ./ Just 'O' ./ nil
+            replace @(Maybe Char) Proxy x 'Z' `shouldBe` (5 :: Int) ./ False ./ 'X' ./ 'Z' ./ nil
 
-        it "has setter for unique labels using 'replaceL'" $ do
+        it "has setter for unique labels using 'replaceL''" $ do
             let y = (5 :: Int) ./ False ./ Tagged @Foo 'X' ./ Tagged @"Hello" (6 :: Int) ./ nil
-            replace @(Tagged Foo _) y (Tagged @Foo 'Y') `shouldBe`
+            replace' @(Tagged Foo _) y (Tagged @Foo 'Y') `shouldBe`
                 (5 :: Int) ./ False ./ Tagged @Foo 'Y' ./ Tagged @"Hello" (6 :: Int) ./ nil
-            replaceL @Foo Proxy y (Tagged @Foo 'Y') `shouldBe`
+            replaceL' @Foo Proxy y (Tagged @Foo 'Y') `shouldBe`
                 (5 :: Int) ./ False ./ Tagged @Foo 'Y' ./ Tagged @"Hello" (6 :: Int) ./ nil
-            replaceL @"Hello" Proxy y (Tagged @"Hello" 7) `shouldBe`
+            replaceL' @"Hello" Proxy y (Tagged @"Hello" 7) `shouldBe`
                 (5 :: Int) ./ False ./ Tagged @Foo 'X' ./ Tagged @"Hello" (7 :: Int) ./ nil
 
         it "has polymorphic setter for unique labels using 'replaceL'" $ do
             let y = (5 :: Int) ./ False ./ Tagged @Foo 'X' ./ Tagged @"Hello" (6 :: Int) ./ nil
-            replace' @(Tagged Foo Char) Proxy y (Tagged @Bar 'Y') `shouldBe`
+            replace @(Tagged Foo Char) Proxy y (Tagged @Bar 'Y') `shouldBe`
                 (5 :: Int) ./ False ./ Tagged @Bar 'Y' ./ Tagged @"Hello" (6 :: Int) ./ nil
-            replaceL' @Foo Proxy y (Tagged @Bar 'Y') `shouldBe`
+            replaceL @Foo Proxy y (Tagged @Bar 'Y') `shouldBe`
                 (5 :: Int) ./ False ./ Tagged @Bar 'Y' ./ Tagged @"Hello" (6 :: Int) ./ nil
-            replaceL' @"Hello" Proxy y (Tagged @"Hello" False) `shouldBe`
+            replaceL @"Hello" Proxy y (Tagged @"Hello" False) `shouldBe`
                 (5 :: Int) ./ False ./ Tagged @Foo 'X' ./ Tagged @"Hello" False ./ nil
 
-        it "has setter for unique fields using 'replaceN'" $ do
+        it "has setter for unique fields using 'replaceN''" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-            replaceN @0 Proxy x (7 :: Int) `shouldBe`
+            replaceN' @0 Proxy x (7 :: Int) `shouldBe`
                 (7 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-            replaceN @1 Proxy x True `shouldBe`
+            replaceN' @1 Proxy x True `shouldBe`
                 (5 :: Int) ./ True ./ 'X' ./ Just 'O' ./ nil
-            replaceN @2 Proxy x 'Y' `shouldBe`
+            replaceN' @2 Proxy x 'Y' `shouldBe`
                 (5 :: Int) ./ False ./ 'Y' ./ Just 'O' ./ nil
-            replaceN @3 Proxy x (Just 'P') `shouldBe`
+            replaceN' @3 Proxy x (Just 'P') `shouldBe`
                 (5 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nil
 
         it "has polymorphic setter using 'replaceN''" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-            replaceN' @0 Proxy x True `shouldBe`
+            replaceN @0 Proxy x True `shouldBe`
                 True ./ False ./ 'X' ./ Just 'O' ./ nil
             let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            replaceN' @1 Proxy y 'Y' `shouldBe`
+            replaceN @1 Proxy y 'Y' `shouldBe`
                 (5 :: Int) ./ 'Y' ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            replaceN' @5 Proxy y 'Y' `shouldBe`
+            replaceN @5 Proxy y 'Y' `shouldBe`
                 (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ 'Y' ./ nil
 
-        it "has setter for duplicate fields using 'replaceN'" $ do
+        it "has setter for duplicate fields using 'replaceN''" $ do
             let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            replaceN @0 Proxy y (7 :: Int) `shouldBe`
+            replaceN' @0 Proxy y (7 :: Int) `shouldBe`
                 (7 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            replaceN @1 Proxy y True `shouldBe`
+            replaceN' @1 Proxy y True `shouldBe`
                 (5 :: Int) ./ True ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            replaceN @2 Proxy y 'Y' `shouldBe`
+            replaceN' @2 Proxy y 'Y' `shouldBe`
                 (5 :: Int) ./ False ./ 'Y' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            replaceN @3 Proxy y (Just 'P') `shouldBe`
+            replaceN' @3 Proxy y (Just 'P') `shouldBe`
                 (5 :: Int) ./ False ./ 'X' ./ Just 'P' ./ (6 :: Int) ./ Just 'A' ./ nil
-            replaceN @4 Proxy y (8 :: Int) `shouldBe`
+            replaceN' @4 Proxy y (8 :: Int) `shouldBe`
                 (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (8 :: Int) ./ Just 'A' ./ nil
-            replaceN @5 Proxy y (Just 'B') `shouldBe`
+            replaceN' @5 Proxy y (Just 'B') `shouldBe`
                 (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'B' ./ nil
 
-        it "has setter for unique fields using 'replace' (even if there are other duplicate fields)" $ do
+        it "has setter for unique fields using 'replace'' (even if there are other duplicate fields)" $ do
             let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            replace @Bool y True `shouldBe`
+            replace' @Bool y True `shouldBe`
                 (5 :: Int) ./ True ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            replace @Char y 'Y' `shouldBe`
+            replace' @Char y 'Y' `shouldBe`
                 (5 :: Int) ./ False ./ 'Y' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
 
         it "has getter for multiple fields using 'select'" $ do
@@ -263,48 +263,48 @@ spec = do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
             select @'[Bool, Char] x `shouldBe` False ./ 'X' ./ nil
 
-        it "has setter for multiple fields using 'amend'" $ do
+        it "has setter for multiple fields using 'amend''" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-            amend @'[Int, Maybe Char] x ((6 :: Int) ./ Just 'P' ./ nil) `shouldBe` (6 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nil
+            amend' @'[Int, Maybe Char] x ((6 :: Int) ./ Just 'P' ./ nil) `shouldBe` (6 :: Int) ./ False ./ 'X' ./ Just 'P' ./ nil
 
         it "has polymorphc setter for multiple fields using 'amend'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-            amend' @'[Int, Maybe Char] Proxy x ("Foo" ./ "Bar" ./ nil) `shouldBe` "Foo" ./ False ./ 'X' ./ "Bar" ./ nil
+            amend @'[Int, Maybe Char] Proxy x ("Foo" ./ "Bar" ./ nil) `shouldBe` "Foo" ./ False ./ 'X' ./ "Bar" ./ nil
 
-        it "has setter for multiple labelled fields using 'amendL'" $ do
+        it "has setter for multiple labelled fields using 'amendL''" $ do
             let x = False ./ Tagged @"Hi" (5 :: Int) ./ Tagged @Foo False ./ Tagged @Bar 'X' ./ Tagged @"Bye" 'O' ./ nil
-            amendL @'[Foo, Bar] Proxy x (Tagged @Foo True ./ Tagged @Bar 'Y' ./ nil) `shouldBe`
+            amendL' @'[Foo, Bar] Proxy x (Tagged @Foo True ./ Tagged @Bar 'Y' ./ nil) `shouldBe`
                 False ./ Tagged @"Hi" (5 :: Int) ./ Tagged @Foo True ./ Tagged @Bar 'Y' ./ Tagged @"Bye" 'O' ./ nil
-            amendL @'["Hi", "Bye"] Proxy x (Tagged @"Hi" (6 :: Int) ./ Tagged @"Bye" 'P' ./ nil) `shouldBe`
+            amendL' @'["Hi", "Bye"] Proxy x (Tagged @"Hi" (6 :: Int) ./ Tagged @"Bye" 'P' ./ nil) `shouldBe`
                 False ./ Tagged @"Hi" (6 :: Int) ./ Tagged @Foo False ./ Tagged @Bar 'X' ./ Tagged @"Bye" 'P' ./ nil
 
         it "has polymorphic setter for multiple labelled fields using 'amendL'" $ do
             let x = False ./ Tagged @"Hi" (5 :: Int) ./ Tagged @Foo False ./ Tagged @Bar 'X' ./ Tagged @"Bye" 'O' ./ nil
-            amendL' @'[Foo, Bar] Proxy x ('Y' ./ True ./ nil) `shouldBe`
+            amendL @'[Foo, Bar] Proxy x ('Y' ./ True ./ nil) `shouldBe`
                 False ./ Tagged @"Hi" (5 :: Int) ./ 'Y' ./ True ./ Tagged @"Bye" 'O' ./ nil
-            amendL' @'["Hi", "Bye"] Proxy x (True ./ Tagged @"Changed" True ./ nil) `shouldBe`
+            amendL @'["Hi", "Bye"] Proxy x (True ./ Tagged @"Changed" True ./ nil) `shouldBe`
                 False ./ True ./ Tagged @Foo False ./ Tagged @Bar 'X' ./ Tagged @"Changed" True ./ nil
 
-        it "has setter for multiple fields with duplicates using 'amendN'" $ do
+        it "has setter for multiple fields with duplicates using 'amendN''" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            amendN (Proxy @'[5, 4, 0]) x (Just 'B' ./ (8 :: Int) ./ (4 ::Int) ./ nil) `shouldBe`
+            amendN' (Proxy @'[5, 4, 0]) x (Just 'B' ./ (8 :: Int) ./ (4 ::Int) ./ nil) `shouldBe`
                 (4 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (8 :: Int) ./ Just 'B' ./ nil
 
         it "has polymorphic setter for multiple fields with duplicates using 'amendN''" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            amendN' @'[5, 4, 0] Proxy x ("Foo" ./ Just 'B' ./ 'Z' ./ nil) `shouldBe`
+            amendN @'[5, 4, 0] Proxy x ("Foo" ./ Just 'B' ./ 'Z' ./ nil) `shouldBe`
                 'Z' ./ False ./ 'X' ./ Just 'O' ./ Just 'B' ./ "Foo" ./ nil
 
         it "can't amend into types from indistinct fields" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
             -- Compile error: Int is a duplicate
-            -- amend @ '[Bool, Char, Int] x (True ./ 'B' ./ (8 :: Int) ./ nil) `shouldBe`
+            -- amend' @ '[Bool, Char, Int] x (True ./ 'B' ./ (8 :: Int) ./ nil) `shouldBe`
             --     (5 :: Int) ./ True ./ 'B' ./ Just 'O' ./ (8 :: Int) ./ Just 'A' ./ nil
             x `shouldBe` x
 
-        it "with duplicate fields has setter for unique fields 'amend'" $ do
+        it "with duplicate fields has setter for unique fields 'amend''" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            amend @ '[Bool, Char] x (True ./ 'B' ./ nil) `shouldBe`
+            amend' @ '[Bool, Char] x (True ./ 'B' ./ nil) `shouldBe`
                 (5 :: Int) ./ True ./ 'B' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
 
         it "can be folded with 'Many' handlers using 'forMany' or 'collect'" $ do

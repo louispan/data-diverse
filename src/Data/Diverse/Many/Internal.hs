@@ -458,10 +458,10 @@ fetchN p (Many xs) = unsafeCoerce $ fetch_ p xs
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
--- 'replace' \@Int x 6 \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
+-- 'replace'' \@Int x 6 \`shouldBe` (6 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
 -- @
-replace :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
-replace (Many xs) x = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce x)
+replace' :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
+replace' (Many xs) x = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce x)
 
 replace_ :: forall n proxy. KnownNat n => proxy n -> S.Seq Any -> Any -> S.Seq Any
 replace_ _ xs x = S.update i x xs
@@ -471,10 +471,10 @@ replace_ _ xs x = S.update i x xs
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
--- 'replace'' \@Int Proxy x (Just True) \`shouldBe` Just True './' False './' \'X' './' Just \'O' './' 'nil'
+-- 'replace' \@Int Proxy x (Just True) \`shouldBe` Just True './' False './' \'X' './' Just \'O' './' 'nil'
 -- @
-replace' :: forall x y xs proxy. UniqueMember x xs => proxy x -> Many xs -> y -> Many (Replace x y xs)
-replace' _ (Many xs) x = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce x)
+replace :: forall x y xs proxy. UniqueMember x xs => proxy x -> Many xs -> y -> Many (Replace x y xs)
+replace _ (Many xs) x = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce x)
 
 --------------------------------------------------
 
@@ -482,39 +482,39 @@ replace' _ (Many xs) x = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerc
 --
 -- @
 -- let y = (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" (6 :: Int) './' 'nil'
--- 'replaceL' \@Foo Proxy y (Tagged \@Foo \'Y') \`shouldBe`
+-- 'replaceL'' \@Foo Proxy y (Tagged \@Foo \'Y') \`shouldBe`
 --     (5 :: Int) './' False './' Tagged \@Foo \'Y' './' Tagged \@\"Hello" (6 :: Int) './' 'nil'
--- 'replaceL' \@\"Hello" Proxy y (Tagged \@\"Hello" 7) \`shouldBe`
+-- 'replaceL'' \@\"Hello" Proxy y (Tagged \@\"Hello" 7) \`shouldBe`
 --     (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" (7 :: Int) './' 'nil'
 -- @
-replaceL :: forall l xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+replaceL' :: forall l xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
   => proxy l -> Many xs -> x -> Many xs
-replaceL _ (Many xs) x = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce x)
+replaceL' _ (Many xs) x = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce x)
 
 -- | Polymorphic setter by unique type. Set the field with type @x@, and replace with type @y@
 --
 -- @
 -- let y = (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" (6 :: Int) './' 'nil'
--- replaceL' \@Foo Proxy y (Tagged \@Bar \'Y') `shouldBe`
+-- replaceL \@Foo Proxy y (Tagged \@Bar \'Y') `shouldBe`
 --     (5 :: Int) './' False './' Tagged @Bar 'Y' './' Tagged @"Hello" (6 :: Int) './' 'nil'
--- replaceL' \@\"Hello" Proxy y (Tagged \@\"Hello" False) \`shouldBe`
+-- replaceL \@\"Hello" Proxy y (Tagged \@\"Hello" False) \`shouldBe`
 --     (5 :: Int) './' False './' Tagged \@Foo \'X' './' Tagged \@\"Hello" False './' 'nil'
 -- @
-replaceL' :: forall l y xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+replaceL :: forall l y xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
   => proxy l -> Many xs -> y -> Many (Replace x y xs)
-replaceL' _ (Many xs) y = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce y)
+replaceL _ (Many xs) y = Many $ replace_ (Proxy @(IndexOf x xs)) xs (unsafeCoerce y)
 
 --------------------------------------------------
 
--- | Variation of 'replaceL' specialized to 'Tagged' that automatically tags the value to be replaced.
-replaceTag :: forall l xs proxy x. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+-- | Variation of 'replaceL'' specialized to 'Tagged' that automatically tags the value to be replaced.
+replaceTag' :: forall l xs proxy x. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
   => proxy l -> Many xs -> x -> Many xs
-replaceTag p xs x = replaceL p xs (Tagged @l x)
+replaceTag' p xs x = replaceL' p xs (Tagged @l x)
 
 -- | Variation of 'replaceL' specialized to 'Tagged' that automatically tags the value to be replaced.
-replaceTag' :: forall l y xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
+replaceTag :: forall l y xs proxy x. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
   => proxy l -> Many xs -> y -> Many (Replace x (Tagged l y) xs)
-replaceTag' p xs y = replaceL' p xs (Tagged @l y)
+replaceTag p xs y = replaceL p xs (Tagged @l y)
 
 --------------------------------------------------
 
@@ -522,14 +522,14 @@ replaceTag' p xs y = replaceL' p xs (Tagged @l y)
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
--- 'replaceN' \@0 Proxy x 7 `shouldBe`
+-- 'replaceN'' \@0 Proxy x 7 `shouldBe`
 -- @
-replaceN :: forall n xs proxy x. MemberAt n x xs => proxy n -> Many xs -> x -> Many xs
-replaceN p (Many xs) x = Many $ replace_ p xs (unsafeCoerce x)
-
--- | Polymorphic version of 'replaceN'
-replaceN' :: forall n y xs proxy x. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
+replaceN' :: forall n xs proxy x. MemberAt n x xs => proxy n -> Many xs -> x -> Many xs
 replaceN' p (Many xs) x = Many $ replace_ p xs (unsafeCoerce x)
+
+-- | Polymorphic version of 'replaceN''
+replaceN :: forall n y xs proxy x. MemberAt n x xs => proxy n -> Many xs -> y -> Many (ReplaceIndex n y xs)
+replaceN p (Many xs) x = Many $ replace_ p xs (unsafeCoerce x)
 
 -----------------------------------------------------------------------
 
@@ -835,39 +835,39 @@ instance forall indices smaller n x xs n'. (MaybeMemberAt n' x smaller, n' ~ Pos
 
 -----------------------------------------------------------------------
 
--- | A friendlier type constraint synomyn for 'amend'
-type Amend smaller larger = (AFoldable (CollectorAny (CaseAmend larger) smaller) (Int, WrappedAny), IsDistinct smaller)
+-- | A friendlier type constraint synomyn for 'amend''
+type Amend' smaller larger = (AFoldable (CollectorAny (CaseAmend' larger) smaller) (Int, WrappedAny), IsDistinct smaller)
 
 -- | Sets the subset of 'Many' in the larger 'Many'.
 -- Analogous to 'replace' setter but for multiple fields.
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
--- 'amend' \@'[Int, Maybe Char] x ((6 :: Int) './' Just \'P' './' 'nil') \`shouldBe`
+-- 'amend'' \@'[Int, Maybe Char] x ((6 :: Int) './' Just \'P' './' 'nil') \`shouldBe`
 --     (6 :: Int) './' False './' \'X' './' Just \'P' './' 'nil'
 -- @
-amend :: forall smaller larger. Amend smaller larger => Many larger -> Many smaller -> Many larger
-amend (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
+amend' :: forall smaller larger. Amend' smaller larger => Many larger -> Many smaller -> Many larger
+amend' (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forMany' (CaseAmend @larger @_ @smaller) t)
+    xs' = afoldr (:) [] (forMany' (CaseAmend' @larger @_ @smaller) t)
 
-data CaseAmend (larger :: [Type]) r (xs :: [Type]) = CaseAmend
+data CaseAmend' (larger :: [Type]) r (xs :: [Type]) = CaseAmend'
 
-type instance CaseResult (CaseAmend larger r) x = r
+type instance CaseResult (CaseAmend' larger r) x = r
 
-instance Reiterate (CaseAmend larger r) (x ': xs) where
+instance Reiterate (CaseAmend' larger r) (x ': xs) where
     reiterate = coerce
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
 instance UniqueMember x larger =>
-         CaseAny (CaseAmend larger (Int, WrappedAny)) (x ': xs) where
+         CaseAny (CaseAmend' larger (Int, WrappedAny)) (x ': xs) where
     caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
 
 -----------------------------------------------------------------------
 
--- | A variation of 'amend' which amends via labels.
+-- | A variation of 'amend'' which amends via labels.
 --
 -- @
 -- let x = False ./ Tagged \@\"Hi" (5 :: Int) ./ Tagged \@Foo False ./ Tagged \@Bar \'X' ./ Tagged \@\"Bye" \'O' ./ 'nil'
@@ -876,41 +876,43 @@ instance UniqueMember x larger =>
 -- 'amendL' \@'[\"Hi", \"Bye"] Proxy x (Tagged \@\"Hi" (6 :: Int) ./ Tagged \@\"Bye" \'P' ./ nil) `shouldBe`
 --     False ./ Tagged \@\"Hi" (6 :: Int) ./ Tagged \@Foo False ./ Tagged \@Bar \'X' ./ Tagged \@\"Bye" \'P' ./ 'nil'
 -- @
-amendL
+amendL'
     :: forall ls smaller larger proxy.
-       ( Amend smaller larger
+       ( Amend' smaller larger
        , smaller ~ KindsAtLabels ls larger
        , IsDistinct ls
        , UniqueLabels ls larger)
     => proxy ls -> Many larger -> Many smaller -> Many larger
-amendL _ = amend @(KindsAtLabels ls larger)
+amendL' _ = amend' @(KindsAtLabels ls larger)
 
 -----------------------------------------------------------------------
 
--- | A friendlier type constraint synomyn for 'amend''
-type Amend' smaller smaller' larger =
-    ( AFoldable (CollectorAny (CaseAmend' larger) (Zip smaller smaller')) (Int, WrappedAny)
+-- | A friendlier type constraint synomyn for 'amend'
+type Amend smaller smaller' larger =
+    ( AFoldable (CollectorAny (CaseAmend larger) (Zip smaller smaller')) (Int, WrappedAny)
     , IsDistinct smaller)
 
-amend' :: forall smaller smaller' larger proxy. Amend' smaller smaller' larger
+-- | Polymorphic version of 'amend''.
+-- Analogous to 'replace' setter but for multiple fields.
+amend :: forall smaller smaller' larger proxy. Amend smaller smaller' larger
     => proxy smaller -> Many larger -> Many smaller' -> Many (Replaces smaller smaller' larger)
-amend' _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
+amend _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forMany'' @smaller Proxy (CaseAmend' @larger @_ @(Zip smaller smaller')) t)
+    xs' = afoldr (:) [] (forMany'' @smaller Proxy (CaseAmend @larger @_ @(Zip smaller smaller')) t)
 
 forMany'' :: Proxy xs -> c r (Zip xs ys) -> Many ys -> CollectorAny c (Zip xs ys) r
 forMany'' _ c (Many ys) = CollectorAny c (toList ys)
 
-data CaseAmend' (larger :: [Type]) r (zs :: [Type]) = CaseAmend'
+data CaseAmend (larger :: [Type]) r (zs :: [Type]) = CaseAmend
 
-type instance CaseResult (CaseAmend' larger r) x = r
+type instance CaseResult (CaseAmend larger r) x = r
 
-instance Reiterate (CaseAmend' larger r) (z ': zs) where
+instance Reiterate (CaseAmend larger r) (z ': zs) where
     reiterate = coerce
 
 -- | for each y in @smaller@, convert it to a (k, v) to insert into the x in @Many larger@
 instance (UniqueMember x larger) =>
-         CaseAny (CaseAmend' larger (Int, WrappedAny)) ((x, y) ': zs) where
+         CaseAny (CaseAmend larger (Int, WrappedAny)) ((x, y) ': zs) where
     caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @(IndexOf x larger) Proxy)
@@ -921,14 +923,14 @@ instance (UniqueMember x larger) =>
 --
 -- @
 -- let x = False './' Tagged \@\"Hi" (5 :: Int) './' Tagged \@Foo False './' Tagged \@Bar 'X' './' Tagged \@\"Bye" \'O' './' 'nil'
--- 'amendL'' \@'[Foo, Bar] Proxy x (\'Y' './' True './' 'ni'l) \`shouldBe`
+-- 'amendL' \@'[Foo, Bar] Proxy x (\'Y' './' True './' 'ni'l) \`shouldBe`
 --     False './' Tagged \@\"Hi" (5 :: Int) './' \'Y' './' True './' Tagged \@\"Bye" \'O' './' 'nil'
--- 'amendL'' \@'[\"Hi", \"Bye"] Proxy x (True './' Tagged \@\"Changed" True './' 'nil') \`shouldBe`
+-- 'amendL' \@'[\"Hi", \"Bye"] Proxy x (True './' Tagged \@\"Changed" True './' 'nil') \`shouldBe`
 --     False './' True './' Tagged \@Foo False './' Tagged \@Bar \'X' './' Tagged \@\"Changed" True './' 'nil'
 -- @
-amendL'
+amendL
     :: forall ls smaller smaller' larger proxy.
-       ( Amend' smaller smaller' larger
+       ( Amend smaller smaller' larger
        , smaller ~ KindsAtLabels ls larger
        , IsDistinct ls
        , UniqueLabels ls larger
@@ -937,16 +939,16 @@ amendL'
     -> Many larger
     -> Many smaller'
     -> Many (Replaces smaller smaller' larger)
-amendL' _ = amend' @(KindsAtLabels ls larger) Proxy
+amendL _ = amend @(KindsAtLabels ls larger) Proxy
 
 -----------------------------------------------------------------------
--- | A friendlier type constraint synomyn for 'amendN'
-type AmendN ns smaller larger =
-    ( AFoldable (CollectorAnyN (CaseAmendN ns larger) 0 smaller) (Int, WrappedAny)
+-- | A friendlier type constraint synomyn for 'amendN''
+type AmendN' ns smaller larger =
+    ( AFoldable (CollectorAnyN (CaseAmendN' ns larger) 0 smaller) (Int, WrappedAny)
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
--- | A variation of 'amend' which uses a Nat list @n@ to specify how to reorder the fields, where
+-- | A variation of 'amend'' which uses a Nat list @n@ to specify how to reorder the fields, where
 --
 -- @
 -- indices[branch_idx] = tree_idx@
@@ -957,26 +959,26 @@ type AmendN ns smaller larger =
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' (6 :: Int) './' Just \'A' './' 'nil'
--- 'amendN' (Proxy \@'[5, 4, 0]) x (Just \'B' './' (8 :: Int) './' (4 ::Int) './' 'nil') \`shouldBe`
+-- 'amendN'' (Proxy \@'[5, 4, 0]) x (Just \'B' './' (8 :: Int) './' (4 ::Int) './' 'nil') \`shouldBe`
 --     (4 :: Int) './' False './' \'X' './' Just \'O' './' (8 :: Int) './' Just \'B' './' 'nil'
 -- @
-amendN :: forall ns smaller larger proxy.
-       (AmendN ns smaller larger)
+amendN' :: forall ns smaller larger proxy.
+       (AmendN' ns smaller larger)
     => proxy ns -> Many larger -> Many smaller -> Many larger
-amendN _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
+amendN' _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forManyN' (CaseAmendN @ns @larger @_ @0 @smaller) t)
+    xs' = afoldr (:) [] (forManyN' (CaseAmendN' @ns @larger @_ @0 @smaller) t)
 
-data CaseAmendN (indices :: [Nat]) (larger :: [Type]) r (n :: Nat) (xs :: [Type]) = CaseAmendN
+data CaseAmendN' (indices :: [Nat]) (larger :: [Type]) r (n :: Nat) (xs :: [Type]) = CaseAmendN'
 
-type instance CaseResult (CaseAmendN indices larger r n) x = r
+type instance CaseResult (CaseAmendN' indices larger r n) x = r
 
-instance ReiterateN (CaseAmendN indices larger r) n (x ': xs) where
+instance ReiterateN (CaseAmendN' indices larger r) n (x ': xs) where
     reiterateN = coerce
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt n' x larger, n' ~ KindAtIndex n indices) =>
-         CaseAny (CaseAmendN indices larger (Int, WrappedAny) n) (x ': xs) where
+         CaseAny (CaseAmendN' indices larger (Int, WrappedAny) n) (x ': xs) where
     caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @n' Proxy)
@@ -984,32 +986,32 @@ instance (MemberAt n' x larger, n' ~ KindAtIndex n indices) =>
 -----------------------------------------------------------------------
 
 -- | A friendlier type constraint synomyn for 'amendN'
-type AmendN' ns smaller smaller' larger =
-    ( AFoldable (CollectorAnyN (CaseAmendN' ns larger) 0 (Zip smaller smaller')) (Int, WrappedAny)
+type AmendN ns smaller smaller' larger =
+    ( AFoldable (CollectorAnyN (CaseAmendN ns larger) 0 (Zip smaller smaller')) (Int, WrappedAny)
     , smaller ~ KindsAtIndices ns larger
     , IsDistinct ns)
 
--- | A polymorphic variation of 'amendN'
-amendN' :: forall ns smaller smaller' larger proxy.
-       (AmendN' ns smaller smaller' larger)
+-- | A polymorphic variation of 'amendN''
+amendN :: forall ns smaller smaller' larger proxy.
+       (AmendN ns smaller smaller' larger)
     => proxy ns -> Many larger -> Many smaller' -> Many (ReplacesIndex ns smaller' larger)
-amendN' _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
+amendN _ (Many ls) t = Many $ foldr (\(i, WrappedAny v) ys -> S.update i v ys) ls xs'
   where
-    xs' = afoldr (:) [] (forManyN'' @smaller Proxy (CaseAmendN' @ns @larger @_ @0 @(Zip smaller smaller')) t)
+    xs' = afoldr (:) [] (forManyN'' @smaller Proxy (CaseAmendN @ns @larger @_ @0 @(Zip smaller smaller')) t)
 
 forManyN'' :: Proxy xs -> c r n (Zip xs ys) -> Many ys -> CollectorAnyN c n (Zip xs ys) r
 forManyN'' _ c (Many ys) = CollectorAnyN c (toList ys)
 
-data CaseAmendN' (indices :: [Nat]) (larger :: [Type]) r (n :: Nat) (zs :: [Type]) = CaseAmendN'
+data CaseAmendN (indices :: [Nat]) (larger :: [Type]) r (n :: Nat) (zs :: [Type]) = CaseAmendN
 
-type instance CaseResult (CaseAmendN' indices larger r n) x = r
+type instance CaseResult (CaseAmendN indices larger r n) x = r
 
-instance ReiterateN (CaseAmendN' indices larger r) n (z ': zs) where
+instance ReiterateN (CaseAmendN indices larger r) n (z ': zs) where
     reiterateN = coerce
 
 -- | for each x in @smaller@, convert it to a (k, v) to insert into the x in @larger@
 instance (MemberAt n' x larger, n' ~ KindAtIndex n indices) =>
-         CaseAny (CaseAmendN' indices larger (Int, WrappedAny) n) ((x, y) ': zs) where
+         CaseAny (CaseAmendN indices larger (Int, WrappedAny) n) ((x, y) ': zs) where
     caseAny _ v = (i, WrappedAny v)
       where
         i = fromInteger (natVal @n' Proxy)
