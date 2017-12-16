@@ -30,6 +30,16 @@ data Bar
 spec :: Spec
 spec = do
     describe "Many" $ do
+
+        -- it "Test user friendly compile errors" $ do
+        --     let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
+            -- ghc 8.0.2: IndexOf error: ‘Maybe Bool’ is not a member of ...
+            -- ghc 8.0.1 has terrible error message: "No instance for (GHC.TypeLits.KnownNat"
+            -- fetch @(Maybe Bool) y `shouldBe` (Just False)
+
+            -- Not unique error: ‘Maybe Char’ is a duplicate in ...
+            -- fetch @(Maybe Bool) y `shouldBe` (Just False)
+
         it "is a Typeable" $ do
             let x = (5 :: Int) ./ False ./ nil
                 y = cast x :: Maybe (Many '[Int, String])
