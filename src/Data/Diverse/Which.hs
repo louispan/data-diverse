@@ -31,6 +31,7 @@ module Data.Diverse.Which (
     , diversify
     , diversify'
     , diversify0
+    , DiversifyL
     , diversifyL
     , DiversifyN
     , diversifyN
@@ -39,20 +40,22 @@ module Data.Diverse.Which (
     , reinterpret
     , Reinterpret'
     , reinterpret'
+    , ReinterpretL
     , reinterpretL
+    , ReinterpretL'
     , reinterpretL'
     , ReinterpretN'
     , reinterpretN'
 
       -- * Catamorphism
     , Switch
-    , Switcher(..)
-    , which
     , switch
+    , which
+    , Switcher(..)
     , SwitchN
-    , SwitcherN(..)
-    , whichN
     , switchN
+    , whichN
+    , SwitcherN(..)
     ) where
 
 import Data.Diverse.Which.Internal
