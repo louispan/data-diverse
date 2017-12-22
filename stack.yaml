@@ -22,7 +22,8 @@ resolver: lts-7.19
 # resolver: lts-9.18
 
 # ghc 8.2.2
-# resolver: nightly-2017-12-15
+# resolver: lts-10.0
+
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.

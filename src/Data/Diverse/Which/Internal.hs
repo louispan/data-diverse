@@ -6,6 +6,7 @@
 {-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -50,6 +51,7 @@ module Data.Diverse.Which.Internal (
     , diversify
     , diversify'
     , diversify0
+    , DiversifyL
     , diversifyL
     , DiversifyN
     , diversifyN
@@ -58,20 +60,22 @@ module Data.Diverse.Which.Internal (
     , reinterpret
     , Reinterpret'
     , reinterpret'
+    , ReinterpretL
     , reinterpretL
+    , ReinterpretL'
     , reinterpretL'
     , ReinterpretN'
     , reinterpretN'
 
       -- * Catamorphism
     , Switch
-    , Switcher(..)
-    , which
     , switch
+    , which
+    , Switcher(..)
     , SwitchN
-    , SwitcherN(..)
-    , whichN
     , switchN
+    , whichN
+    , SwitcherN(..)
     ) where
 
 import Control.Applicative
@@ -357,7 +361,7 @@ trial0' (Which n v) = if n == 0
 -----------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversify'.
-type Diversify (branch :: [Type]) (tree :: [Type]) = Reduce (Which branch) (Switcher (CaseDiversify branch tree) (Which tree) branch)
+type Diversify (branch :: [Type]) (tree :: [Type]) = Switch (CaseDiversify branch tree) (Which tree) branch
 
 -- | Convert a 'Which' to another 'Which' that may include other possibilities.
 -- That is, @branch@ is equal or is a subset of @tree@.
@@ -398,6 +402,14 @@ diversify' = diversify
 
 ------------------------------------------------------------------
 
+-- | A friendlier constraint synonym for 'diversifyL'.
+type DiversifyL (ls :: [k]) (branch :: [Type]) (tree :: [Type]) =
+    ( Diversify branch tree
+    , branch ~ KindsAtLabels ls tree
+    , UniqueLabels ls tree
+    , IsDistinct ls
+    )
+
 -- | A variation of 'diversify' where @branch@is additionally specified by a labels list.
 --
 -- @
@@ -406,22 +418,16 @@ diversify' = diversify
 --     y'' = 'diversifyL' \@'[Bar, Foo] y' :: 'Which' '[Tagged Foo Bool, Tagged Bar Int]
 -- 'switch' y'' ('Data.Diverse.CaseFunc.CaseFunc' \@'Data.Typeable.Typeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Tagged * Bar Int"
 -- @
-diversifyL
-    :: forall ls branch tree.
-       ( Diversify branch tree
-       , branch ~ KindsAtLabels ls tree
-       , UniqueLabels ls tree
-       , IsDistinct ls
-       )
-    => Which branch -> Which tree
+diversifyL :: forall ls branch tree. (DiversifyL ls branch tree) => Which branch -> Which tree
 diversifyL = which (CaseDiversify @branch @tree @_ @branch)
 
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversifyN'.
-type DiversifyN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
-    ( Reduce (Which branch) (SwitcherN (CaseDiversifyN indices) (Which tree) 0 branch)
-    , KindsAtIndices indices tree ~ branch)
+type DiversifyN (ns :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
+    ( SwitchN Which (CaseDiversifyN ns) (Which tree) 0 branch
+    , KindsAtIndices ns tree ~ branch
+    )
 
 -- | A variation of 'diversify' which uses a Nat list @indices@ to specify how to reorder the fields, where
 --
@@ -438,24 +444,24 @@ type DiversifyN (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
 --     y'' = 'diversifyN' \@[1,0] \@_ \@[Bool, Int] y'
 -- 'switch' y'' ('Data.Diverse.CaseFunc.CaseFunc' \@'Data.Typeable.Typeable' (show . typeRep . (pure \@Proxy))) \`shouldBe` \"Int"
 -- @
-diversifyN :: forall indices branch tree. (DiversifyN indices branch tree) => Which branch -> Which tree
-diversifyN = whichN (CaseDiversifyN @indices @_ @0 @branch)
+diversifyN :: forall ns branch tree. (DiversifyN ns branch tree) => Which branch -> Which tree
+diversifyN = whichN (CaseDiversifyN @ns @_ @0 @branch)
 
-data CaseDiversifyN (indices :: [Nat]) r (n :: Nat) (branch' :: [Type]) = CaseDiversifyN
+data CaseDiversifyN (ns :: [Nat]) r (n :: Nat) (branch' :: [Type]) = CaseDiversifyN
 
-type instance CaseResult (CaseDiversifyN indices r n) x = r
+type instance CaseResult (CaseDiversifyN ns r n) x = r
 
-instance ReiterateN (CaseDiversifyN indices r) n branch' where
+instance ReiterateN (CaseDiversifyN ns r) n branch' where
     reiterateN CaseDiversifyN = CaseDiversifyN
 
-instance MemberAt (KindAtIndex n indices) x tree =>
-         Case (CaseDiversifyN indices (Which tree) n) (x ': branch') where
-    case' CaseDiversifyN v = pickN @(KindAtIndex n indices) v
+instance MemberAt (KindAtIndex n ns) x tree =>
+         Case (CaseDiversifyN ns (Which tree) n) (x ': branch') where
+    case' CaseDiversifyN v = pickN @(KindAtIndex n ns) v
 
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'reinterpret'.
-type Reinterpret branch tree = Reduce (Which tree) (Switcher (CaseReinterpret branch tree) (Either (Which (Complement tree branch)) (Which branch)) tree)
+type Reinterpret (branch :: [Type]) (tree :: [Type]) = Switch (CaseReinterpret branch tree) (Either (Which (Complement tree branch)) (Which branch)) tree
 
 -- | Convert a 'Which' into possibly another 'Which' with a totally different typelist.
 -- Returns either a 'Which' with the 'Right' value, or a 'Which' with the 'Left'over @compliment@ types.
@@ -471,7 +477,8 @@ type Reinterpret branch tree = Reduce (Which tree) (Switcher (CaseReinterpret br
 --     let c = 'reinterpret' @[String, Int] a
 --     c \`shouldBe` Right ('pick' (5 :: Int)) :: 'Which' '[String, Int]
 -- @
-reinterpret :: forall branch tree. Reinterpret branch tree => Which tree -> Either (Which (Complement tree branch)) (Which branch)
+reinterpret :: forall branch tree. (Reinterpret branch tree) =>
+    Which tree -> Either (Which (Complement tree branch)) (Which branch)
 reinterpret = which (CaseReinterpret @branch @tree @_ @tree)
 
 data CaseReinterpret (branch :: [Type]) (tree :: [Type]) r (tree' :: [Type]) = CaseReinterpret
@@ -497,10 +504,10 @@ instance ( MaybeUniqueMember x branch
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'reinterpret''.
-type Reinterpret' branch tree = Reduce (Which tree) (Switcher (CaseReinterpret' branch tree) (Maybe (Which branch)) tree)
+type Reinterpret' (branch :: [Type]) (tree :: [Type]) = Switch (CaseReinterpret' branch tree) (Maybe (Which branch)) tree
 
 -- | Variation of 'reinterpret' which returns a Maybe.
-reinterpret' :: forall branch tree. Reinterpret' branch tree => Which tree -> Maybe (Which branch)
+reinterpret' :: forall branch tree. (Reinterpret' branch tree) => Which tree -> Maybe (Which branch)
 reinterpret' = which (CaseReinterpret' @branch @tree @_ @tree)
 
 data CaseReinterpret' (branch :: [Type]) (tree :: [Type]) r (tree' :: [Type]) = CaseReinterpret'
@@ -522,6 +529,14 @@ instance ( MaybeUniqueMember x branch
 
 ------------------------------------------------------------------
 
+-- | A friendlier constraint synonym for 'reinterpretL'.
+type ReinterpretL (ls :: [k]) (branch :: [Type]) (tree :: [Type]) =
+    ( Reinterpret branch tree
+    , branch ~ KindsAtLabels ls tree
+    , UniqueLabels ls tree
+    , IsDistinct ls
+    )
+
 -- | A variation of 'reinterpret' where the @branch@ is additionally specified with a labels list.
 --
 -- @
@@ -530,37 +545,31 @@ instance ( MaybeUniqueMember x branch
 --     x = 'pick' \@[Tagged Foo Bool, Tagged Bar Int] (5 :: Tagged Bar Int)
 -- y' \`shouldBe` Right x
 -- @
-reinterpretL
-    :: forall ls branch tree.
-       ( Reinterpret branch tree
-       , branch ~ KindsAtLabels ls tree
-       , UniqueLabels ls tree
-       , IsDistinct ls
-       )
-    => Which tree
-    -> Either (Which (Complement tree branch)) (Which branch)
+reinterpretL :: forall ls branch tree. (ReinterpretL ls branch tree)
+  => Which tree -> Either (Which (Complement tree branch)) (Which branch)
 reinterpretL = which (CaseReinterpret @branch @tree @_ @tree)
 
+-- | A friendlier constraint synonym for 'reinterpretL'.
+type ReinterpretL' (ls :: [k]) (branch :: [Type]) (tree :: [Type]) =
+    ( Reinterpret' branch tree
+    , branch ~ KindsAtLabels ls tree
+    , UniqueLabels ls tree
+    , IsDistinct ls
+    )
+
 -- | Variation of 'reinterpretL' which returns a Maybe.
-reinterpretL'
-    :: forall ls branch tree.
-       ( Reinterpret' branch tree
-       , branch ~ KindsAtLabels ls tree
-       , UniqueLabels ls tree
-       , IsDistinct ls
-       )
-    => Which tree
-    -> Maybe (Which branch)
+reinterpretL' :: forall ls branch tree. (ReinterpretL' ls branch tree)
+  => Which tree -> Maybe (Which branch)
 reinterpretL' = which (CaseReinterpret' @branch @tree @_ @tree)
 
 ------------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'reinterpretN'.
-type ReinterpretN' (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
-    ( Reduce (Which tree) (SwitcherN (CaseReinterpretN' indices) (Maybe (Which branch)) 0 tree)
-    , KindsAtIndices indices tree ~ branch)
+type ReinterpretN' (ns :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
+    ( SwitchN Which (CaseReinterpretN' ns) (Maybe (Which branch)) 0 tree
+    , KindsAtIndices ns tree ~ branch)
 
--- | A limited variation of 'reinterpret' which uses a Nat list @n@ to specify how to reorder the fields, where
+-- | A limited variation of 'reinterpret'' which uses a Nat list @n@ to specify how to reorder the fields, where
 --
 -- @
 -- indices[branch_idx] = tree_idx
@@ -574,8 +583,9 @@ type ReinterpretN' (indices :: [Nat]) (branch :: [Type]) (tree :: [Type]) =
 -- Also it returns a Maybe instead of Either.
 --
 -- This is so that the same @indices@ can be used in 'narrowN'.
-reinterpretN' :: forall (indices :: [Nat]) branch tree. (ReinterpretN' indices branch tree) => Which tree -> Maybe (Which branch)
-reinterpretN' = whichN (CaseReinterpretN' @indices @_ @0 @tree)
+reinterpretN' :: forall ns branch tree. (ReinterpretN' ns branch tree)
+  => Which tree -> Maybe (Which branch)
+reinterpretN' = whichN (CaseReinterpretN' @ns @_ @0 @tree)
 
 data CaseReinterpretN' (indices :: [Nat]) r (n :: Nat) (tree' :: [Type]) = CaseReinterpretN'
 
@@ -617,7 +627,6 @@ instance ( Case (c r) (x ': x' ': xs)
 
 -- | Terminating case of the loop, ensuring that a instance of @Case '[]@
 -- with an empty typelist is not required.
--- You can't reduce 'zilch'
 instance (Case (c r) '[x], r ~ CaseResult (c r) x) => Reduce (Which '[x]) (Switcher c r '[x]) where
     reduce (Switcher c) v = case obvious v of
             a -> case' c a
@@ -630,12 +639,8 @@ instance Reduce (Which '[]) (Switcher c r '[]) where
 
 ------------------------------------------------------------------
 
--- | A friendlier constraint synonym for 'switch'.
+-- | A friendlier constraint synonym for 'reinterpretN'.
 type Switch c r xs = Reduce (Which xs) (Switcher c r xs)
-
--- | Catamorphism for 'Which'. This is equivalent to @flip 'switch'@.
-which :: Switch c r xs => c r xs -> Which xs -> r
-which = reduce . Switcher
 
 -- | A switch/case statement for 'Which'. This is equivalent to @flip 'which'@
 --
@@ -658,7 +663,11 @@ which = reduce . Switcher
 --
 -- Or you may use your own custom instance of 'Case'.
 switch :: Switch c r xs => Which xs -> c r xs -> r
-switch = flip which
+switch w c = reduce (Switcher c) w
+
+-- | Catamorphism for 'Which'. This is @flip 'switch'@.
+which :: Switch c r xs => c r xs -> Which xs -> r
+which = flip switch
 
 ------------------------------------------------------------------
 
@@ -691,12 +700,9 @@ instance (Case (c r n) '[x], r ~ CaseResult (c r n) x) => Reduce (Which '[x]) (S
     reduce (SwitcherN c) v = case obvious v of
             a -> case' c a
 
--- | A friendlier constraint synonym for 'switch'.
-type SwitchN c r n xs = Reduce (Which xs) (SwitcherN c r n xs)
-
 -- | Catamorphism for 'Which'. This is equivalent to @flip 'switchN'@.
-whichN :: SwitchN c r n xs => c r n xs -> Which xs -> r
-whichN = reduce . SwitcherN
+whichN :: SwitchN w c r n xs => c r n xs -> w xs -> r
+whichN = flip switchN
 
 -- | A switch/case statement for 'Which'. This is equivalent to @flip 'whichN'@
 --
@@ -714,13 +720,16 @@ whichN = reduce . SwitcherN
 -- @
 --
 -- Or you may use your own custom instance of 'Case'.
-switchN :: SwitchN c r n xs => Which xs -> c r n xs -> r
-switchN = flip whichN
+class SwitchN w c r (n :: Nat) xs where
+    switchN :: w xs -> c r n xs -> r
+
+instance Reduce (Which xs) (SwitcherN c r n xs) => SwitchN Which c r n xs where
+    switchN w c = reduce (SwitcherN c) w
 
 -----------------------------------------------------------------
 
 -- | Two 'Which'es are only equal iff they both contain the equivalnet value at the same type index.
-instance (Reduce (Which (x ': xs)) (Switcher CaseEqWhich Bool (x ': xs))) =>
+instance (Switch CaseEqWhich Bool (x ': xs)) =>
          Eq (Which (x ': xs)) where
     l@(Which i _) == (Which j u) =
         if i /= j
@@ -746,8 +755,8 @@ instance Eq x => Case (CaseEqWhich Bool) (x ': xs) where
 -----------------------------------------------------------------
 
 -- | A 'Which' with a type at smaller type index is considered smaller.
-instance ( Reduce (Which (x ': xs)) (Switcher CaseEqWhich Bool (x ': xs))
-         , Reduce (Which (x ': xs)) (Switcher CaseOrdWhich Ordering (x ': xs))
+instance ( Switch CaseEqWhich Bool (x ': xs)
+         , Switch CaseOrdWhich Ordering (x ': xs)
          ) =>
          Ord (Which (x ': xs)) where
     compare l@(Which i _) (Which j u) =
@@ -774,7 +783,7 @@ instance Ord x => Case (CaseOrdWhich Ordering) (x ': xs) where
 ------------------------------------------------------------------
 
 -- | @show ('pick'' \'A') == "pick \'A'"@
-instance (Reduce (Which (x ': xs)) (Switcher CaseShowWhich ShowS (x ': xs))) =>
+instance (Switch CaseShowWhich ShowS (x ': xs)) =>
          Show (Which (x ': xs)) where
     showsPrec d v = showParen (d > app_prec) (which (CaseShowWhich 0) v)
       where
