@@ -14,8 +14,8 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
-* 2.0.0.1
-  - Simplified type synonyms for Which.
+* 2.0.1.0
+  - Simplified type synonyms for Which. Added Reinterpreted constraint synonym.
 
 * 2.0.0.0
   - Breaking change: the prime (xxx') version of functions are now consistently the simpler or non-polymorphic version.
