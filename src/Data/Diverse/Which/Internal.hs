@@ -57,10 +57,12 @@ module Data.Diverse.Which.Internal (
     , diversifyN
       -- ** Inverse Injection
     , Reinterpret
+    , Reinterpreted
     , reinterpret
     , Reinterpret'
     , reinterpret'
     , ReinterpretL
+    , ReinterpretedL
     , reinterpretL
     , ReinterpretL'
     , reinterpretL'
@@ -463,6 +465,9 @@ instance MemberAt (KindAtIndex n ns) x tree =>
 -- | A friendlier constraint synonym for 'reinterpret'.
 type Reinterpret (branch :: [Type]) (tree :: [Type]) = Switch (CaseReinterpret branch tree) (Either (Which (Complement tree branch)) (Which branch)) tree
 
+-- | A variation of 'Reinterpret' that exposes @branchlessTree ~ Complement tree branch@
+type Reinterpreted branch tree branchlessTree = (Reinterpret branch tree, branchlessTree ~ Complement tree branch)
+
 -- | Convert a 'Which' into possibly another 'Which' with a totally different typelist.
 -- Returns either a 'Which' with the 'Right' value, or a 'Which' with the 'Left'over @compliment@ types.
 --
@@ -536,6 +541,9 @@ type ReinterpretL (ls :: [k]) (branch :: [Type]) (tree :: [Type]) =
     , UniqueLabels ls tree
     , IsDistinct ls
     )
+
+-- | A variation of 'ReinterpretL' that exposes @branchlessTree ~ Complement tree branch@
+type ReinterpretedL ls branch tree branchlessTree = (ReinterpretL ls branch tree, branchlessTree ~ Complement tree branch)
 
 -- | A variation of 'reinterpret' where the @branch@ is additionally specified with a labels list.
 --

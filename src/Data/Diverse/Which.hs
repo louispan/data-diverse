@@ -37,10 +37,12 @@ module Data.Diverse.Which (
     , diversifyN
       -- ** Inverse Injection
     , Reinterpret
+    , Reinterpreted
     , reinterpret
     , Reinterpret'
     , reinterpret'
     , ReinterpretL
+    , ReinterpretedL
     , reinterpretL
     , ReinterpretL'
     , reinterpretL'
