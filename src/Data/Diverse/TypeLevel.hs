@@ -193,6 +193,12 @@ type family Length (xs :: [k]) :: Nat where
     Length '[] = 0
     Length (x ': xs) = 1 + Length xs
 
+type family NotEmpty (xs :: [k]) :: Constraint where
+    NotEmpty '[] = ()
+    NotEmpty xs = TypeError ('Text "NotEmpty error: ‘"
+                             ':<>: 'ShowType xs
+                             ':<>: 'Text "’")
+
 -- | Ensures two typelists are the same length
 type SameLength (xs :: [k1]) (ys :: [k2]) = SameLengthImpl xs ys xs ys
 
