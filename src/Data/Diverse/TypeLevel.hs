@@ -122,58 +122,6 @@ type ReplaceIndex (n :: Nat) (y :: k) (xs :: [k]) = ReplaceIndexImpl n xs n y xs
 -- | The typelist @xs@ replaced by @ys@ at the indices @ns@. @ns@ and @ys@ must be the same length. @ns@ must be within bounds of @xs@
 type ReplacesIndex (ns :: [Nat]) (ys :: [k]) (xs :: [k]) = ReplacesIndexImpl 0 ns ys xs
 
--- | Returns the typelist up to and excluding @x@. If @x@ doesn't exist, then the original @xs@ is returned.
-type family Before (x :: k) (xs :: [k]) :: [k] where
-     Before x '[] = '[]
-     Before x (x ': xs) = '[]
-     Before x (y ': xs) = y ': Before x xs
-
--- | Returns the typelist up to and including @x@. If @x@ doesn't exist, then the original @xs@ is returned.
-type family To (x :: k) (xs :: [k]) :: [k] where
-     To x '[] = '[]
-     To x (x ': xs) = '[x]
-     To x (y ': xs) = y ': To x xs
-
--- | Returns the typelist after and excluding @x@. If @x@ doesn't exist, then an empty '[] is returned.
-type family After (x :: k) (xs :: [k]) :: [k] where
-     After x '[] = '[]
-     After x (x ': xs) = xs
-     After x (y ': xs) = After x xs
-
--- | Returns the typelist after and including @x@. If @x@ doesn't exist, then an empty '[] is returned.
-type family From (x :: k) (xs :: [k]) :: [k] where
-     From x '[] = '[]
-     From x (x ': xs) = (x ': xs)
-     From x (y ': xs) = From x xs
-
--- | Returns the typelist before (and exluding) index @n@.
--- If @n@ is larger then the @xs@ size, then the original @xs@ is returned.
-type family BeforeIndex (n :: Nat) (xs :: [k]) :: [k] where
-     BeforeIndex n '[] = '[]
-     BeforeIndex 0 xs = '[]
-     BeforeIndex n (x ': xs) = x ': BeforeIndex (n - 1) xs
-
--- | Returns the typelist up to (and including) index @n@.
--- If @n@ is larger then the @xs@ size, then the original @xs@ is returned.
-type family ToIndex (n :: Nat) (xs :: [k]) :: [k] where
-     ToIndex n '[] = '[]
-     ToIndex 0 (x ': xs) = '[x]
-     ToIndex n (x ': xs) = x ': ToIndex (n - 1) xs
-
--- | Returns the typelist after (and exluding) index @n@.
--- If @n@ is larger then the @xs@ size, then an empty '[] is returned.
-type family AfterIndex (n :: Nat) (xs :: [k]) :: [k] where
-     AfterIndex n '[] = '[]
-     AfterIndex 0 (_ ': xs) = xs
-     AfterIndex n (x ': xs) = AfterIndex (n - 1) xs
-
--- | Returns the typelist from (and including) index @n@.
--- If @n@ is larger then the @xs@ size, then an empty '[] is returned.
-type family FromIndex (n :: Nat) (xs :: [k]) :: [k] where
-     FromIndex n '[] = '[]
-     FromIndex 0 xs = xs
-     FromIndex n (x ': xs) = FromIndex (n - 1) xs
-
 -- | Get the typelist without the 'Head' type
 type family Tail (xs :: [k]) :: [k] where
     Tail '[] = TypeError ('Text "Tail error: empty type list")
@@ -188,16 +136,6 @@ type family Last (xs :: [k]) :: k where
     Last '[] = TypeError ('Text "Last error: empty type list")
     Last (x ': x' ': xs) = Last (x' ': xs)
     Last '[x] = x
-
-type family Length (xs :: [k]) :: Nat where
-    Length '[] = 0
-    Length (x ': xs) = 1 + Length xs
-
-type family NotEmpty (xs :: [k]) :: Constraint where
-    NotEmpty '[] = ()
-    NotEmpty xs = TypeError ('Text "NotEmpty error: ‘"
-                             ':<>: 'ShowType xs
-                             ':<>: 'Text "’")
 
 -- | Ensures two typelists are the same length
 type SameLength (xs :: [k1]) (ys :: [k2]) = SameLengthImpl xs ys xs ys
