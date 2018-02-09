@@ -200,7 +200,6 @@ pick = pick_
 pick_ :: forall x xs n. (KnownNat n, n ~ IndexOf x xs) => x -> Which xs
 pick_ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
 
-
 -- | A variation of 'pick' where @x@ is specified via a label
 --
 -- @
@@ -654,6 +653,18 @@ instance (Case (c r) '[x], r ~ CaseResult (c r) x) => Reduce (Which '[x]) (Switc
 -- can be done with 'impossible'
 instance Reduce (Which '[]) (Switcher c r '[]) where
     reduce _ = impossible
+
+-- | Allow 'Void' to be 'reinterpret''ed or 'diversify'ed into anything else
+-- This is safe because @Void@ is uninhabited, and this is already something that
+-- can be done with 'impossible'
+instance Reduce (Void) (Switcher c r '[]) where
+    reduce _ = absurd
+
+-- | Allow 'Which \'[Void]' to be 'reinterpret''ed or 'diversify'ed into anything else
+-- This is safe because @Which '[Void]@ is uninhabited, and this is already something that
+-- can be done with 'impossible'
+instance Reduce (Which '[Void]) (Switcher c r '[]) where
+    reduce _ = impossible'
 
 ------------------------------------------------------------------
 
