@@ -27,6 +27,7 @@ module Data.Diverse.Which.Internal (
       -- * Single type
       -- ** Construction
     , impossible
+    , impossible'
     , pick
     , pick0
     , pickOnly
@@ -93,8 +94,9 @@ import Data.Kind
 import Data.Proxy
 import Data.Semigroup (Semigroup(..))
 import Data.Tagged
-import qualified GHC.Generics as G
+import Data.Void
 import GHC.Exts (Any, coerce)
+import qualified GHC.Generics as G
 import GHC.TypeLits
 import Text.ParserCombinators.ReadPrec
 import Text.Read
@@ -179,6 +181,12 @@ impossible :: Which '[] -> a
 impossible a = case a of {}
 -- Copied from http://hackage.haskell.org/package/base/docs/src/Data.Void.html
 
+-- | A @Which '[Void]@ is equivalent to @Which '[]@
+-- A @Which '[Void]@ might occur if you lift a 'Void' into a @Which@ with 'pick'.
+-- This allows you to convert it back to 'Void' or @Which '[]@
+impossible' :: Which '[Void] -> a
+impossible' a = case a of {}
+
 -- | Lift a value into a 'Which' of possibly other types @xs@.
 -- @xs@ can be inferred or specified with TypeApplications.
 -- NB. forall is used to specify @xs@ first, so TypeApplications can be used to specify @xs@ first
@@ -191,6 +199,7 @@ pick = pick_
 
 pick_ :: forall x xs n. (KnownNat n, n ~ IndexOf x xs) => x -> Which xs
 pick_ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
+
 
 -- | A variation of 'pick' where @x@ is specified via a label
 --
