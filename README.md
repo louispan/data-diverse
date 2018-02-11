@@ -16,14 +16,15 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 * 2.0.2.0
   - Removed unused type functions from removed splitting functions (Before,To,After,From,Length)
-  - Added impossible' and ability to diversify and reinterpret "Which '[Void]"
+  - Added `impossible'` and ability to diversify and reinterpret `Which '[Void]`
+  - Added `impossibles`
 
 * 2.0.1.0
   - Simplified type synonyms for Which. Added Reinterpreted constraint synonym.
 
 * 2.0.0.0
   - Breaking change: the prime (xxx') version of functions are now consistently the simpler or non-polymorphic version.
-    - This is more consistent with 'Control.Lens' as well.
+    - This is more consistent with `Control.Lens` as well.
     - This means the following are swapped:
       - `replace`, `replace'`
       - `replaceL`, `replaceL'`
@@ -32,30 +33,30 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
       - `amend`, `amend'`
       - `amendL`, `amendL'`
       - `amendN`, `amendN'`
-  - Breaking change: Removed proxy argument from 'fetchL/Tag/N', 'replaceXXX', 'selectL/Tag/N', 'amendXXX', 'pickL/Tag/N', 'trialL/Tag/N'
-    relying soley on TypeApplications and now requiring AllowAmbiguousTypes.
-    The "Proxy" is also removed from the Read/Show serialized format.
-  - Rearranged type variables in `fetchL/N`, `replaceL/Tag/N`, 'pickL/Tag/N', 'trialL/Tag/N' type parameters,
-    so the type variable ordering is consistently label, orig to change, smaller to larger, ie. 'l/n', 'x', 'y', 'xs'
+  - Breaking change: Removed proxy argument from `fetchL/Tag/N`, `replaceXXX`, `selectL/Tag/N`, `amendXXX`, `pickL/Tag/N`, `trialL/Tag/N`
+    relying soley on `TypeApplications` and now requiring `AllowAmbiguousTypes`.
+    The `Proxy` is also removed from the Read/Show serialized format.
+  - Rearranged type variables in `fetchL/N`, `replaceL/Tag/N`, `pickL/Tag/N`, `trialL/Tag/N` type parameters,
+    so the type variable ordering is consistently label, orig to change, smaller to larger, ie. `l/n`, `x`, `y`, `xs`
 
 * 1.3.0.0
   - Removed splitting operations added in 1.2.0.0
   - added `xxxTag` version of label operations that also automatically untags the field.
 
 * 1.2.0.3
-  - PolyKinds for Which
+  - `PolyKinds` for `Which`
   - Removed cabal upper bounds
 
 * 1.2.0.2
-  - Added 'insert'/'remove' for GHC < 8.2
-  - Removed type functions 'UniqueMemberAt', 'MaybeUniqueMemberAt'
+  - Added `insert`/`remove` for GHC < 8.2
+  - Removed type functions `UniqueMemberAt`, `MaybeUniqueMemberAt`
 
 * 1.2.0.1
-  - 'insert'/'remove' is not available in GHC 8.2 onwards.
+  - `insert`/`remove` is not available in GHC 8.2 onwards.
 
 * 1.2.0.0
   - Rerranged type variable for xxxL and xxxN functions so that the
-    @x@ inferrred from label @l@ or index @n@ is after @proxy@.
+    `x` inferrred from label `l` or index `n` is after `proxy`.
     - This affects `fetch[L|N]`, `replace[L|N]`, `replace[L|N]'`, `pick[L|N]`
   - Depends on at least containers-0.5.8.2 for `Data.Sequence.insertAt`
   - Added splitting operations: `split[Before|After][|L|N]`, `inset[Before|After][|L|N]`,
@@ -87,7 +88,7 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Removed `zilch` so `Which '[]` is uninhabited like `Data.Void.Void`, making 'impossible' safe to use.
   - Removed `Monoid` and changed `Show`, `Read` and `Generic` instances for `Which '[]` to be partial
     just like Data.Void.Void.
-  - Added instance Reduce (Which '[]) (Switcher c '[] r), which follows from 'impossible'.
+  - Added `instance Reduce (Which '[]) (Switcher c '[] r)`, which follows from `impossible`.
 
 * 0.10.0.0
   - Renamed `Switch` to `Switcher`. Switch is now a type synonym for `switch` constraints
@@ -100,7 +101,7 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Removed zipped type variable from `Amend` constraints.
   - Removed r type variable from `Reduce` typeclass.
   - Rearranged type variables in `fetch`, `replace`, `pick`, `trial`, `Diversify` type parameters,
-    so the type variable ordering is consistently smaller to larger, ie. 'x', 'xs', 'branch', 'tree'
+    so the type variable ordering is consistently smaller to larger, ie. `x`, `xs`, `branch`, `tree`
   - Added `diversify'` for allowing rearranging the types only.
 
 * 0.9.0.1
