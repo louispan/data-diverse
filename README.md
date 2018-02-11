@@ -17,7 +17,7 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 * 2.0.2.0
   - Removed unused type functions from removed splitting functions (Before,To,After,From,Length)
   - Added `impossible'` and ability to diversify and reinterpret `Which '[Void]`
-  - Added `impossibles`
+  - Added `zilch`
 
 * 2.0.1.0
   - Simplified type synonyms for Which. Added Reinterpreted constraint synonym.
