@@ -251,16 +251,16 @@ spec = do
             let x = pick @_ @'[Int] (5 :: Int)
             case trial @Int x of
                 Right y -> y `shouldBe` y
-                Left zilch -> do
+                Left z -> do
                     -- Which '[] can be diversified into anything
                     -- This is safe because Which '[] is uninhabited like Data.Void
                     -- and so like Data.Void.absurd, "if given a falsehood, anything follows"
-                    diversify @'[] @'[Int, Bool] zilch `shouldBe` impossible zilch
-                    reinterpret' @'[] zilch `shouldBe` Just zilch
-                    reinterpret @'[] zilch `shouldBe` Right zilch
-                    diversify @'[] zilch `shouldBe` zilch
-                    read (show zilch) `shouldBe` zilch
-                    compare zilch zilch `shouldBe` EQ
+                    diversify @'[] @'[Int, Bool] z `shouldBe` impossible z
+                    reinterpret' @'[] z `shouldBe` Just z
+                    reinterpret @'[] z `shouldBe` Right z
+                    diversify @'[] z `shouldBe` z
+                    read (show z) `shouldBe` z
+                    compare z z `shouldBe` EQ
             reinterpret' @'[] x `shouldBe` Nothing
             reinterpret @'[] x `shouldBe` Left x
 
@@ -268,4 +268,4 @@ spec = do
             let x = pick @_ @'[Int] (5 :: Int)
             case trial @Int x of
                 Right y -> y `shouldBe` y
-                Left zilch -> impossible zilch
+                Left z -> impossible z

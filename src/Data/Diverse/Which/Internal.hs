@@ -140,7 +140,7 @@ type role Which representational
 
 ----------------------------------------------
 
--- | A terminating 'G.Generic' instance for no types encoded as a 'zilch'.
+-- | A terminating 'G.Generic' instance for no types encoded as a 'Which '[]'.
 -- The 'G.C1' and 'G.S1' metadata are not encoded.
 instance G.Generic (Which '[]) where
     type Rep (Which '[]) = G.V1
@@ -188,6 +188,7 @@ impossible a = case a of {}
 impossible' :: Which '[Void] -> a
 impossible' a = case a of {}
 
+-- | Monoid that is always 'mempty'
 zilch :: Monoid (t (Which '[])) => t (Which '[])
 zilch = mempty
 

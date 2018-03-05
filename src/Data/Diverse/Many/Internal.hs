@@ -2,8 +2,8 @@
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -38,7 +38,7 @@ module Data.Diverse.Many.Internal (
     , postfix'
     , (\.)
     , append
-    , CanAppendUnique(..)
+    -- , CanAppendUnique(..)
     , (/./)
 
     -- * Simple queries
@@ -108,11 +108,11 @@ import Data.Diverse.TypeLevel
 import Data.Foldable
 import Data.Kind
 import Data.Proxy
-import qualified Data.Sequence as S
 import Data.Semigroup (Semigroup(..))
+import qualified Data.Sequence as S
 import Data.Tagged
-import qualified GHC.Generics as G
 import GHC.Exts (Any, coerce)
+import qualified GHC.Generics as G
 import GHC.TypeLits
 import Text.ParserCombinators.ReadPrec
 import Text.Read
@@ -349,21 +349,21 @@ append :: Many xs -> Many ys -> Many (Append xs ys)
 append (Many ls) (Many rs) = Many (ls S.>< rs)
 infixr 5 `append` -- like Data.List (++)
 
-class CanAppendUnique xs ys where
-   -- | Appends the unique fields fields from the right Many using 'postfix''
-   append' :: Many xs -> Many ys -> Many (AppendUnique xs ys)
+-- class CanAppendUnique xs ys where
+--    -- | Appends the unique fields fields from the right Many using 'postfix''
+--    append' :: Many xs -> Many ys -> Many (AppendUnique xs ys)
 
-instance CanAppendUnique xs '[] where
-   append' ls _ = ls
+-- instance CanAppendUnique xs '[] where
+--    append' ls _ = ls
 
-instance ( MaybeUniqueMember y xs
-         , CanAppendUnique (SnocUnique xs y) ys
-         , AppendUnique (SnocUnique xs y) ys ~ AppendUnique xs (y : ys)) => CanAppendUnique xs (y ': ys) where
-   append' ls rs = append' (postfix' ls r) rs'
-     where (r, rs') = viewf rs
-   {-# INLINABLE append' #-} -- This makes compiling tests a little faster than with no pragma
+-- instance ( MaybeUniqueMember y xs
+--          , CanAppendUnique (SnocUnique xs y) ys
+--          , AppendUnique (SnocUnique xs y) ys ~ AppendUnique xs (y : ys)) => CanAppendUnique xs (y ': ys) where
+--    append' ls rs = append' (postfix' ls r) rs'
+--      where (r, rs') = viewf rs
+--    {-# INLINABLE append' #-} -- This makes compiling tests a little faster than with no pragma
 
-infixr 5 `append'` -- like Data.List (++)
+-- infixr 5 `append'` -- like Data.List (++)
 
 -----------------------------------------------------------------------
 

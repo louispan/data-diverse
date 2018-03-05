@@ -19,7 +19,7 @@ module Data.Diverse.Many (
     , postfix'
     , (\.)
     , append
-    , CanAppendUnique(..)
+    -- , CanAppendUnique(..)
     , (/./)
 
     -- * Simple queries
