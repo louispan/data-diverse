@@ -51,10 +51,10 @@ module Data.Diverse.Many.Internal (
 
     -- * Single field
     -- ** Getter for single field
-    , fetch
-    , fetchL
-    , fetchTag
-    , fetchN
+    , grab
+    , grabL
+    , grabTag
+    , grabN
     -- ** Setter for single field
     , replace
     , replace'
@@ -128,7 +128,7 @@ import Prelude as Partial
 --
 -- The following functions are available can be used to manipulate unique fields
 --
--- * getter/setter for single field: 'fetch' and 'replace'
+-- * getter/setter for single field: 'grab' and 'replace'
 -- * getter/setter for multiple fields: 'select' and 'amend'
 -- * folds: 'forMany' or 'collect'
 --
@@ -137,7 +137,7 @@ import Prelude as Partial
 --
 -- For duplicate fields, Nat-indexed versions of the functions are available:
 --
--- * getter/setter for single field: 'fetchN' and 'replaceN'
+-- * getter/setter for single field: 'grabN' and 'replaceN'
 -- * getter/setter for multiple fields: 'selectN' and 'amendN'
 -- * folds: 'forManyN' or 'collectN'
 --
@@ -215,78 +215,78 @@ instance IsMany Tagged '[] () where
 -- Otherwise this instance will overlap.
 instance IsMany Tagged '[a] a where
     toMany (Tagged a) = single a
-    fromMany r = Tagged (fetch @a r)
+    fromMany r = Tagged (grab @a r)
 
 instance IsMany Tagged '[a,b] (a,b) where
     toMany (Tagged (a,b)) = a./b./nil
-    fromMany r = Tagged (fetchN @0 r, fetchN @1 r)
+    fromMany r = Tagged (grabN @0 r, grabN @1 r)
 
 instance IsMany Tagged '[a,b,c] (a,b,c) where
     toMany (Tagged (a,b,c)) = a./b./c./nil
-    fromMany r = Tagged (fetchN @0 r, fetchN @1 r, fetchN @2 r)
+    fromMany r = Tagged (grabN @0 r, grabN @1 r, grabN @2 r)
 
 instance IsMany Tagged '[a,b,c,d] (a,b,c,d) where
     toMany (Tagged (a,b,c,d)) = a./b./c./d./nil
-    fromMany r = Tagged (fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r)
+    fromMany r = Tagged (grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r)
 
 instance IsMany Tagged '[a,b,c,d,e] (a,b,c,d,e) where
     toMany (Tagged (a,b,c,d,e)) = a./b./c./d./e./nil
-    fromMany r = Tagged (fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r)
+    fromMany r = Tagged (grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r, grabN @4 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f] (a,b,c,d,e,f) where
     toMany (Tagged (a,b,c,d,e,f)) = a./b./c./d./e./f./nil
-    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
-                        , fetchN @5 r)
+    fromMany r = Tagged ( grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r, grabN @4 r
+                        , grabN @5 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g] (a,b,c,d,e,f,g) where
     toMany (Tagged (a,b,c,d,e,f,g)) = a./b./c./d./e./f./g./nil
-    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
-                        , fetchN @5 r, fetchN @6 r)
+    fromMany r = Tagged ( grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r, grabN @4 r
+                        , grabN @5 r, grabN @6 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h] (a,b,c,d,e,f,g,h) where
     toMany (Tagged (a,b,c,d,e,f,g,h)) = a./b./c./d./e./f./g./h./nil
-    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
-                        , fetchN @5 r, fetchN @6 r, fetchN @7 r)
+    fromMany r = Tagged ( grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r, grabN @4 r
+                        , grabN @5 r, grabN @6 r, grabN @7 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i] (a,b,c,d,e,f,g,h,i) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i)) = a./b./c./d./e./f./g./h./i./ nil
-    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
-                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r)
+    fromMany r = Tagged ( grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r, grabN @4 r
+                        , grabN @5 r, grabN @6 r, grabN @7 r, grabN @8 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j] (a,b,c,d,e,f,g,h,i,j) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j)) = a./b./c./d./e./f./g./h./i./j./nil
-    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
-                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r)
+    fromMany r = Tagged ( grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r, grabN @4 r
+                        , grabN @5 r, grabN @6 r, grabN @7 r, grabN @8 r, grabN @9 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k] (a,b,c,d,e,f,g,h,i,j,k) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k)) = a./b./c./d./e./f./g./h./i./j./k./nil
-    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
-                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r
-                        , fetchN @10 r)
+    fromMany r = Tagged ( grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r, grabN @4 r
+                        , grabN @5 r, grabN @6 r, grabN @7 r, grabN @8 r, grabN @9 r
+                        , grabN @10 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l] (a,b,c,d,e,f,g,h,i,j,k,l) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l)) = a./b./c./d./e./f./g./h./i./j./k./l./nil
-    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
-                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r
-                        , fetchN @10 r, fetchN @11 r)
+    fromMany r = Tagged ( grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r, grabN @4 r
+                        , grabN @5 r, grabN @6 r, grabN @7 r, grabN @8 r, grabN @9 r
+                        , grabN @10 r, grabN @11 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m] (a,b,c,d,e,f,g,h,i,j,k,l,m) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m)) = a./b./c./d./e./f./g./h./i./j./k./l./m./nil
-    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
-                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r
-                        , fetchN @10 r, fetchN @11 r, fetchN @12 r)
+    fromMany r = Tagged ( grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r, grabN @4 r
+                        , grabN @5 r, grabN @6 r, grabN @7 r, grabN @8 r, grabN @9 r
+                        , grabN @10 r, grabN @11 r, grabN @12 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n] (a,b,c,d,e,f,g,h,i,j,k,l,m,n) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m,n)) = a./b./c./d./e./f./g./h./i./j./k./l./m./n./nil
-    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
-                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r
-                        , fetchN @10 r, fetchN @11 r, fetchN @12 r, fetchN @13 r)
+    fromMany r = Tagged ( grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r, grabN @4 r
+                        , grabN @5 r, grabN @6 r, grabN @7 r, grabN @8 r, grabN @9 r
+                        , grabN @10 r, grabN @11 r, grabN @12 r, grabN @13 r)
 
 instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l,m,n,o) where
     toMany (Tagged (a,b,c,d,e,f,g,h,i,j,k,l,m,n,o)) = a./b./c./d./e./f./g./h./i./j./k./l./m./n./o./nil
-    fromMany r = Tagged ( fetchN @0 r, fetchN @1 r, fetchN @2 r, fetchN @3 r, fetchN @4 r
-                        , fetchN @5 r, fetchN @6 r, fetchN @7 r, fetchN @8 r, fetchN @9 r
-                        , fetchN @10 r, fetchN @11r, fetchN @12 r, fetchN @13 r, fetchN @14 r)
+    fromMany r = Tagged ( grabN @0 r, grabN @1 r, grabN @2 r, grabN @3 r, grabN @4 r
+                        , grabN @5 r, grabN @6 r, grabN @7 r, grabN @8 r, grabN @9 r
+                        , grabN @10 r, grabN @11r, grabN @12 r, grabN @13 r, grabN @14 r)
 
 -----------------------------------------------------------------------
 
@@ -413,13 +413,13 @@ fore = fst . viewb
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
--- 'fetch' \@Int x \`shouldBe` 5
+-- 'grab' \@Int x \`shouldBe` 5
 -- @
-fetch :: forall x xs. UniqueMember x xs => Many xs -> x
-fetch (Many xs) = unsafeCoerce $ fetch_ @(IndexOf x xs) xs
+grab :: forall x xs. UniqueMember x xs => Many xs -> x
+grab (Many xs) = unsafeCoerce $ grab_ @(IndexOf x xs) xs
 
-fetch_ :: forall n. KnownNat n => S.Seq Any -> Any
-fetch_ xs = let !x = S.index xs i in x -- forcing x to avoid storing Seq in thunk
+grab_ :: forall n. KnownNat n => S.Seq Any -> Any
+grab_ xs = let !x = S.index xs i in x -- forcing x to avoid storing Seq in thunk
   where i = fromInteger (natVal @n Proxy)
 
 --------------------------------------------------
@@ -429,18 +429,18 @@ fetch_ xs = let !x = S.index xs i in x -- forcing x to avoid storing Seq in thun
 --
 -- @
 -- let y = False './' Tagged \@Foo \'X' './' Tagged @"Hi" True './' 'nil'
--- 'fetchL' \@Foo y \`shouldBe` Tagged \@Foo \'X'
--- 'fetchL' \@"Hi" y \`shouldBe` Tagged \@"Hi" True
+-- 'grabL' \@Foo y \`shouldBe` Tagged \@Foo \'X'
+-- 'grabL' \@"Hi" y \`shouldBe` Tagged \@"Hi" True
 -- @
-fetchL :: forall l x xs. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => Many xs -> x
-fetchL (Many xs) = unsafeCoerce $ fetch_ @(IndexOf x xs) xs
+grabL :: forall l x xs. (UniqueLabelMember l xs, x ~ KindAtLabel l xs) => Many xs -> x
+grabL (Many xs) = unsafeCoerce $ grab_ @(IndexOf x xs) xs
 
 --------------------------------------------------
 
--- | Variation of 'fetchL' specialized for 'Tagged' that untags the field.
-fetchTag :: forall l x xs. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+-- | Variation of 'grabL' specialized for 'Tagged' that untags the field.
+grabTag :: forall l x xs. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
     => Many xs -> x
-fetchTag xs = unTagged (fetchL @l xs)
+grabTag xs = unTagged (grabL @l xs)
 
 --------------------------------------------------
 
@@ -448,10 +448,10 @@ fetchTag xs = unTagged (fetchL @l xs)
 --
 -- @
 -- let x = (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'
--- 'fetchN' @1 x \`shouldBe` False
+-- 'grabN' @1 x \`shouldBe` False
 -- @
-fetchN :: forall n x xs. MemberAt n x xs => Many xs -> x
-fetchN (Many xs) = unsafeCoerce $ fetch_ @n xs
+grabN :: forall n x xs. MemberAt n x xs => Many xs -> x
+grabN (Many xs) = unsafeCoerce $ grab_ @n xs
 
 --------------------------------------------------
 
@@ -739,7 +739,7 @@ type Select (smaller :: [Type]) (larger :: [Type]) =
         (CollectorAny (CaseSelect smaller larger) larger) (Maybe (Int, WrappedAny)))
 
 -- | Construct a 'Many' with a smaller number of fields than the original.
--- Analogous to 'fetch' getter but for multiple fields.
+-- Analogous to 'grab' getter but for multiple fields.
 --
 -- This can also be used to reorder fields in the original 'Many'.
 --

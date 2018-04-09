@@ -32,10 +32,10 @@ module Data.Diverse.Many (
 
     -- * Single field
     -- ** Getter for single field
-    , fetch
-    , fetchL
-    , fetchTag
-    , fetchN
+    , grab
+    , grabL
+    , grabTag
+    , grabN
     -- ** Setter for single field
     , replace
     , replace'

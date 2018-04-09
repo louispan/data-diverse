@@ -35,10 +35,10 @@ spec = do
         --     let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
             -- ghc 8.0.2: IndexOf error: ‘Maybe Bool’ is not a member of ...
             -- ghc 8.0.1 has terrible error message: "No instance for (GHC.TypeLits.KnownNat"
-            -- fetch @(Maybe Bool) y `shouldBe` (Just False)
+            -- grab @(Maybe Bool) y `shouldBe` (Just False)
 
             -- Not unique error: ‘Maybe Char’ is a duplicate in ...
-            -- fetch @(Maybe Bool) y `shouldBe` (Just False)
+            -- grab @(Maybe Bool) y `shouldBe` (Just False)
 
         it "is a Typeable" $ do
             let x = (5 :: Int) ./ False ./ nil
@@ -123,39 +123,39 @@ spec = do
             aft a `shouldBe` (y \. z)
             fore a `shouldBe` x ./ y
 
-        it "has getter for unique fields using 'fetch'" $ do
+        it "has getter for unique fields using 'grab'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-            fetch @Int x `shouldBe` 5
-            fetch @Bool x `shouldBe` False
-            fetch @Char x `shouldBe` 'X'
-            fetch @(Maybe Char) x `shouldBe` Just 'O'
+            grab @Int x `shouldBe` 5
+            grab @Bool x `shouldBe` False
+            grab @Char x `shouldBe` 'X'
+            grab @(Maybe Char) x `shouldBe` Just 'O'
 
-        it "has getter for for unique fields using 'fetchN'" $ do
+        it "has getter for for unique fields using 'grabN'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-            fetchN @0 x `shouldBe` 5
-            fetchN @1 x `shouldBe` False
-            fetchN @2 x `shouldBe` 'X'
-            fetchN @3 x `shouldBe` Just 'O'
+            grabN @0 x `shouldBe` 5
+            grabN @1 x `shouldBe` False
+            grabN @2 x `shouldBe` 'X'
+            grabN @3 x `shouldBe` Just 'O'
 
-        it "has getter for duplicate fields using 'fetchN'" $ do
+        it "has getter for duplicate fields using 'grabN'" $ do
             let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            fetchN @0 y `shouldBe` 5
-            fetchN @1 y `shouldBe` False
-            fetchN @2 y `shouldBe` 'X'
-            fetchN @3 y `shouldBe` Just 'O'
-            fetchN @4 y `shouldBe` 6
-            fetchN @5 y `shouldBe` Just 'A'
+            grabN @0 y `shouldBe` 5
+            grabN @1 y `shouldBe` False
+            grabN @2 y `shouldBe` 'X'
+            grabN @3 y `shouldBe` Just 'O'
+            grabN @4 y `shouldBe` 6
+            grabN @5 y `shouldBe` Just 'A'
 
-        it "with duplicate fields can still use 'fetch' for unique fields" $ do
+        it "with duplicate fields can still use 'grab' for unique fields" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            fetch @Bool x `shouldBe` False
-            fetch @Char x `shouldBe` 'X'
+            grab @Bool x `shouldBe` False
+            grab @Char x `shouldBe` 'X'
 
-        it "has getter for unique labels using 'fetchL'" $ do
+        it "has getter for unique labels using 'grabL'" $ do
             let y = (5 :: Int) ./ False ./ Tagged @Foo 'X' ./ Tagged @"Hello" (6 :: Int) ./ nil
-            fetch @(Tagged Foo _) y `shouldBe` Tagged @Foo 'X'
-            fetchL @Foo y `shouldBe` Tagged @Foo 'X'
-            fetchL @"Hello" y `shouldBe` Tagged @"Hello" (6 :: Int)
+            grab @(Tagged Foo _) y `shouldBe` Tagged @Foo 'X'
+            grabL @Foo y `shouldBe` Tagged @Foo 'X'
+            grabL @"Hello" y `shouldBe` Tagged @"Hello" (6 :: Int)
 
         it "has setter for unique fields using 'replace''" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil

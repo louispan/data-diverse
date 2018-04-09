@@ -14,7 +14,8 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
-* 2.0.2.0
+* 3.0.0.0
+  - Renamed `fetch` to `grab` to avoid conflicting with Haxl.
   - Removed unused type functions from removed splitting functions (Before,To,After,From,Length)
   - Added `impossible'` and ability to diversify and reinterpret `Which '[Void]`
   - Added `zilch`

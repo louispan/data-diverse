@@ -29,7 +29,7 @@ import Data.Kind
 import GHC.TypeLits
 
 -- | Contains a 'Many' of handlers/continuations for all the types in the 'xs' typelist.
--- This uses __'fetch'__ to get the unique handler for the type at the 'Head' of @xs@.
+-- This uses __'grab'__ to get the unique handler for the type at the 'Head' of @xs@.
 --
 -- Use 'cases' to construct this with 'SameLength' constraint to reduce programming confusion.
 newtype Cases (fs :: [Type]) r (xs :: [Type]) = Cases (Many fs)
@@ -41,7 +41,7 @@ instance Reiterate (Cases fs r) xs where
 
 -- | UndecidableInstances because @fs@ appers more often.
 instance UniqueMember (Head xs -> r) fs => Case (Cases fs r) xs where
-    case' (Cases s) = fetch @(Head xs -> r) s
+    case' (Cases s) = grab @(Head xs -> r) s
 
 -- | Create an instance of 'Case' for either handling 'Data.Diverse.Which.switch'ing a 'Which'.
 --
@@ -87,7 +87,7 @@ cases' = Cases
 
 -----------------------------------------------
 
--- | A variation of 'Cases' which uses __'fetchN'__ to get the handler by index.
+-- | A variation of 'Cases' which uses __'grabN'__ to get the handler by index.
 -- There may be different handlers for the same type, but the handlers must be in the same order
 -- as the input @xs@ typelist.
 -- Use 'casesN' to construct this safely ensuring @n@ starts at 0.
@@ -100,7 +100,7 @@ instance ReiterateN (CasesN fs r) n xs where
 
 -- | UndecidableInstances because @fs@ appears more often.
 instance (MemberAt n (Head xs -> r) fs) => Case (CasesN fs r n) xs where
-    case' (CasesN s) = fetchN @n s
+    case' (CasesN s) = grabN @n s
 
 -- | Safe Constructor for 'CasesN' ensuring that the @n@ Nat starts at 0.
 -- It is an instance of 'CaseN' for either handling 'Data.Diverse.Which.switchN'ing a 'Which' in index order.
