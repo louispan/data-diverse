@@ -529,7 +529,7 @@ replaceN' :: forall n x xs. MemberAt n x xs => Many xs -> x -> Many xs
 replaceN' (Many xs) x = Many $ replace_ @n xs (unsafeCoerce x)
 
 -- | Polymorphic version of 'replaceN''
-replaceN :: forall n x y xs. MemberAt n x xs => Many xs -> y -> Many (ReplaceIndex n y xs)
+replaceN :: forall n x y xs. MemberAt n x xs => Many xs -> y -> Many (ReplaceIndex n x y xs)
 replaceN (Many xs) x = Many $ replace_ @n xs (unsafeCoerce x)
 
 -----------------------------------------------------------------------

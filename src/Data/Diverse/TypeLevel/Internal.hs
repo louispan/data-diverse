@@ -128,20 +128,22 @@ type family RemoveIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (xs :: [k]) :: [k
     RemoveIndexImpl i ctx 0 (x ': xs) = xs
     RemoveIndexImpl i ctx n (x ': xs) = x ': RemoveIndexImpl i ctx (n - 1) xs
 
--- | The typelist @xs@ without the type at Nat @n@ replaced by @y@. @n@ must be within bounds of @xs@
-type family ReplaceIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (y :: k) (xs :: [k]) :: [k] where
-    ReplaceIndexImpl i ctx n y '[] = TypeError ('Text "ReplaceIndex error: Index ‘"
+-- | The typelist @xs@ with the type at Nat @n@ replaced by @y@. @n@ must be within bounds of @xs@
+type family ReplaceIndexImpl (i :: Nat) (ctx :: [k]) (n :: Nat) (x :: k) (y :: k) (xs :: [k]) :: [k] where
+    ReplaceIndexImpl i ctx n x x xs = xs
+    ReplaceIndexImpl i ctx n x y '[] = TypeError ('Text "ReplaceIndex error: Index ‘"
                                        ':<>: 'ShowType i
                                        ':<>: 'Text "’"
                                        ':<>: 'Text " is out of bounds of "
                                        ':<>: 'Text "‘"
                                        ':<>: 'ShowType ctx
                                        ':<>: 'Text "’")
-    ReplaceIndexImpl i ctx 0 y (x ': xs) = y ': xs
-    ReplaceIndexImpl i ctx n y (x ': xs) = x ': ReplaceIndexImpl i ctx (n - 1) y xs
+    ReplaceIndexImpl i ctx 0 x y (z ': xs) = y ': xs
+    ReplaceIndexImpl i ctx n x y (z ': xs) = z ': ReplaceIndexImpl i ctx (n - 1) x y xs
 
 -- | The typelist @xs@ with the first @x@ replaced by @y@. It is okay for @x@ not to exist in @xs@
 type family ReplaceImpl (x :: k) (y :: k) (xs :: [k]) :: [k] where
+    ReplaceImpl x x xs = xs
     ReplaceImpl x y '[] = '[]
     ReplaceImpl x y (x ': xs) = y ': xs
     ReplaceImpl x y (z ': xs) = z ': ReplaceImpl x y xs
