@@ -290,7 +290,7 @@ instance IsMany Tagged '[a,b,c,d,e,f,g,h,i,j,k,l,m,n,o] (a,b,c,d,e,f,g,h,i,j,k,l
 
 -----------------------------------------------------------------------
 
--- | Analogous to 'Prelude.null'. Named 'nil' to avoid conflicting with 'Prelude.null'.
+-- | Empty 'Many'.
 nil :: Many '[]
 nil = Many S.empty
 
