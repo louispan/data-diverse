@@ -14,6 +14,10 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 3.1.0.0
+  - Removed `Read` instance for `Which []` since it is uninhabitable.
+  - `xxxTag` functions only rely on `UniqueMember`, not `UniqueLabelMember`
+
 * 3.0.0.0
   - Renamed `fetch` to `grab` to avoid conflicting with Haxl.
   - Removed unused type functions from removed splitting functions (Before,To,After,From,Length)

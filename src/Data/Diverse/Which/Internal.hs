@@ -216,10 +216,10 @@ pickL :: forall l x xs. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
   => x -> Which xs
 pickL = pick_ @x
 
--- | Variation of 'pickL' specialized to 'Tagged' that automatically tags the value.
-pickTag :: forall l x xs . (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+-- | Variation of 'pick' specialized to 'Tagged' that automatically tags the value.
+pickTag :: forall l x xs . (UniqueMember (Tagged l x) xs)
   => x -> Which xs
-pickTag a = pickL @l (Tagged @l a)
+pickTag a = pick @(Tagged l x) (Tagged @l a)
 
 -- | A variation of 'pick' into a 'Which' of a single type.
 --
@@ -322,9 +322,9 @@ trial_' (Which n v) = let i = fromInteger (natVal @n Proxy)
 -- | Variation of 'trialL' specialized to 'Tagged' which untags the field.
 trialTag
     :: forall l x xs.
-       (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+       (UniqueMember (Tagged l x) xs)
     => Which xs -> Either (Which (Remove (Tagged l x) xs)) x
-trialTag xs = unTagged <$> trialL @l xs
+trialTag xs = unTagged <$> trial @(Tagged l x) xs
 
 -- | Variation of 'trialN' which returns a Maybe
 trialN'
@@ -353,9 +353,9 @@ trialL' = trial_' @_ @x
 -- | Variation of 'trialL'' specialized to 'Tagged' which untags the field.
 trialTag'
     :: forall l x xs.
-       (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+       (UniqueMember (Tagged l x) xs)
     => Which xs -> Maybe x
-trialTag' xs = unTagged <$> trialL' @l xs
+trialTag' xs = unTagged <$> trial' @(Tagged l x) xs
 
 -- | A variation of a 'Which' 'trial' which 'trial's the first type in the type list.
 --
@@ -872,11 +872,6 @@ instance WhichRead (Which_ (x ': xs)) =>
             pure $ Which n v
       where
         app_prec = 10
-
--- | Reading a 'Which '[]' value is always a parse error, considering
--- 'Which '[]' as a data type with no constructors.
-instance Read (Which '[]) where
-    readsPrec _ _ = []
 
 ------------------------------------------------------------------
 instance NFData (Which '[]) where

@@ -259,7 +259,6 @@ spec = do
                     reinterpret' @'[] z `shouldBe` Just z
                     reinterpret @'[] z `shouldBe` Right z
                     diversify @'[] z `shouldBe` z
-                    read (show z) `shouldBe` z
                     compare z z `shouldBe` EQ
             reinterpret' @'[] x `shouldBe` Nothing
             reinterpret @'[] x `shouldBe` Left x

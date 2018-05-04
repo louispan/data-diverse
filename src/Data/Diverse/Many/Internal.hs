@@ -437,10 +437,10 @@ grabL (Many xs) = unsafeCoerce $ grab_ @(IndexOf x xs) xs
 
 --------------------------------------------------
 
--- | Variation of 'grabL' specialized for 'Tagged' that untags the field.
-grabTag :: forall l x xs. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+-- | Variation of 'grab' of a Tagged field 'Tagged' that untags the field.
+grabTag :: forall l x xs. (UniqueMember (Tagged l x) xs)
     => Many xs -> x
-grabTag xs = unTagged (grabL @l xs)
+grabTag xs = unTagged (grab @(Tagged l x) xs)
 
 --------------------------------------------------
 
@@ -507,15 +507,15 @@ replaceL (Many xs) y = Many $ replace_ @(IndexOf x xs) xs (unsafeCoerce y)
 
 --------------------------------------------------
 
--- | Variation of 'replaceL'' specialized to 'Tagged' that automatically tags the value to be replaced.
-replaceTag' :: forall l xs x. (UniqueLabelMember l xs, Tagged l x ~ KindAtLabel l xs)
+-- | Variation of 'replace'' specialized to 'Tagged' that automatically tags the value to be replaced.
+replaceTag' :: forall l xs x. (UniqueMember (Tagged l x) xs)
   => Many xs -> x -> Many xs
-replaceTag' xs x = replaceL' @l xs (Tagged @l x)
+replaceTag' xs x = replace' @(Tagged l x) xs (Tagged @l x)
 
--- | Variation of 'replaceL' specialized to 'Tagged' that automatically tags the value to be replaced.
-replaceTag :: forall l x y xs. (UniqueLabelMember l xs, x ~ KindAtLabel l xs)
-  => Many xs -> y -> Many (Replace x (Tagged l y) xs)
-replaceTag xs y = replaceL @l xs (Tagged @l y)
+-- | Variation of 'replace' specialized to 'Tagged' that automatically tags the value to be replaced.
+replaceTag :: forall l x y xs. (UniqueMember (Tagged l x) xs)
+  => Many xs -> y -> Many (Replace (Tagged l x) (Tagged l y) xs)
+replaceTag xs y = replace @(Tagged l x) xs (Tagged @l y)
 
 --------------------------------------------------
 

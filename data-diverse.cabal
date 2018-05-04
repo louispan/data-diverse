@@ -1,5 +1,5 @@
 name:                data-diverse
-version:             3.0.0.0
+version:             3.1.0.0
 synopsis:            Extensible records and polymorphic variants.
 description:         "Data.Diverse.Many" is an extensible record for any size encoded efficiently as (Seq Any).
                      "Data.Diverse.Which" is a polymorphic variant of possibilities encoded as (Int, Any).
