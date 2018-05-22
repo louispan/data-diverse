@@ -14,6 +14,9 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 4.0.0.0
+  - Renamed `prefix` to `consMany` and `postfix` to `snocMany`.
+
 * 3.1.0.0
   - Removed `Read` instance for `Which []` since it is uninhabitable.
   - `xxxTag` functions only rely on `UniqueMember`, not `UniqueLabelMember`

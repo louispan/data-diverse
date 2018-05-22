@@ -32,10 +32,10 @@ module Data.Diverse.Many.Internal (
       -- * Construction
     , nil
     , single
-    , prefix
+    , consMany
     , (./)
-    , postfix
-    , postfix'
+    , snocMany
+    , snocMany'
     , (\.)
     , append
     -- , CanAppendUnique(..)
@@ -145,7 +145,7 @@ import Prelude as Partial
 -- This encoding should reasonabily efficient for any number of fields.
 --
 -- The map Key is index + offset of the type in the typelist.
--- The Offset is used to allow efficient cons 'prefix'.
+-- The Offset is used to allow efficient cons 'consMany'.
 --
 -- @Key = Index of type in typelist + Offset@
 --
@@ -300,46 +300,46 @@ single v = Many (S.singleton (unsafeCoerce v))
 
 -- | Add an element to the left of a Many.
 -- Not named @cons@ to avoid conflict with 'Control.Lens.cons'
-prefix :: x -> Many xs -> Many (x ': xs)
-prefix x (Many rs) = Many ((unsafeCoerce x) S.<| rs)
-infixr 5 `prefix`
+consMany :: x -> Many xs -> Many (x ': xs)
+consMany x (Many rs) = Many ((unsafeCoerce x) S.<| rs)
+infixr 5 `consMany`
 
-prefix_ :: x -> Many_ xs -> Many_ (x ': xs)
-prefix_ x (Many_ xs) = Many_ (unsafeCoerce x : xs)
+consMany_ :: x -> Many_ xs -> Many_ (x ': xs)
+consMany_ x (Many_ xs) = Many_ (unsafeCoerce x : xs)
 
--- | Infix version of 'prefix'.
+-- | Infix version of 'consMany'.
 --
 -- Mnemonic: Element on the left is smaller './' than the larger 'Many' to the right.
 (./) :: x -> Many xs -> Many (x ': xs)
-(./) = prefix
+(./) = consMany
 infixr 5 ./ -- like Data.List.(:)
 
 -- | Add an element to the right of a Many
 -- Not named @snoc@ to avoid conflict with 'Control.Lens.snoc'
-postfix :: Many xs -> y -> Many (Append xs '[y])
-postfix (Many ls) y = Many (ls S.|> (unsafeCoerce y))
-infixl 5 `postfix`
+snocMany :: Many xs -> y -> Many (Append xs '[y])
+snocMany (Many ls) y = Many (ls S.|> (unsafeCoerce y))
+infixl 5 `snocMany`
 
 -- | Add an element to the right of a Many iff the field doesn't already exist.
-postfix'
+snocMany'
     :: forall y xs.
        MaybeUniqueMember y xs
     => Many xs -> y -> Many (SnocUnique xs y)
-postfix'(Many ls) y = if i /= 0 then Many ls else Many (ls S.|> unsafeCoerce y)
+snocMany'(Many ls) y = if i /= 0 then Many ls else Many (ls S.|> unsafeCoerce y)
   where
     i = fromInteger (natVal @(PositionOf y xs) Proxy) :: Int
-infixl 5 `postfix'`
+infixl 5 `snocMany'`
 
--- | Infix version of 'postfix'.
+-- | Infix version of 'snocMany'.
 --
 -- Mnemonic: Many is larger '\.' than the smaller element
 (\.) :: Many xs -> y -> Many (Append xs '[y])
-(\.) = postfix
+(\.) = snocMany
 infixl 5 \.
 
 -- | Infix version of 'append'.
 --
--- Mnemonic: 'prefix' './' with an extra slash (meaning 'Many') in front.
+-- Mnemonic: 'consMany' './' with an extra slash (meaning 'Many') in front.
 (/./) :: Many xs -> Many ys -> Many (Append xs ys)
 (/./) = append
 infixr 5 /./ -- like (++)
@@ -350,7 +350,7 @@ append (Many ls) (Many rs) = Many (ls S.>< rs)
 infixr 5 `append` -- like Data.List (++)
 
 -- class CanAppendUnique xs ys where
---    -- | Appends the unique fields fields from the right Many using 'postfix''
+--    -- | Appends the unique fields fields from the right Many using 'snocMany''
 --    append' :: Many xs -> Many ys -> Many (AppendUnique xs ys)
 
 -- instance CanAppendUnique xs '[] where
@@ -359,7 +359,7 @@ infixr 5 `append` -- like Data.List (++)
 -- instance ( MaybeUniqueMember y xs
 --          , CanAppendUnique (SnocUnique xs y) ys
 --          , AppendUnique (SnocUnique xs y) ys ~ AppendUnique xs (y : ys)) => CanAppendUnique xs (y ': ys) where
---    append' ls rs = append' (postfix' ls r) rs'
+--    append' ls rs = append' (snocMany' ls r) rs'
 --      where (r, rs') = viewf rs
 --    {-# INLINABLE append' #-} -- This makes compiling tests a little faster than with no pragma
 
@@ -1099,7 +1099,7 @@ instance (Show x, Show (Many_ xs)) => Show (Many_ (x ': xs)) where
         showString " ./ " .
         showsPrec cons_prec (aft_ ls) -- not (cons-prec+1) for right associativity
       where
-        cons_prec = 5 -- infixr 5 prefix
+        cons_prec = 5 -- infixr 5 consMany
         -- use of front here is safe as we are guaranteed the length from the typelist
         v = unsafeCoerce (Partial.head xs) :: x
     {-# INLINABLE showsPrec #-} -- This makes compiling tests a little faster than with no pragma
@@ -1122,9 +1122,9 @@ instance (Read x, Read (Many_ xs)) => Read (Many_ (x ': xs)) where
         a <- step (readPrec @x)
         lift $ L.expect (Symbol "./")
         as <- readPrec @(Many_ xs) -- no 'step' to allow right associatitive './'
-        pure $ prefix_ a as
+        pure $ consMany_ a as
       where
-        cons_prec = 5 -- infixr `prefix`
+        cons_prec = 5 -- infixr `consMany`
     {-# INLINABLE readPrec #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | @read "5 ./ False ./ 'X' ./ Just 'O' ./ nil" == (5 :: Int) './' False './' \'X' './' Just \'O' './' 'nil'@

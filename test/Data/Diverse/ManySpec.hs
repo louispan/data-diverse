@@ -85,22 +85,22 @@ spec = do
             x `shouldBe` toMany' t
             t `shouldBe` fromMany' x
 
-        it "can construct using 'single', 'nil', 'prefix', 'postfix', 'append'" $ do
+        it "can construct using 'single', 'nil', 'consMany', 'snocMany', 'append'" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-                x' = (5 :: Int) `prefix` False `prefix` 'X' `prefix` Just 'O' `prefix` nil
+                x' = (5 :: Int) `consMany` False `consMany` 'X' `consMany` Just 'O' `consMany` nil
                 y = single (5 :: Int) \. False \. 'X' \. Just 'O'
-                y' = single (5 :: Int) `postfix` False `postfix` 'X' `postfix` Just 'O'
-                a = single (5 :: Int) `postfix` False
-                b = single 'X' `postfix` Just 'O'
+                y' = single (5 :: Int) `snocMany` False `snocMany` 'X' `snocMany` Just 'O'
+                a = single (5 :: Int) `snocMany` False
+                b = single 'X' `snocMany` Just 'O'
             x `shouldBe` y
             x `shouldBe` x'
             y `shouldBe` y'
             a /./ b `shouldBe` x
             a `append` b `shouldBe` x
 
-        it "can 'postfix'' a value only if that type doesn't already exist" $ do
+        it "can 'snocMany'' a value only if that type doesn't already exist" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ nil
-                y = x `postfix'` True
+                y = x `snocMany'` True
             y `shouldBe` x
 
         -- it "can 'append'' the unique types from another Many" $ do
@@ -326,7 +326,7 @@ spec = do
             afoldr (:) [] (collectN x (casesN y)) `shouldBe` ret
             afoldr (:) [] (forManyN (casesN y) x) `shouldBe` ret
 
-        it "every item can be mapped into a different type in a Functor-like fashion with using 'afmap'" $ do
+        it "every piece can be mapped into a different type in a Functor-like fashion with using 'afmap'" $ do
             let x = (5 :: Int) ./ (6 :: Int8) ./ (7 :: Int16) ./ (8 :: Int32) ./ nil
                 y = (15 :: Int) ./ (16 :: Int8) ./ (17 :: Int16) ./ (18 :: Int32) ./ nil
                 z = ("5" :: String) ./ ("6" :: String) ./ ("7" :: String) ./ ("8" :: String) ./ nil

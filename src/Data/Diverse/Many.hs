@@ -13,10 +13,10 @@ module Data.Diverse.Many (
       -- * Construction
     , nil
     , single
-    , prefix
+    , consMany
     , (./)
-    , postfix
-    , postfix'
+    , snocMany
+    , snocMany'
     , (\.)
     , append
     -- , CanAppendUnique(..)
