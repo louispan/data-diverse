@@ -28,7 +28,6 @@ module Data.Diverse.Which.Internal (
       -- ** Construction
     , impossible
     , impossible'
-    , zilch
     , pick
     , pick0
     , pickOnly
@@ -187,10 +186,6 @@ impossible a = case a of {}
 -- This allows you to convert it back to 'Void' or @Which '[]@
 impossible' :: Which '[Void] -> a
 impossible' a = case a of {}
-
--- | Monoid that is always 'mempty'
-zilch :: Monoid (t (Which '[])) => t (Which '[])
-zilch = mempty
 
 -- | Lift a value into a 'Which' of possibly other types @xs@.
 -- @xs@ can be inferred or specified with TypeApplications.

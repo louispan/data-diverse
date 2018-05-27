@@ -14,6 +14,9 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 4.1.0.0
+  - Removed `zilch`.
+
 * 4.0.0.0
   - Renamed `prefix` to `consMany` and `postfix` to `snocMany`.
 
