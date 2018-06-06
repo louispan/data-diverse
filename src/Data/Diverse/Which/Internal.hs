@@ -28,6 +28,7 @@ module Data.Diverse.Which.Internal (
       -- ** Construction
     , impossible
     , impossible'
+    , definitely
     , pick
     , pick0
     , pickOnly
@@ -186,6 +187,11 @@ impossible a = case a of {}
 -- This allows you to convert it back to 'Void' or @Which '[]@
 impossible' :: Which '[Void] -> a
 impossible' a = case a of {}
+
+-- | This function is useful to type restrict something (usually a continuation monad)
+-- that returns a polymorphic type to return (Which '[])
+definitely :: f (Which '[]) -> f (Which '[])
+definitely = id
 
 -- | Lift a value into a 'Which' of possibly other types @xs@.
 -- @xs@ can be inferred or specified with TypeApplications.

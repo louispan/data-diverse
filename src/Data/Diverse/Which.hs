@@ -7,6 +7,7 @@ module Data.Diverse.Which (
       -- ** Construction
     , impossible
     , impossible'
+    , definitely
     , pick
     , pick0
     , pickOnly
