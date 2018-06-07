@@ -176,5 +176,5 @@ type family AllConstrained (c :: k -> Constraint) (xs :: [k]) :: Constraint wher
 -- https://hackage.haskell.org/package/vinyl-0.6.0/docs/Data-Vinyl-TypeLevel.html#t:AllConstrained
 
 -- | This is useful as a level function for @k@ in 'CaseFunc1'
-class NoConstraint a where
-instance NoConstraint a where
+instance Unconstrained a where
+class Unconstrained a where

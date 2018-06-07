@@ -282,5 +282,5 @@ spec = do
                 mz = pickN @1 (Just "5" :: Maybe String) :: Which '[Maybe String, Maybe String, Maybe String]
             afmap (CaseFunc' @Num (+10)) x `shouldBe` y
             afmap (CaseFunc @Show @String show) x `shouldBe` z
-            afmap (CaseFunc1' @NoConstraint @Functor @Num (fmap (+10))) mx `shouldBe` my
-            afmap (CaseFunc1 @NoConstraint @Functor @Show @String (fmap show)) mx `shouldBe` mz
+            afmap (CaseFunc1' @Unconstrained @Functor @Num (fmap (+10))) mx `shouldBe` my
+            afmap (CaseFunc1 @Unconstrained @Functor @Show @String (fmap show)) mx `shouldBe` mz
