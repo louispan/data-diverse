@@ -86,6 +86,7 @@ module Data.Diverse.Which.Internal (
 import Control.Applicative
 import Control.DeepSeq
 import Control.Monad
+import Data.Diverse.AFunctor
 import Data.Diverse.Case
 import Data.Diverse.CaseFunc
 import Data.Diverse.Reduce
@@ -96,7 +97,7 @@ import Data.Proxy
 import Data.Semigroup (Semigroup(..))
 import Data.Tagged
 import Data.Void
-import GHC.Exts (Any, coerce)
+import GHC.Exts (Any)
 import qualified GHC.Generics as G
 import GHC.TypeLits
 import Text.ParserCombinators.ReadPrec
@@ -843,33 +844,34 @@ instance Show x => Case (CaseShowWhich ShowS) (x ': xs) where
 class WhichRead v where
     whichReadPrec :: Int -> Int -> ReadPrec v
 
-data Which_ (xs ::[Type]) = Which_ Int Any
+-- | coerce Which to another type without incrementing Int.
+-- THis is because 'WhichRead' instance already increments the int
+coerceReadWhich :: forall x xs. Which xs -> Which (x ': xs)
+coerceReadWhich (Which i x) = Which i x
 
-diversify0' :: forall x xs. Which_ xs -> Which_ (x ': xs)
-diversify0' = coerce
-
-readWhich_ :: forall x xs. Read x => Int -> Int -> ReadPrec (Which_ (x ': xs))
-readWhich_ i j = guard (i == j) >> parens (prec app_prec $ (Which_ i . unsafeCoerce) <$> readPrec @x)
+-- | Succeed reading if the Int index match
+readWhich :: forall x xs. Read x => Int -> Int -> ReadPrec (Which (x ': xs))
+readWhich i j = guard (i == j) >> parens (prec app_prec $ (Which i . unsafeCoerce) <$> readPrec @x)
       where
         app_prec = 10
 
-instance Read x => WhichRead (Which_ '[x]) where
-    whichReadPrec = readWhich_
+instance Read x => WhichRead (Which '[x]) where
+    whichReadPrec = readWhich
 
-instance (Read x, WhichRead (Which_ (x' ': xs))) => WhichRead (Which_ (x ': x' ': xs)) where
-    whichReadPrec i j = readWhich_ i j
-               <|> (diversify0' <$> (whichReadPrec i (j + 1) :: ReadPrec (Which_ (x' ': xs))))
+instance (Read x, WhichRead (Which (x' ': xs))) => WhichRead (Which (x ': x' ': xs)) where
+    whichReadPrec i j = readWhich i j
+               <|> (coerceReadWhich <$> (whichReadPrec i (j + 1) :: ReadPrec (Which (x' ': xs))))
     {-# INLINABLE whichReadPrec #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | This 'Read' instance tries to read using the each type in the typelist, using the first successful type read.
-instance WhichRead (Which_ (x ': xs)) =>
+instance WhichRead (Which (x ': xs)) =>
          Read (Which (x ': xs)) where
     readPrec =
         parens $ prec app_prec $ do
             lift $ L.expect (Ident "pickN")
             lift $ L.expect (Punc "@")
             i <- lift L.readDecP
-            Which_ n v <- whichReadPrec i 0 :: ReadPrec (Which_ (x ': xs))
+            Which n v <- whichReadPrec i 0 :: ReadPrec (Which (x ': xs))
             pure $ Which n v
       where
         app_prec = 10
@@ -881,3 +883,25 @@ instance NFData (Which '[]) where
 instance (Reduce (Which (x ': xs)) (Switcher (CaseFunc NFData) () (x ': xs))) =>
   NFData (Which (x ': xs)) where
     rnf x = switch x (CaseFunc @NFData rnf)
+
+------------------------------------------------------------------
+
+-- class AFunctor f c xs where
+--     afmap :: c xs -> f xs -> f (CaseResults c xs)
+
+-- | Terminating AFunctor instance for empty type list
+instance AFunctor Which c '[] where
+    afmap _ = impossible
+
+-- | Recursive AFunctor instance for non empty type list
+-- delegate afmap'ing the remainder to an instance of Collector' with one less type in the type list
+instance ( Reiterate c (a ': as)
+         , AFunctor Which c as
+         , Case c (a ': as)
+         ) =>
+         AFunctor Which c (a ': as) where
+    afmap c v = case trial0 v of
+        Right a' -> Which 0 (unsafeCoerce (case' c a'))
+        Left v' -> diversify0 (afmap (reiterate c) v')
+    {-# INLINABLE afmap #-}
+    -- This makes compiling tests a little faster than with no pragma

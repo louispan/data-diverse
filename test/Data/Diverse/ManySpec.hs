@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Data.Diverse.ManySpec (main, spec) where
 
@@ -33,12 +34,12 @@ spec = do
 
         -- it "Test user friendly compile errors" $ do
         --     let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            -- ghc 8.0.2: IndexOf error: ‘Maybe Bool’ is not a member of ...
-            -- ghc 8.0.1 has terrible error message: "No instance for (GHC.TypeLits.KnownNat"
-            -- grab @(Maybe Bool) y `shouldBe` (Just False)
+        --     -- ghc 8.0.2: IndexOf error: ‘Maybe Bool’ is not a member of ...
+        --     -- ghc 8.0.1 has terrible error message: "No instance for (GHC.TypeLits.KnownNat"
+        --     grab @(Maybe Bool) y `shouldBe` (Just False)
 
-            -- Not unique error: ‘Maybe Char’ is a duplicate in ...
-            -- grab @(Maybe Bool) y `shouldBe` (Just False)
+        --     -- Not unique error: ‘Maybe Char’ is a duplicate in ...
+        --     grab @(Maybe Bool) y `shouldBe` (Just False)
 
         it "is a Typeable" $ do
             let x = (5 :: Int) ./ False ./ nil
@@ -330,5 +331,10 @@ spec = do
             let x = (5 :: Int) ./ (6 :: Int8) ./ (7 :: Int16) ./ (8 :: Int32) ./ nil
                 y = (15 :: Int) ./ (16 :: Int8) ./ (17 :: Int16) ./ (18 :: Int32) ./ nil
                 z = ("5" :: String) ./ ("6" :: String) ./ ("7" :: String) ./ ("8" :: String) ./ nil
+                mx = (Just 5 :: Maybe Int) ./ ([6] :: [Int8]) ./ nil
+                my = (Just 15 :: Maybe Int) ./ ([16] :: [Int8]) ./ nil
+                mz = (Just "5" :: Maybe String) ./ (["6"] :: [String]) ./ nil
             afmap (CaseFunc' @Num (+10)) x `shouldBe` y
             afmap (CaseFunc @Show @String show) x `shouldBe` z
+            afmap (CaseFunc1' @NoConstraint @Functor @Num (fmap (+10))) mx `shouldBe` my
+            afmap (CaseFunc1 @NoConstraint @Functor @Show @String (fmap show)) mx `shouldBe` mz

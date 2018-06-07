@@ -14,6 +14,12 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 4.2.0.0
+  - Added `CaseFunc1` to allow `afmap` of with `Functor`, etc.
+  - `Which` is now also an instance of `AFoldable`.
+  - Added `NoConstraint` which is useful for `CaseFunc1` for unused constraints.
+  - Added `definitely`.
+
 * 4.1.0.0
   - Removed `zilch`.
 

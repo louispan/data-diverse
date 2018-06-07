@@ -10,6 +10,7 @@
 module Data.Diverse.WhichSpec (main, spec) where
 
 import Data.Diverse
+import Data.Int
 import Data.Tagged
 import Data.Typeable
 import Test.Hspec
@@ -37,9 +38,12 @@ spec = do
             show x `shouldBe` "pickN @0 5"
 
         it "is a Read and Show" $ do
-            let s = "pickN @0 5"
-                x = read s :: Which '[Int, Bool]
-            show x `shouldBe` s
+            let s1 = "pickN @0 5"
+                x1 = read s1 :: Which '[Int, Bool]
+            show x1 `shouldBe` s1
+            let s2 = "pickN @1 True"
+                x2 = read s2 :: Which '[Int, Bool]
+            show x2 `shouldBe` s2
             -- "zilch" `shouldBe` show zilch
             -- "zilch" `shouldBe` show (read "zilch" :: Which '[])
 
@@ -268,3 +272,15 @@ spec = do
             case trial @Int x of
                 Right y -> y `shouldBe` y
                 Left z -> impossible z
+
+        it "every possibility can be mapped into a different type in a Functor-like fashion with using 'afmap'" $ do
+            let x = pick (5 :: Int8) :: Which '[Int, Int8, Int16]
+                y = pick (15 :: Int8) :: Which '[Int, Int8, Int16]
+                z = pickN @1 ("5" :: String) :: Which '[String, String, String]
+                mx = pick (Just 5 :: Maybe Int8) :: Which '[Maybe Int, Maybe Int8, Maybe Int16]
+                my = pick (Just 15 :: Maybe Int8) :: Which '[Maybe Int, Maybe Int8, Maybe Int16]
+                mz = pickN @1 (Just "5" :: Maybe String) :: Which '[Maybe String, Maybe String, Maybe String]
+            afmap (CaseFunc' @Num (+10)) x `shouldBe` y
+            afmap (CaseFunc @Show @String show) x `shouldBe` z
+            afmap (CaseFunc1' @NoConstraint @Functor @Num (fmap (+10))) mx `shouldBe` my
+            afmap (CaseFunc1 @NoConstraint @Functor @Show @String (fmap show)) mx `shouldBe` mz

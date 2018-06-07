@@ -5,8 +5,8 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Data.Diverse.CaseFunc where
 
@@ -55,3 +55,26 @@ instance Reiterate (CaseFunc' k) xs where
 
 instance k x => Case (CaseFunc' k) (x ': xs) where
     case' (CaseFunc' f) = f
+
+-- | This handler stores a polymorphic function that work on higher kinds, eg 'Functor'
+-- You may want to use @NoContraint for @k@
+newtype CaseFunc1 (k :: Type -> Constraint) (k1 :: (Type -> Type) -> Constraint) (k0 :: Type -> Constraint) r (xs :: [Type]) = CaseFunc1 (forall f x. (k (f x), k1 f, k0 x) => f x -> f r)
+
+type instance CaseResult (CaseFunc1 k k1 k0 r) (f x) = f r
+
+instance Reiterate (CaseFunc1 k k1 k0 r) xs where
+    reiterate (CaseFunc1 f) = CaseFunc1 f
+
+instance (k (f x), k1 f, k0 x) => Case (CaseFunc1 k k1 k0 r) (f x ': xs) where
+    case' (CaseFunc1 f) = f
+
+-- | A varation of 'CaseFunc' that doesn't change the return type
+newtype CaseFunc1' (k :: Type -> Constraint) (k1 :: (Type -> Type) -> Constraint) (k0 :: Type -> Constraint) (xs :: [Type]) = CaseFunc1' (forall f x. (k (f x), k1 f, k0 x) => f x -> f x)
+
+type instance CaseResult (CaseFunc1' k k1 k0) (f x) = f x
+
+instance Reiterate (CaseFunc1' k k1 k0) xs where
+    reiterate (CaseFunc1' f) = CaseFunc1' f
+
+instance (k (f x), k1 f, k0 x) => Case (CaseFunc1' k k1 k0) (f x ': xs) where
+    case' (CaseFunc1' f) = f

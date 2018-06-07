@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
@@ -173,3 +174,7 @@ type family AllConstrained (c :: k -> Constraint) (xs :: [k]) :: Constraint wher
     AllConstrained c '[] = ()
     AllConstrained c (x ': xs) = (c x, AllConstrained c xs)
 -- https://hackage.haskell.org/package/vinyl-0.6.0/docs/Data-Vinyl-TypeLevel.html#t:AllConstrained
+
+-- | This is useful as a level function for @k@ in 'CaseFunc1'
+class NoConstraint a where
+instance NoConstraint a where
