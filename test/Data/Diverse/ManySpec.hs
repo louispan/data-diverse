@@ -336,5 +336,5 @@ spec = do
                 mz = (Just "5" :: Maybe String) ./ (["6"] :: [String]) ./ nil
             afmap (CaseFunc' @Num (+10)) x `shouldBe` y
             afmap (CaseFunc @Show @String show) x `shouldBe` z
-            afmap (CaseFunc1' @Unconstrained @Functor @Num (fmap (+10))) mx `shouldBe` my
-            afmap (CaseFunc1 @Unconstrained @Functor @Show @String (fmap show)) mx `shouldBe` mz
+            afmap (CaseFunc1' @C0 @Functor @Num (fmap (+10))) mx `shouldBe` my
+            afmap (CaseFunc1 @C0 @Functor @(C2 Show Read) @String (fmap show)) mx `shouldBe` mz

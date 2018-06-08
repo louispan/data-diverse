@@ -3,10 +3,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 
 module Data.Diverse.TypeLevel where
 
@@ -176,5 +178,21 @@ type family AllConstrained (c :: k -> Constraint) (xs :: [k]) :: Constraint wher
 -- https://hackage.haskell.org/package/vinyl-0.6.0/docs/Data-Vinyl-TypeLevel.html#t:AllConstrained
 
 -- | This is useful as a level function for @k@ in 'CaseFunc1'
-instance Unconstrained a where
-class Unconstrained a where
+class C0 a where
+instance C0 a where
+
+-- UndecidableSuperInstances :(
+class (c1 a, c2 a) => C2 c1 c2 a where
+instance (c1 a, c2 a) => C2 c1 c2 a where
+
+class (c1 a, c2 a, c3 a) => C3 c1 c2 c3 a where
+instance (c1 a, c2 a, c3 a) => C3 c1 c2 c3 a where
+
+class (c1 a, c2 a, c3 a, c4 a) => C4 c1 c2 c3 c4 a where
+instance (c1 a, c2 a, c3 a, c4 a) => C4 c1 c2 c3 c4 a where
+
+class (c1 a, c2 a, c3 a, c4 a, c5 a) => C5 c1 c2 c3 c4 c5 a where
+instance (c1 a, c2 a, c3 a, c4 a, c5 a) => C5 c1 c2 c3 c4 c5 a where
+
+class (c1 a, c2 a, c3 a, c4 a, c5 a, c6 a) => C6 c1 c2 c3 c4 c5 c6 a where
+instance (c1 a, c2 a, c3 a, c4 a, c5 a, c6 a) => C6 c1 c2 c3 c4 c5 c6 a where

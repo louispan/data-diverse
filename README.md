@@ -14,13 +14,16 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 4.4.0.0
+  - Renamed `Unconstrained` to `C0`. Added `C2`, `C3`, `C4`, `C5`, `C6`.
+
 * 4.3.0.0
-  - Renamed `Unconstrained` to `Unconstrained`
+  - Renamed `NoConstraint` to `Unconstrained`
 
 * 4.2.0.0
   - Added `CaseFunc1` to allow `afmap` of with `Functor`, etc.
   - `Which` is now also an instance of `AFoldable`.
-  - Added `Unconstrained` which is useful for `CaseFunc1` for unused constraints.
+  - Added `NoConstraint` which is useful for `CaseFunc1` for unused constraints.
   - Added `definitely`.
 
 * 4.1.0.0
@@ -41,7 +44,7 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
   - Removed `CanAppendUnique` (not useful).
 
 * 2.0.1.0
-  - Simplified type synonyms for Which. Added Reinterpreted constraint synonym.
+  - Simplified type synonyms for `Which`. Added `Reinterpreted` constraint synonym.
 
 * 2.0.0.0
   - Breaking change: the prime (xxx') version of functions are now consistently the simpler or non-polymorphic version.
