@@ -20,7 +20,7 @@ import Data.Kind
 import GHC.TypeLits
 
 -- | Produce a runtime 'Int' value corresponding to a 'Nat' type.
--- from https://github.com/VinylRecords/Vinyl/blob/a5ffd10fbc747c5366ae9806e61bf45f78c3eb33/Data/Vinyl/TypeLevel.hs
+-- Based on https://github.com/VinylRecords/Vinyl/blob/a5ffd10fbc747c5366ae9806e61bf45f78c3eb33/Data/Vinyl/TypeLevel.hs
 -- This is used instead of 'KnownNat' because to avoid inefficient 'Integer' https://github.com/louispan/data-diverse/issues/8
 -- AllowsAmbiguousTypes! Uses @TypeApplication@ instead of 'Proxy'
 class NatToInt (n :: Nat) where
