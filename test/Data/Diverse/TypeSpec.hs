@@ -10,7 +10,6 @@ module Data.Diverse.TypeSpec (main, spec) where
 
 import Data.Diverse
 import Data.Typeable
-import GHC.TypeLits
 import Test.Hspec
 
 -- `main` is here so that this module can be run from GHCi on its own.  It is
@@ -22,11 +21,11 @@ spec :: Spec
 spec = do
     describe "TypeLevel" $ do
         it "PositionOf" $ do
-            fromIntegral (natVal @(PositionOf String '[Bool, Int]) Proxy) `shouldBe` (0 :: Int)
-            fromIntegral (natVal @(PositionOf Bool '[Bool, Int]) Proxy) `shouldBe` (1 :: Int)
-            fromIntegral (natVal @(PositionOf Int '[Bool, Int]) Proxy) `shouldBe` (2 :: Int)
-            fromIntegral (natVal @(PositionOf Int '[Bool, Int, Char]) Proxy) `shouldBe` (2 :: Int)
-            fromIntegral (natVal @(PositionOf Int '[Bool, String, Char]) Proxy) `shouldBe` (0 :: Int)
+            natToInt @(PositionOf String '[Bool, Int]) `shouldBe` (0 :: Int)
+            natToInt @(PositionOf Bool '[Bool, Int]) `shouldBe` (1 :: Int)
+            natToInt @(PositionOf Int '[Bool, Int]) `shouldBe` (2 :: Int)
+            natToInt @(PositionOf Int '[Bool, Int, Char]) `shouldBe` (2 :: Int)
+            natToInt @(PositionOf Int '[Bool, String, Char]) `shouldBe` (0 :: Int)
 
         it "ComplementOf" $ do
             let complementTest :: Proxy xs -> Proxy ys -> Proxy (Complement xs ys) -> Proxy (Complement xs ys)

@@ -35,7 +35,7 @@ spec = do
         -- it "Test user friendly compile errors" $ do
         --     let y = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
         --     -- ghc 8.0.2: IndexOf error: ‘Maybe Bool’ is not a member of ...
-        --     -- ghc 8.0.1 has terrible error message: "No instance for (GHC.TypeLits.KnownNat"
+        --     -- ghc 8.0.1 has terrible error message: "No instance for (GHC.TypeLits.NatToInt"
         --     grab @(Maybe Bool) y `shouldBe` (Just False)
 
         --     -- Not unique error: ‘Maybe Char’ is a duplicate in ...

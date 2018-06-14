@@ -93,7 +93,6 @@ import Data.Diverse.Reduce
 import Data.Diverse.Reiterate
 import Data.Diverse.TypeLevel
 import Data.Kind
-import Data.Proxy
 import Data.Semigroup (Semigroup(..))
 import Data.Tagged
 import Data.Void
@@ -204,8 +203,8 @@ definitely = id
 pick :: forall x xs. UniqueMember x xs => x -> Which xs
 pick = pick_
 
-pick_ :: forall x xs n. (KnownNat n, n ~ IndexOf x xs) => x -> Which xs
-pick_ = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
+pick_ :: forall x xs n. (NatToInt n, n ~ IndexOf x xs) => x -> Which xs
+pick_ = Which (natToInt @n) . unsafeCoerce
 
 -- | A variation of 'pick' where @x@ is specified via a label
 --
@@ -245,7 +244,7 @@ pick0 = Which 0 . unsafeCoerce
 -- 'pickN' \@4 (5 :: Int) :: Which '[Bool, Int, Char, Bool, Int, Char]
 -- @
 pickN :: forall n x xs. MemberAt n x xs => x -> Which xs
-pickN = Which (fromInteger (natVal @n Proxy)) . unsafeCoerce
+pickN = Which (natToInt @n) . unsafeCoerce
 
 -- | It is 'obvious' what value is inside a 'Which' of one type.
 --
@@ -258,9 +257,9 @@ obvious (Which _ v) = unsafeCoerce v
 
 trial_
     :: forall n x xs.
-       (KnownNat n, n ~ IndexOf x xs)
+       (NatToInt n, n ~ IndexOf x xs)
     => Which xs -> Either (Which (Remove x xs)) x
-trial_ (Which n v) = let i = fromInteger (natVal @n Proxy)
+trial_ (Which n v) = let i = natToInt @n
                   in if n == i
                      then Right (unsafeCoerce v)
                      else if n > i
@@ -277,7 +276,7 @@ trialN
     :: forall n x xs.
        (MemberAt n x xs)
     => Which xs -> Either (Which (RemoveIndex n xs)) x
-trialN (Which n v) = let i = fromInteger (natVal @n Proxy)
+trialN (Which n v) = let i = natToInt @n
                   in if n == i
                      then Right (unsafeCoerce v)
                      else if n > i
@@ -314,9 +313,9 @@ trialL = trial_ @_ @x
 
 trial_'
     :: forall n x xs.
-       (KnownNat n, n ~ IndexOf x xs)
+       (NatToInt n, n ~ IndexOf x xs)
     => Which xs -> Maybe x
-trial_' (Which n v) = let i = fromInteger (natVal @n Proxy)
+trial_' (Which n v) = let i = natToInt @n
                   in if n == i
                      then Just (unsafeCoerce v)
                      else Nothing
@@ -333,7 +332,7 @@ trialN'
     :: forall n x xs.
        (MemberAt n x xs)
     => Which xs -> Maybe x
-trialN' (Which n v) = let i = fromInteger (natVal @n Proxy)
+trialN' (Which n v) = let i = natToInt @n
                   in if n == i
                      then Just (unsafeCoerce v)
                      else Nothing
@@ -516,8 +515,8 @@ instance ( MaybeUniqueMember x branch
          ) =>
          Case (CaseReinterpret branch tree (Either (Which comp) (Which branch))) (x ': tree') where
     case' CaseReinterpret a =
-        case fromInteger (natVal @(PositionOf x branch) Proxy) of
-            0 -> let j = fromInteger (natVal @(PositionOf x comp) Proxy)
+        case natToInt @(PositionOf x branch) of
+            0 -> let j = natToInt @(PositionOf x comp)
                  -- safe use of partial! j will never be zero due to check above
                  in Left $ Which (j - 1) (unsafeCoerce a)
             i -> Right $ Which (i - 1) (unsafeCoerce a)
@@ -544,7 +543,7 @@ instance ( MaybeUniqueMember x branch
          ) =>
          Case (CaseReinterpret' branch tree (Maybe (Which branch))) (x ': tree') where
     case' CaseReinterpret' a =
-        case fromInteger (natVal @(PositionOf x branch) Proxy) of
+        case natToInt @(PositionOf x branch) of
             0 -> Nothing
             i -> Just $ Which (i - 1) (unsafeCoerce a)
 
@@ -621,7 +620,7 @@ instance ReiterateN (CaseReinterpretN' indices r) n tree' where
 instance (MaybeMemberAt n' x branch, n' ~ PositionOf n indices) =>
          Case (CaseReinterpretN' indices (Maybe (Which branch)) n) (x ': tree) where
     case' CaseReinterpretN' a =
-        case fromInteger (natVal @n' Proxy) of
+        case natToInt @n' of
             0 -> Nothing
             i -> Just $ Which (i - 1) (unsafeCoerce a)
 

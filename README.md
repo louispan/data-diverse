@@ -14,6 +14,9 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 5.0.0.0
+  - Replaced usages of `KnownNat` with a new `NatToInt` class to avoid inefficient Integer https://github.com/louispan/data-diverse/issues/8.
+
 * 4.4.0.0
   - Renamed `Unconstrained` to `C0`. Added `C2`, `C3`, `C4`, `C5`, `C6`.
 

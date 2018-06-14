@@ -327,7 +327,7 @@ snocMany'
     => Many xs -> y -> Many (SnocUnique xs y)
 snocMany'(Many ls) y = if i /= 0 then Many ls else Many (ls S.|> unsafeCoerce y)
   where
-    i = fromInteger (natVal @(PositionOf y xs) Proxy) :: Int
+    i = natToInt @(PositionOf y xs) :: Int
 infixl 5 `snocMany'`
 
 -- | Infix version of 'snocMany'.
@@ -418,9 +418,9 @@ fore = fst . viewb
 grab :: forall x xs. UniqueMember x xs => Many xs -> x
 grab (Many xs) = unsafeCoerce $ grab_ @(IndexOf x xs) xs
 
-grab_ :: forall n. KnownNat n => S.Seq Any -> Any
+grab_ :: forall n. NatToInt n => S.Seq Any -> Any
 grab_ xs = let !x = S.index xs i in x -- forcing x to avoid storing Seq in thunk
-  where i = fromInteger (natVal @n Proxy)
+  where i = natToInt @n
 
 --------------------------------------------------
 
@@ -464,9 +464,9 @@ grabN (Many xs) = unsafeCoerce $ grab_ @n xs
 replace' :: forall x xs. UniqueMember x xs => Many xs -> x -> Many xs
 replace' (Many xs) x = Many $ replace_ @(IndexOf x xs) xs (unsafeCoerce x)
 
-replace_ :: forall n. KnownNat n => S.Seq Any -> Any -> S.Seq Any
+replace_ :: forall n. NatToInt n => S.Seq Any -> Any -> S.Seq Any
 replace_ xs x = S.update i x xs
-  where i = fromInteger (natVal @n Proxy)
+  where i = natToInt @n
 
 -- | Polymorphic setter by unique type. Set the field with type @x@, and replace with type @y@
 --
@@ -768,7 +768,7 @@ instance forall smaller larger x xs. (UniqueIfExists smaller x larger, MaybeUniq
             0 -> Nothing
             i' -> Just (i' - 1, WrappedAny v)
       where
-        i = fromInteger (natVal @(PositionOf x smaller) Proxy)
+        i = natToInt @(PositionOf x smaller)
 
 -----------------------------------------------------------------------
 
@@ -832,7 +832,7 @@ instance forall indices smaller n x xs n'. (MaybeMemberAt n' x smaller, n' ~ Pos
             0 -> Nothing
             i' -> Just (i' - 1, WrappedAny v)
       where
-        i = fromInteger (natVal @n' Proxy)
+        i = natToInt @n'
 
 -----------------------------------------------------------------------
 
@@ -864,7 +864,7 @@ instance UniqueMember x larger =>
          CaseAny (CaseAmend' larger (Int, WrappedAny)) (x ': xs) where
     caseAny _ v = (i, WrappedAny v)
       where
-        i = fromInteger (natVal @(IndexOf x larger) Proxy)
+        i = natToInt @(IndexOf x larger)
 
 -----------------------------------------------------------------------
 
@@ -916,7 +916,7 @@ instance (UniqueMember x larger) =>
          CaseAny (CaseAmend larger (Int, WrappedAny)) ((x, y) ': zs) where
     caseAny _ v = (i, WrappedAny v)
       where
-        i = fromInteger (natVal @(IndexOf x larger) Proxy)
+        i = natToInt @(IndexOf x larger)
 
 -----------------------------------------------------------------------
 
@@ -982,7 +982,7 @@ instance (MemberAt n' x larger, n' ~ KindAtIndex n indices) =>
          CaseAny (CaseAmendN' indices larger (Int, WrappedAny) n) (x ': xs) where
     caseAny _ v = (i, WrappedAny v)
       where
-        i = fromInteger (natVal @n' Proxy)
+        i = natToInt @n'
 
 -----------------------------------------------------------------------
 
@@ -1015,7 +1015,7 @@ instance (MemberAt n' x larger, n' ~ KindAtIndex n indices) =>
          CaseAny (CaseAmendN indices larger (Int, WrappedAny) n) ((x, y) ': zs) where
     caseAny _ v = (i, WrappedAny v)
       where
-        i = fromInteger (natVal @n' Proxy)
+        i = natToInt @n'
 
 -----------------------------------------------------------------------
 

@@ -1,9 +1,12 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE TypeOperators #-}
@@ -16,25 +19,40 @@ import Data.Diverse.TypeLevel.Internal
 import Data.Kind
 import GHC.TypeLits
 
--- | Ensures that @x@ is a unique member of @xs@, and that 'natVal' can be used.
-type UniqueMember x xs = (Unique x xs, KnownNat (IndexOf x xs))
+-- | Produce a runtime 'Int' value corresponding to a 'Nat' type.
+-- from https://github.com/VinylRecords/Vinyl/blob/a5ffd10fbc747c5366ae9806e61bf45f78c3eb33/Data/Vinyl/TypeLevel.hs
+-- This is used instead of 'KnownNat' because to avoid inefficient 'Integer' https://github.com/louispan/data-diverse/issues/8
+-- AllowsAmbiguousTypes! Uses @TypeApplication@ instead of 'Proxy'
+class NatToInt (n :: Nat) where
+  natToInt :: Int
+
+instance {-# OVERLAPPING #-} NatToInt 0 where
+  natToInt = 0
+  {-# INLINE natToInt #-}
+
+instance {-# OVERLAPPABLE  #-} (NatToInt m, n ~ (m + 1)) => NatToInt n where
+  natToInt = 1 + natToInt @m
+  {-# INLINE natToInt #-}
+
+-- | Ensures that @x@ is a unique member of @xs@, and that 'natToInt' can be used.
+type UniqueMember x xs = (Unique x xs, NatToInt (IndexOf x xs))
 
 -- | Every x in @xs@ is a `UniqueMember x ys`
 type family UniqueMembers (xs :: [k]) (ys :: [k]) :: Constraint where
     UniqueMembers '[] ys = ()
     UniqueMembers (x ': xs) ys = (UniqueMember x ys, UniqueMembers xs ys)
 
--- | Ensures that @x@ is a unique member of @xs@, and that 'natVal' can be used.
-type UniqueLabelMember l xs = (UniqueLabel l xs, KnownNat (IndexOf (KindAtLabel l xs) xs))
+-- | Ensures that @x@ is a unique member of @xs@, and that 'natToInt' can be used.
+type UniqueLabelMember l xs = (UniqueLabel l xs, NatToInt (IndexOf (KindAtLabel l xs) xs))
 
--- | Ensures that @x@ is a unique member of @xs@ if it exists, and that 'natVal' can be used.
-type MaybeUniqueMember x xs = (Unique x xs, KnownNat (PositionOf x xs))
+-- | Ensures that @x@ is a unique member of @xs@ if it exists, and that 'natToInt' can be used.
+type MaybeUniqueMember x xs = (Unique x xs, NatToInt (PositionOf x xs))
 
--- | Ensures that @x@ is a member of @xs@ at @n@, and that 'natVal' can be used.
-type MemberAt n x xs = (KnownNat n, x ~ KindAtIndex n xs)
+-- | Ensures that @x@ is a member of @xs@ at @n@, and that 'natToInt' can be used.
+type MemberAt n x xs = (NatToInt n, x ~ KindAtIndex n xs)
 
--- | Ensures that @x@ is a member of @xs@ at @n@ if it exists, and that 'natVal' can be used.
-type MaybeMemberAt n x xs = (KnownNat n, KindAtPositionIs n x xs)
+-- | Ensures that @x@ is a member of @xs@ at @n@ if it exists, and that 'natToInt' can be used.
+type MaybeMemberAt n x xs = (NatToInt n, KindAtPositionIs n x xs)
 
 -- | Snoc @x@ to end of @xs@ if @x@ doesn't already exist in @xs@
 type family SnocUnique (xs :: [k]) (x :: k) :: [k] where
