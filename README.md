@@ -14,6 +14,9 @@ Iso, Lens and Prisms are provided in [data-diverse-lens](http://hackage.haskell.
 
 # Changelog
 
+* 4.6.0.0
+  - Renamed `definitely` to `totally`.
+
 * 4.5.0.0
   - Replaced usages of `KnownNat` with a new `NatToInt` class to avoid inefficient Integer https://github.com/louispan/data-diverse/issues/8.
 

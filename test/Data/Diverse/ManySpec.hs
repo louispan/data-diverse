@@ -327,7 +327,7 @@ spec = do
             afoldr (:) [] (collectN x (casesN y)) `shouldBe` ret
             afoldr (:) [] (forManyN (casesN y) x) `shouldBe` ret
 
-        it "every piece can be mapped into a different type in a Functor-like fashion with using 'afmap'" $ do
+        it "every hasLens can be mapped into a different type in a Functor-like fashion with using 'afmap'" $ do
             let x = (5 :: Int) ./ (6 :: Int8) ./ (7 :: Int16) ./ (8 :: Int32) ./ nil
                 y = (15 :: Int) ./ (16 :: Int8) ./ (17 :: Int16) ./ (18 :: Int32) ./ nil
                 z = ("5" :: String) ./ ("6" :: String) ./ ("7" :: String) ./ ("8" :: String) ./ nil
