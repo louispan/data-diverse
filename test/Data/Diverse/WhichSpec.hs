@@ -6,6 +6,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 
 module Data.Diverse.WhichSpec (main, spec) where
 
@@ -280,7 +281,9 @@ spec = do
                 mx = pick (Just 5 :: Maybe Int8) :: Which '[Maybe Int, Maybe Int8, Maybe Int16]
                 my = pick (Just 15 :: Maybe Int8) :: Which '[Maybe Int, Maybe Int8, Maybe Int16]
                 mz = pickN @1 (Just "5" :: Maybe String) :: Which '[Maybe String, Maybe String, Maybe String]
+                mz' = pickN @1 (Just ("5", "5") :: Maybe (String, String)) :: Which '[Maybe (String, String), Maybe (String, String), Maybe (String, String)]
             afmap (CaseFunc' @Num (+10)) x `shouldBe` y
             afmap (CaseFunc @Show @String show) x `shouldBe` z
             afmap (CaseFunc1' @C0 @Functor @Num (fmap (+10))) mx `shouldBe` my
             afmap (CaseFunc1 @C0 @Functor @Show @String (fmap show)) mx `shouldBe` mz
+            afmap (CaseFunc1_ @C0 @Functor @C0 @(String, String) (fmap (\i -> (i, i)))) mz `shouldBe` mz'

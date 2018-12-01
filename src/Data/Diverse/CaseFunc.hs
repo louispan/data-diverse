@@ -57,7 +57,7 @@ instance k x => Case (CaseFunc' k) (x ': xs) where
     case' (CaseFunc' f) = f
 
 -- | This handler stores a polymorphic function that work on higher kinds, eg 'Functor'
--- You may want to use @NoContraint for @k@
+-- You may want to use @C0 for @k@
 newtype CaseFunc1 (k :: Type -> Constraint) (k1 :: (Type -> Type) -> Constraint) (k0 :: Type -> Constraint) r (xs :: [Type]) = CaseFunc1 (forall f x. (k (f x), k1 f, k0 x) => f x -> f r)
 
 type instance CaseResult (CaseFunc1 k k1 k0 r) (f x) = f r
@@ -68,7 +68,18 @@ instance Reiterate (CaseFunc1 k k1 k0 r) xs where
 instance (k (f x), k1 f, k0 x) => Case (CaseFunc1 k k1 k0 r) (f x ': xs) where
     case' (CaseFunc1 f) = f
 
--- | A varation of 'CaseFunc' that doesn't change the return type
+newtype CaseFunc1_ (k :: Type -> Constraint) (k1 :: (Type -> Type) -> Constraint) (k0 :: Type -> Constraint) r x (xs :: [Type]) = CaseFunc1_ (forall f. (k (f x), k1 f, k0 x) => f x -> f r)
+
+type instance CaseResult (CaseFunc1_ k k1 k0 r x) (f x) = f r
+
+instance Reiterate (CaseFunc1_ k k1 k0 r x) xs where
+    reiterate (CaseFunc1_ f) = CaseFunc1_ f
+
+instance (k (f x), k1 f, k0 x) => Case (CaseFunc1_ k k1 k0 r x) (f x ': xs) where
+    case' (CaseFunc1_ f) = f
+
+
+-- | A varation of 'CaseFunc1' that doesn't change the return type
 newtype CaseFunc1' (k :: Type -> Constraint) (k1 :: (Type -> Type) -> Constraint) (k0 :: Type -> Constraint) (xs :: [Type]) = CaseFunc1' (forall f x. (k (f x), k1 f, k0 x) => f x -> f x)
 
 type instance CaseResult (CaseFunc1' k k1 k0) (f x) = f x
