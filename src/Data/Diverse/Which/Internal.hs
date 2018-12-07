@@ -189,7 +189,7 @@ impossible' :: Which '[Void] -> a
 impossible' a = case a of {}
 
 -- | This function is useful to type restrict something that returns a polymorphic type
--- to return (Which '[]). Eg. use thishat to prove at compile time that a
+-- to return (Which '[]). Eg. use this that to prove at compile time that a
 -- finished continuation monad has no more unhandled holes.
 totally :: f (Which '[]) -> f (Which '[])
 totally = id

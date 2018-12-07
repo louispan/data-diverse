@@ -209,30 +209,30 @@ spec = do
         it "can be 'switch'ed with 'Many' handlers in any order" $ do
             let y = pickN @0 (5 :: Int) :: Which '[Int, Bool, Bool, Int]
             switch y (
-                cases (show @Bool
+                cases $ show @Bool
                     ./ show @Int
-                    ./ nil)) `shouldBe` "5"
+                    ./ nil) `shouldBe` "5"
 
         it "can be 'switch'ed with 'Many' handlers with extraneous content" $ do
             let y = pick (5 :: Int) :: Which '[Int, Bool]
             switch y (
                 -- contrast with lowercase 'cases' which disallows extraneous content
-                cases' (show @Int
+                cases' $ show @Int
                     ./ show @Bool
                     ./ show @Char
                     ./ show @(Maybe Char)
                     ./ show @(Maybe Int)
                     ./ nil
-                )) `shouldBe` "5"
+                ) `shouldBe` "5"
 
         it "can be 'switchN'ed with 'Many' handlers in index order" $ do
             let y = pickN @0 (5 :: Int) :: Which '[Int, Bool, Bool, Int]
             switchN y (
-                casesN (show @Int
+                casesN $ show @Int
                     ./ show @Bool
                     ./ show @Bool
                     ./ show @Int
-                    ./ nil)) `shouldBe` "5"
+                    ./ nil) `shouldBe` "5"
 
         it "can be switched with a polymorphic 'CaseFunc' handler" $ do
             let y = pick (5 :: Int) :: Which '[Int, Bool]

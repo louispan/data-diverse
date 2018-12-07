@@ -39,7 +39,7 @@ type instance CaseResult (Cases fs r) x = r
 instance Reiterate (Cases fs r) xs where
     reiterate (Cases s) = Cases s
 
--- | UndecidableInstances because @fs@ appers more often.
+-- | UndecidableInstances because @fs@ appears more often.
 instance UniqueMember (Head xs -> r) fs => Case (Cases fs r) xs where
     case' (Cases s) = grab @(Head xs -> r) s
 
@@ -77,13 +77,6 @@ cases'
        (AllConstrained ((~) r) (CaseResults (Cases fs r) fs))
     => Many fs -> Cases fs r xs
 cases' = Cases
-
--- -- | Create a partially appliable contraint :: [Type] -> Constraint
--- -- Idea from https://hackage.haskell.org/package/constraint-manip-0.1.0.0/docs/src/Control.ConstraintManip.html
--- -- type MyC f xs = (f xs)
--- class (f xs) => MyC f xs
--- instance (f xs) => MyC f xs
-
 
 -----------------------------------------------
 
