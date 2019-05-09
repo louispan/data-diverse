@@ -28,7 +28,7 @@ module Data.Diverse.Which.Internal (
       -- ** Construction
     , impossible
     , impossible'
-    , totally
+    -- , totally
     , pick
     , pick0
     , pickOnly
@@ -188,11 +188,11 @@ impossible a = case a of {}
 impossible' :: Which '[Void] -> a
 impossible' a = case a of {}
 
--- | This function is useful to type restrict something that returns a polymorphic type
--- to return (Which '[]). Eg. use this that to prove at compile time that a
--- finished continuation monad has no more unhandled holes.
-totally :: f (Which '[]) -> f (Which '[])
-totally = id
+-- -- | This function is useful to type restrict something that returns a polymorphic type
+-- -- to return (Which '[]). Eg. use this that to prove at compile time that a
+-- -- finished continuation monad has no more unhandled holes.
+-- totally :: f (Which '[]) -> f (Which '[])
+-- totally = id
 
 -- | Lift a value into a 'Which' of possibly other types @xs@.
 -- @xs@ can be inferred or specified with TypeApplications.
