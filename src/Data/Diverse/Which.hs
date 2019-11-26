@@ -1,8 +1,8 @@
 -- | Re-export Which without the constructor
 module Data.Diverse.Which (
       -- * 'Which' type
-      Which -- hiding constructor
-
+      -- | constructor not exported
+      Which
       -- * Single type
       -- ** Construction
     , impossible

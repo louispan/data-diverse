@@ -2,8 +2,9 @@
 
 -- | Re-export Many without the constructor
 module Data.Diverse.Many (
-    -- * 'Many' type
-      Many -- Hiding constructor
+      -- * 'Many' type
+      -- | constructor not exported
+      Many
 
       -- * Isomorphism
     , IsMany(..)
