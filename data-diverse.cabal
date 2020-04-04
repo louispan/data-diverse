@@ -28,8 +28,10 @@ library
   exposed-modules:     Data.Diverse
                        Data.Diverse.AFoldable
                        Data.Diverse.AFunctor
+                       Data.Diverse.ATraversable
                        Data.Diverse.Case
                        Data.Diverse.CaseFunc
+                       Data.Diverse.CaseIxed
                        Data.Diverse.Cases
                        Data.Diverse.Many
                        Data.Diverse.Many.Internal
