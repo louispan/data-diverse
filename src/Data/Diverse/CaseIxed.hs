@@ -147,21 +147,21 @@ instance (k (f x), k1 f, k0 x) => Case (CaseIxedFuncM1_ k k1 k0 f r m) (f x ': x
 -- | This handler stores a polymorphic function which maps containers to continuations.
 --
 -- This is especially useful for building 'Data.Diverse.Cases' using 'Data.Diverse.AFunctor.afmap'.
-newtype CaseIxedSwitch (k :: Type -> Constraint) r (xs :: [Type]) = CaseIxedSwitch (forall f x. k (f x) => f x -> x -> r)
+newtype CaseIxedCont (k :: Type -> Constraint) r (xs :: [Type]) = CaseIxedCont (forall f x. k (f x) => f x -> x -> r)
 
-type instance CaseResult (CaseIxedSwitch k r) (f x) = x -> r
+type instance CaseResult (CaseIxedCont k r) (f x) = x -> r
 
-instance Reiterate (CaseIxedSwitch k r) xs where
-    reiterate (CaseIxedSwitch f) = CaseIxedSwitch f
+instance Reiterate (CaseIxedCont k r) xs where
+    reiterate (CaseIxedCont f) = CaseIxedCont f
 
-instance k (f x) => Case (CaseIxedSwitch k r) (f x ': xs) where
-    case' (CaseIxedSwitch f) = f
+instance k (f x) => Case (CaseIxedCont k r) (f x ': xs) where
+    case' (CaseIxedCont f) = f
 
--- | A variant of 'CaseIxedSwitch' for which the type of both containers is fixed.
+-- | A variant of 'CaseIxedCont' for which the type of both containers is fixed.
 --
 -- >>> let ps = Predicate @Int (> 5) ./ Predicate isLetter ./ Predicate id ./ nil
 --
--- >>> let ps' = cases $ afmap (CaseIxedSwitch_ @C0 getPredicate) ps
+-- >>> let ps' = cases $ afmap (CaseIxedCont_ @C0 getPredicate) ps
 --
 -- >>> switch (pick @Int @'[Int, Bool, Char] 5) ps' :: Bool
 -- False
@@ -180,34 +180,34 @@ instance k (f x) => Case (CaseIxedSwitch k r) (f x ': xs) where
 --
 -- >>> switch (pick @Bool @'[Int, Bool, Char] True) ps' :: Bool
 -- True
-newtype CaseIxedSwitch_ (k :: Type -> Constraint) f r (xs :: [Type]) = CaseIxedSwitch_ (forall x. k (f x) => f x -> x -> r)
+newtype CaseIxedCont_ (k :: Type -> Constraint) f r (xs :: [Type]) = CaseIxedCont_ (forall x. k (f x) => f x -> x -> r)
 
-type instance CaseResult (CaseIxedSwitch_ k f r) (f x) = x -> r
+type instance CaseResult (CaseIxedCont_ k f r) (f x) = x -> r
 
-instance Reiterate (CaseIxedSwitch_ k f r) xs where
-    reiterate (CaseIxedSwitch_ f) = CaseIxedSwitch_ f
+instance Reiterate (CaseIxedCont_ k f r) xs where
+    reiterate (CaseIxedCont_ f) = CaseIxedCont_ f
 
-instance k (f x) => Case (CaseIxedSwitch_ k f r) (f x ': xs) where
-    case' (CaseIxedSwitch_ f) = f
+instance k (f x) => Case (CaseIxedCont_ k f r) (f x ': xs) where
+    case' (CaseIxedCont_ f) = f
 
--- | A variant of 'CaseIxedSwitch' with more constraints.
-newtype CaseIxedSwitch1 (k :: Type -> Constraint) (k1 :: (Type -> Type) -> Constraint) (k0 :: Type -> Constraint) r (xs :: [Type]) = CaseIxedSwitch1 (forall f x. (k (f x), k1 f, k0 x) => f x -> x -> r)
+-- | A variant of 'CaseIxedCont' with more constraints.
+newtype CaseIxedCont1 (k :: Type -> Constraint) (k1 :: (Type -> Type) -> Constraint) (k0 :: Type -> Constraint) r (xs :: [Type]) = CaseIxedCont1 (forall f x. (k (f x), k1 f, k0 x) => f x -> x -> r)
 
-type instance CaseResult (CaseIxedSwitch1 k k1 k0 r) (f x) = x -> r
+type instance CaseResult (CaseIxedCont1 k k1 k0 r) (f x) = x -> r
 
-instance Reiterate (CaseIxedSwitch1 k k1 k0 r) xs where
-    reiterate (CaseIxedSwitch1 f) = CaseIxedSwitch1 f
+instance Reiterate (CaseIxedCont1 k k1 k0 r) xs where
+    reiterate (CaseIxedCont1 f) = CaseIxedCont1 f
 
-instance (k (f x), k1 f, k0 x) => Case (CaseIxedSwitch1 k k1 k0 r) (f x ': xs) where
-    case' (CaseIxedSwitch1 f) = f
+instance (k (f x), k1 f, k0 x) => Case (CaseIxedCont1 k k1 k0 r) (f x ': xs) where
+    case' (CaseIxedCont1 f) = f
 
--- | A variant of 'CaseIxedSwitch1_' for which the type of both containers is fixed.
-newtype CaseIxedSwitch1_ (k :: Type -> Constraint) (k1 :: (Type -> Type) -> Constraint) (k0 :: Type -> Constraint) f r (xs :: [Type]) = CaseIxedSwitch1_ (forall x. (k (f x), k1 f, k0 x) => f x -> x -> r)
+-- | A variant of 'CaseIxedCont1_' for which the type of both containers is fixed.
+newtype CaseIxedCont1_ (k :: Type -> Constraint) (k1 :: (Type -> Type) -> Constraint) (k0 :: Type -> Constraint) f r (xs :: [Type]) = CaseIxedCont1_ (forall x. (k (f x), k1 f, k0 x) => f x -> x -> r)
 
-type instance CaseResult (CaseIxedSwitch1_ k k1 k0 f r) (f x) = x -> r
+type instance CaseResult (CaseIxedCont1_ k k1 k0 f r) (f x) = x -> r
 
-instance Reiterate (CaseIxedSwitch1_ k k1 k0 f r) xs where
-    reiterate (CaseIxedSwitch1_ f) = CaseIxedSwitch1_ f
+instance Reiterate (CaseIxedCont1_ k k1 k0 f r) xs where
+    reiterate (CaseIxedCont1_ f) = CaseIxedCont1_ f
 
-instance (k (f x), k1 f, k0 x) => Case (CaseIxedSwitch1_ k k1 k0 f r) (f x ': xs) where
-    case' (CaseIxedSwitch1_ f) = f
+instance (k (f x), k1 f, k0 x) => Case (CaseIxedCont1_ k k1 k0 f r) (f x ': xs) where
+    case' (CaseIxedCont1_ f) = f
