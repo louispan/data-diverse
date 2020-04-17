@@ -87,6 +87,7 @@ import Control.Applicative
 import Control.DeepSeq
 import Control.Monad
 import Data.Diverse.AFunctor
+import Data.Diverse.ATraversable
 import Data.Diverse.Case
 import Data.Diverse.CaseFunc
 import Data.Diverse.Reduce
@@ -905,3 +906,18 @@ instance ( Reiterate c (a ': as)
         Left v' -> diversify0 (afmap (reiterate c) v')
     {-# INLINABLE afmap #-}
     -- This makes compiling tests a little faster than with no pragma
+
+------------------------------------------------------------------
+
+instance ATraversable Which c m '[] where
+    atraverse _ = impossible
+
+instance ( Reiterate (c m) (a ': as)
+         , ATraversable Which c m as
+         , Case (c m) (a ': as)
+         ) =>
+         ATraversable Which c m (a ': as) where
+    atraverse c v = case trial0 v of
+        Right a' -> Which 0 <$> unsafeCoerce (case' c a')
+        Left v' -> unsafeCoerce . diversify0 <$> atraverse (reiterate c) v'
+    {-# INLINABLE atraverse #-}

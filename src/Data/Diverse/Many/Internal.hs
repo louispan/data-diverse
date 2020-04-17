@@ -102,6 +102,7 @@ import Control.DeepSeq
 import Data.Bool
 import Data.Diverse.AFoldable
 import Data.Diverse.AFunctor
+import Data.Diverse.ATraversable
 import Data.Diverse.Case
 import Data.Diverse.Reiterate
 import Data.Diverse.TypeLevel
@@ -652,6 +653,29 @@ instance ( Reiterate c (a ': as)
 -- typelist, convert a @Many xs@ to @Many (CaseResults c xs)@
 instance AFunctor Many_ c as => AFunctor Many c as where
     afmap c m = fromMany_ (afmap c (toMany_ m))
+
+-----------------------------------------------------------------------
+
+instance ATraversable Many_ c m '[] where
+    atraverse _ = pure
+
+instance ( Reiterate (c m) (a ': as)
+         , ATraversable Many_ c m as
+         , Case (c m) (a ': as)
+         ) =>
+         ATraversable Many_ c m (a ': as) where
+    atraverse c (Many_ as) =
+        Many_ <$>
+        liftA2 (:)
+            (unsafeCoerce (case' c a))
+            (runMany_ <$> atraverse (reiterate c) (Many_ as' :: Many_ as))
+      where
+        a = unsafeCoerce (Partial.head as)
+        as' = Partial.tail as
+    {-# INLINABLE atraverse #-}
+
+instance ATraversable Many_ c m as => ATraversable Many c m as where
+    atraverse c m = fromMany_ <$> (atraverse c (toMany_ m))
 
 -- -----------------------------------------------------------------------
 -- | A friendlier type constraint synomyn for 'collect' and 'forMany'

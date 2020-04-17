@@ -189,6 +189,30 @@ type family CaseResults (c ::[k1] -> k2) (xs :: [k1]) :: [k2] where
     CaseResults c '[] = '[]
     CaseResults c (x ': xs) = CaseResult c x ': CaseResults c xs
 
+-- | A dummy type whose kind matches the one expected for any 'Data.Diverse.Case.Case'
+-- used with 'Data.Diverse.ATraversable.atraverse'.
+data TraversalCase :: (Type -> Type) -> [Type] -> Type
+
+-- | Throws a custom type error when the given 'Data.Diverse.Case.Case' is stuck.
+--
+-- Based on the solution proposed in this article: https://kcsongor.github.io/report-stuck-families/.
+type family BreakNonTraversalCase (error :: Constraint) (c :: (Type -> Type) -> [Type] -> Type) :: Constraint where
+    BreakNonTraversalCase _ TraversalCase = ((), ())
+    BreakNonTraversalCase _ _  = ()
+
+-- | Throws a relevant type error if a 'Data.Diverse.Case.Case' can not be used with 'Data.Diverse.ATraversable.atraverse'.
+type family IsTraversalCase c where
+    IsTraversalCase c = BreakNonTraversalCase (TypeError ('Text "The chosen `Case' can not be used with atraverse.")) c
+
+-- | Returns a list of results from applying 'CaseResult' to every type in the @xs@ typelist
+-- and peeling off the 'Applicative' layer.
+type family TraverseResults (c :: (Type -> Type) -> [k1] -> k2) (m :: Type -> Type) (xs :: [k1]) :: [k2] where
+    TraverseResults c m xs = TraverseResults' m (CaseResults (c m) xs)
+
+type family TraverseResults' m xs where
+    TraverseResults' m '[] = '[]
+    TraverseResults' m (m x ': xs) = x ': TraverseResults' m xs
+
 -- | Tests if all the types in a typelist satisfy a constraint
 type family AllConstrained (c :: k -> Constraint) (xs :: [k]) :: Constraint where
     AllConstrained c '[] = ()
