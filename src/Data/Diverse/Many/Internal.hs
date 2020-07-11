@@ -119,6 +119,7 @@ import Text.ParserCombinators.ReadPrec
 import Text.Read
 import qualified Text.Read.Lex as L
 import Unsafe.Coerce
+import Data.Hashable (Hashable)
 
 -- This module uses the partial 'head', 'tail' from Prelude.
 -- I like to highlight them as partial by using them in the namespace Partial.head
@@ -1165,6 +1166,12 @@ instance NFData (Many '[]) where
 
 instance (NFData x, NFData (Many xs)) => NFData (Many (x ': xs)) where
     rnf xs = rnf (front xs) `seq` rnf (aft xs)
+
+-----------------------------------------------------------------------
+
+instance Hashable (Many '[])
+
+instance (Hashable x, Hashable (Many xs)) => Hashable (Many (x ': xs))
 
 -----------------------------------------------------------------------
 

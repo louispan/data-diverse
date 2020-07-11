@@ -1,6 +1,9 @@
 
 # Changelog
 
+* 4.7.0.1
+  - Added `Hashable` instances for `Many`.
+
 * 4.7.0.0
   - Removed `totally`. Added `CaseFunc1_`
 

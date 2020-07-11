@@ -1,2 +1,5 @@
 .stack-work
 *_flymake.hs
+cabal.project.local*
+stack.yaml.lock
+dist-newstyle
