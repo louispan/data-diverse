@@ -305,7 +305,7 @@ spec = do
 
         it "with duplicate fields has setter for unique fields 'amend''" $ do
             let x = (5 :: Int) ./ False ./ 'X' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
-            amend' @ '[Bool, Char] x (True ./ 'B' ./ nil) `shouldBe`
+            amend' @'[Bool, Char] x (True ./ 'B' ./ nil) `shouldBe`
                 (5 :: Int) ./ True ./ 'B' ./ Just 'O' ./ (6 :: Int) ./ Just 'A' ./ nil
 
         it "can be folded with 'Many' handlers using 'forMany' or 'collect'" $ do
