@@ -1048,9 +1048,7 @@ instance Eq (Many_ '[]) where
     _ == _ = True
 
 instance (Eq x, Eq (Many_ xs)) => Eq (Many_ (x ': xs)) where
-    ls == rs = case front_ ls == front_ rs of
-        False -> False
-        _ -> (aft_ ls) == (aft_ rs)
+    ls == rs = (front_ ls == front_ rs) && (aft_ ls == aft_ rs)
     {-# INLINABLE (==) #-} -- This makes compiling tests a little faster than with no pragma
 
 -- | Two 'Many's are equal if all their fields equal
@@ -1171,7 +1169,7 @@ instance (NFData x, NFData (Many xs)) => NFData (Many (x ': xs)) where
 
 instance Hashable (Many '[])
 
-instance (Hashable x, Hashable (Many xs)) => Hashable (Many (x ': xs))
+instance (Eq (Many_ xs), Hashable x, Hashable (Many xs)) => Hashable (Many (x ': xs))
 
 -----------------------------------------------------------------------
 
