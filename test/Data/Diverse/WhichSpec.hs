@@ -2,7 +2,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -79,6 +81,14 @@ spec = do
             let y = pickOnly (5 :: Int)
                 x = hush $ trial0 y
             x `shouldBe` (Just 5)
+
+        it "can be constructed with 'pick' and destructed with pattern 'W'" $ do
+            let y = pick (5 :: Int) :: Which '[Bool, Int, Char]
+                x = case y of
+                      W (i :: Int) -> i
+                      W (_b :: Bool) -> 0
+                      W (_c :: Char) -> 0
+            x `shouldBe` 5
 
         it "can be constructed by index with 'pickN' and destructed with 'trialN" $ do
             let y = pickN @4 (5 :: Int) :: Which '[Bool, Int, Char, Bool, Int, Char]

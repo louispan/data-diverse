@@ -11,6 +11,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RoleAnnotations #-}
@@ -18,6 +19,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Data.Diverse.Which.Internal (
@@ -47,6 +49,7 @@ module Data.Diverse.Which.Internal (
     , trialTag'
     , trialN
     , trialN'
+    , pattern W
 
       -- * Multiple types
       -- ** Injection
@@ -377,6 +380,8 @@ trial0' (Which n v) = if n == 0
            then Just (unsafeCoerce v)
            else Nothing
 
+pattern W :: forall x xs. (UniqueMember x xs) => x -> Which xs
+pattern W x <- (trial_' -> Just x)
 -----------------------------------------------------------------
 
 -- | A friendlier constraint synonym for 'diversify'.
