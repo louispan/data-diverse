@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 -- | Re-export Which without the constructor
 module Data.Diverse.Which (
       -- * 'Which' type
@@ -26,6 +27,7 @@ module Data.Diverse.Which (
     , trialTag'
     , trialN
     , trialN'
+    , pattern W
 
       -- * Multiple types
       -- ** Injection
