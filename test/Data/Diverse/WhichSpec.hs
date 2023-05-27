@@ -88,6 +88,7 @@ spec = do
                       W (i :: Int) -> i
                       W (_b :: Bool) -> 0
                       W (_c :: Char) -> 0
+                      _ -> 0
             x `shouldBe` 5
 
         it "can be constructed by index with 'pickN' and destructed with 'trialN" $ do
